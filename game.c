@@ -160,7 +160,7 @@ int main(void)
     SetConfigFlags(FLAG_MSAA_4X_HINT);
     InitWindow(width, height, "test");
 
-    SetTargetFPS(60);
+    SetTargetFPS(175);
 
     b2WorldDef worldDef = b2DefaultWorldDef();
     worldDef.gravity = createb2Vec(0.0f, 0.0f);
@@ -190,7 +190,7 @@ int main(void)
     {
         handlePlayerDroneInputs(worldID, &shapeMap, projectiles, playerDrone);
 
-        float frameTime = 1.0f / 60.0f;
+        float frameTime = GetFrameTime();
         droneStep(&shapeMap, playerDrone, frameTime);
         droneStep(&shapeMap, aiDrone, frameTime);
         projectilesStep(&shapeMap, projectiles);

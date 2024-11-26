@@ -45,7 +45,7 @@ void renderProjectiles(CC_SList *projectiles)
     {
         projectileEntity *projectile = (projectileEntity *)cur->data;
         b2Vec2 projectilePos = b2Body_GetPosition(projectile->bodyID);
-        DrawCircleV(b2VecToRayVec(projectilePos), scale * weaponRadius(projectile->type), WHITE);
+        DrawCircleV(b2VecToRayVec(projectilePos), scale * weaponRadius(projectile->type), PURPLE);
     }
 }
 

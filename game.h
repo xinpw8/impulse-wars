@@ -60,7 +60,8 @@ typedef struct droneEntity
     enum weaponType weapon;
     int8_t ammo;
     float weaponCooldown;
-    bool shotThisFame;
+    bool shotThisStep;
+    uint16_t triggerHeldSteps;
     b2Vec2 lastAim;
 } droneEntity;
 
@@ -76,7 +77,7 @@ wallEntity *createWall(const b2WorldId worldID, struct hashmap_s *shapeMap, cons
     b2Vec2 extent = {.x = width / 2.0f, .y = height / 2.0f};
     b2Polygon bouncyWall = b2MakeBox(extent.x, extent.y);
     b2ShapeDef wallShapeDef = b2DefaultShapeDef();
-    wallShapeDef.restitution = 0.9f;
+    wallShapeDef.restitution = 0.0f;
 
     b2ShapeId *wallShapeID = (b2ShapeId *)calloc(1, sizeof(b2ShapeId));
     *wallShapeID = b2CreatePolygonShape(wallBodyID, &wallShapeDef, &bouncyWall);
@@ -110,7 +111,7 @@ droneEntity *createDrone(const b2WorldId worldID, struct hashmap_s *shapeMap, co
     droneShapeDef.enableContactEvents = true;
     droneShapeDef.density = DRONE_DENSITY;
     droneShapeDef.friction = 0.0f;
-    droneShapeDef.restitution = 0.5f;
+    droneShapeDef.restitution = 0.3f;
     b2Circle droneCircle = {.center = {.x = 0.0f, .y = 0.0f}, .radius = DRONE_RADIUS};
 
     b2ShapeId *droneShapeID = (b2ShapeId *)calloc(1, sizeof(b2ShapeId));
@@ -121,8 +122,7 @@ droneEntity *createDrone(const b2WorldId worldID, struct hashmap_s *shapeMap, co
     drone->shapeID = droneShapeID;
     drone->weapon = DRONE_DEFAULT_WEAPON;
     drone->ammo = weaponAmmo(drone->weapon);
-    drone->weaponCooldown = 0.0f;
-    drone->shotThisFame = false;
+    drone->shotThisStep = false;
     drone->lastAim = (b2Vec2){.x = 0.0f, .y = -1.0f};
 
     entity *e = (entity *)calloc(1, sizeof(entity));
@@ -187,6 +187,7 @@ void createProjectile(const b2WorldId worldID, struct hashmap_s *shapeMap, CC_SL
     b2Vec2 droneVel = b2Body_GetLinearVelocity(drone->bodyID);
     b2Vec2 forwardVel = b2MulSV(b2Dot(droneVel, normAim), normAim);
     b2Vec2 lateralVel = b2Sub(droneVel, forwardVel);
+    lateralVel = b2MulSV(weaponDroneMoveCoef(drone->weapon), lateralVel);
     b2Vec2 fire = b2MulAdd(lateralVel, weaponFire(drone->weapon), normAim);
     fire = b2Add(fire, aimRecoil);
     b2Body_ApplyLinearImpulseToCenter(projectileBodyID, fire, true);
@@ -242,6 +243,8 @@ void droneShoot(const b2WorldId worldID, struct hashmap_s *shapeMap, CC_SList *p
     assert(drone != NULL);
     assert(drone->ammo != 0);
 
+    drone->shotThisStep = true;
+    drone->triggerHeldSteps++;
     if (drone->weaponCooldown != 0.0f)
     {
         return;
@@ -251,7 +254,6 @@ void droneShoot(const b2WorldId worldID, struct hashmap_s *shapeMap, CC_SList *p
         drone->ammo--;
     }
     drone->weaponCooldown = weaponCoolDown(drone->weapon);
-    drone->shotThisFame = true;
 
     b2Vec2 normAim = drone->lastAim;
     if (!b2VecEqual(aim, b2Vec2_zero))
@@ -277,15 +279,16 @@ void droneStep(struct hashmap_s *shapeMap, droneEntity *drone, const float frame
     assert(shapeMap != NULL);
     assert(drone != NULL);
 
-    if (!drone->shotThisFame && drone->weaponCooldown != 0.0f)
+    drone->weaponCooldown = b2MaxFloat(drone->weaponCooldown - frameTime, 0.0f);
+    if (!drone->shotThisStep)
     {
-        drone->weaponCooldown = b2MaxFloat(drone->weaponCooldown - frameTime, 0.0f);
+        drone->triggerHeldSteps = 0;
     }
     else
     {
-        drone->shotThisFame = false;
+        drone->shotThisStep = false;
     }
-    assert(drone->shotThisFame == false);
+    assert(drone->shotThisStep == false);
 
     b2Vec2 velocity = b2Body_GetLinearVelocity(drone->bodyID);
     if (!b2VecEqual(velocity, b2Vec2_zero))
@@ -365,13 +368,11 @@ void handleContactEvents(const b2WorldId worldID, struct hashmap_s *shapeMap, CC
         entity *e1 = (entity *)hashmap_get(shapeMap, &event->shapeIdA, sizeof(event->shapeIdA));
         if (e1 == NULL)
         {
-            DEBUG_LOG("could not find entity A for begin touch event");
             continue;
         }
         entity *e2 = (entity *)hashmap_get(shapeMap, &event->shapeIdB, sizeof(event->shapeIdB));
         if (e2 == NULL)
         {
-            DEBUG_LOG("could not find entity B for begin touch event");
             continue;
         }
 
@@ -390,23 +391,12 @@ void handleContactEvents(const b2WorldId worldID, struct hashmap_s *shapeMap, CC
     {
         const b2ContactEndTouchEvent *event = events.endEvents + i;
         entity *e1 = (entity *)hashmap_get(shapeMap, &event->shapeIdA, sizeof(event->shapeIdA));
-        if (e1 == NULL)
-        {
-            DEBUG_LOG("could not find entity A for end touch event");
-            continue;
-        }
-        entity *e2 = (entity *)hashmap_get(shapeMap, &event->shapeIdB, sizeof(event->shapeIdB));
-        if (e2 == NULL)
-        {
-            DEBUG_LOG("could not find entity B for end touch event");
-            continue;
-        }
-
-        if (e1->type == PROJECTILE_ENTITY)
+        if (e1 != NULL && e1->type == PROJECTILE_ENTITY)
         {
             handleProjectileEndContact(e1);
         }
-        if (e2->type == PROJECTILE_ENTITY)
+        entity *e2 = (entity *)hashmap_get(shapeMap, &event->shapeIdB, sizeof(event->shapeIdB));
+        if (e2 != NULL && e2->type == PROJECTILE_ENTITY)
         {
             handleProjectileEndContact(e2);
         }
