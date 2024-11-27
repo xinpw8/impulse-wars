@@ -167,10 +167,12 @@ int main(void)
     CC_SList *projectiles;
     cc_slist_new(&projectiles);
 
-    wallEntity *wall = createWall(worldID, ((float)width / 2.0f) / scale, 1000.0f / scale, 1600.0f / scale, 100.0f / scale, STANDARD_WALL);
-    wallEntity *wall2 = createWall(worldID, 110.0f / scale, ((float)height / 2.0f) / scale, 100.0f / scale, 1020.0f / scale, BOUNCY_WALL);
-    wallEntity *wall3 = createWall(worldID, ((float)width - 110.0f) / scale, ((float)height / 2.0f) / scale, 100.0f / scale, 1020.0f / scale, BOUNCY_WALL);
-    wallEntity *wall4 = createWall(worldID, ((float)width / 2.0f) / scale, 80.0f / scale, 1600.0f / scale, 100.0f / scale, STANDARD_WALL);
+    wallEntity *wall = createWall(worldID, ((float)width / 2.0f) / scale, 1000.0f / scale, 1600.0f / scale, 100.0f / scale, STANDARD_WALL_ENTITY);
+    wallEntity *wall2 = createWall(worldID, 110.0f / scale, ((float)height / 2.0f) / scale, 100.0f / scale, 1020.0f / scale, BOUNCY_WALL_ENTITY);
+    wallEntity *wall3 = createWall(worldID, ((float)width - 110.0f) / scale, ((float)height / 2.0f) / scale, 100.0f / scale, 1020.0f / scale, BOUNCY_WALL_ENTITY);
+    wallEntity *wall4 = createWall(worldID, ((float)width / 2.0f) / scale, 80.0f / scale, 1600.0f / scale, 100.0f / scale, STANDARD_WALL_ENTITY);
+
+    weaponPickupEntity *pickup = createWeaponPickup(worldID, ((float)width / 4.0f) / scale, ((float)height / 4.0f) / scale, MACHINEGUN_WEAPON);
 
     droneEntity *playerDrone = createDrone(worldID, ((float)width / 2.0f) / scale, ((float)height / 2.0f) / scale);
     droneEntity *aiDrone = createDrone(worldID, ((float)width / 2.0f + 1.0f) / scale, ((float)height / 2.0f + 200.0f) / scale);
@@ -187,11 +189,14 @@ int main(void)
         b2World_Step(worldID, frameTime, 4);
 
         handleContactEvents(worldID, projectiles);
+        handleSensorEvents(worldID);
 
         BeginDrawing();
 
         ClearBackground(DARKGRAY);
         DrawFPS(10, 10);
+
+        renderWeaponPickup(pickup);
 
         renderDrone(playerDrone);
         renderDrone(aiDrone);
