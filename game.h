@@ -22,8 +22,16 @@ enum entityType
     FLOATING_BOUNCY_WALL,
     DEATH_WALL,
     FLOATING_DEATH_WALL,
+    WEAPON_PICKUP,
     PROJECTILE_ENTITY,
     DRONE_ENTITY,
+};
+
+enum shapeCategory
+{
+    WALL_SHAPE = 0x1,
+    PROJECTILE_SHAPE = 0x2,
+    DRONE_SHAPE = 0x4,
 };
 
 typedef struct entity
@@ -73,11 +81,22 @@ wallEntity *createWall(const b2WorldId worldID, struct hashmap_s *shapeMap, cons
 
     b2BodyDef wallBodyDef = b2DefaultBodyDef();
     wallBodyDef.position = createb2Vec(posX, posY);
+    if (type == FLOATING_STANDARD_WALL || type == FLOATING_BOUNCY_WALL || type == FLOATING_DEATH_WALL)
+    {
+        wallBodyDef.type = b2_dynamicBody;
+    }
     b2BodyId wallBodyID = b2CreateBody(worldID, &wallBodyDef);
     b2Vec2 extent = {.x = width / 2.0f, .y = height / 2.0f};
     b2Polygon bouncyWall = b2MakeBox(extent.x, extent.y);
     b2ShapeDef wallShapeDef = b2DefaultShapeDef();
+    wallShapeDef.density = WALL_DENSITY;
     wallShapeDef.restitution = 0.0f;
+    if (type == BOUNCY_WALL || type == FLOATING_BOUNCY_WALL)
+    {
+        wallShapeDef.restitution = BOUNCY_WALL_RESTITUTION;
+    }
+    wallShapeDef.filter.categoryBits = WALL_SHAPE;
+    wallShapeDef.filter.maskBits = WALL_SHAPE | PROJECTILE_SHAPE | DRONE_SHAPE;
 
     b2ShapeId *wallShapeID = (b2ShapeId *)calloc(1, sizeof(b2ShapeId));
     *wallShapeID = b2CreatePolygonShape(wallBodyID, &wallShapeDef, &bouncyWall);
@@ -112,6 +131,8 @@ droneEntity *createDrone(const b2WorldId worldID, struct hashmap_s *shapeMap, co
     droneShapeDef.density = DRONE_DENSITY;
     droneShapeDef.friction = 0.0f;
     droneShapeDef.restitution = 0.3f;
+    droneShapeDef.filter.categoryBits = DRONE_SHAPE;
+    droneShapeDef.filter.maskBits = WALL_SHAPE | PROJECTILE_SHAPE | DRONE_SHAPE;
     b2Circle droneCircle = {.center = {.x = 0.0f, .y = 0.0f}, .radius = DRONE_RADIUS};
 
     b2ShapeId *droneShapeID = (b2ShapeId *)calloc(1, sizeof(b2ShapeId));
@@ -142,12 +163,13 @@ void destroyDrone(struct hashmap_s *shapeMap, droneEntity *drone)
     assert(drone != NULL);
 
     entity *e = (entity *)hashmap_get(shapeMap, drone->shapeID, sizeof(drone->shapeID));
-    SAFE_FREE(e);
+    free(e);
+
     hashmap_remove(shapeMap, drone->shapeID, sizeof(drone->shapeID));
 
     b2DestroyBody(drone->bodyID);
-    SAFE_FREE(drone->shapeID);
-    SAFE_FREE(drone);
+    free(drone->shapeID);
+    free(drone);
 }
 
 void droneMove(const droneEntity *drone, const b2Vec2 direction)
@@ -178,6 +200,8 @@ void createProjectile(const b2WorldId worldID, struct hashmap_s *shapeMap, CC_SL
     projectileShapeDef.density = weaponDensity(drone->weapon);
     projectileShapeDef.friction = 0.0f;
     projectileShapeDef.restitution = 1.0f;
+    projectileShapeDef.filter.categoryBits = PROJECTILE_SHAPE;
+    projectileShapeDef.filter.maskBits = WALL_SHAPE | PROJECTILE_SHAPE | DRONE_SHAPE;
     b2Circle projectileCircle = {.center = {.x = 0.0f, .y = 0.0f}, .radius = radius};
 
     b2ShapeId *projectileShapeID = (b2ShapeId *)calloc(1, sizeof(b2ShapeId));
@@ -215,7 +239,7 @@ void destroyProjectile(struct hashmap_s *shapeMap, CC_SList *projectiles, projec
     assert(projectile != NULL);
 
     entity *e = (entity *)hashmap_get(shapeMap, projectile->shapeID, sizeof(projectile->shapeID));
-    SAFE_FREE(e);
+    free(e);
     hashmap_remove(shapeMap, projectile->shapeID, sizeof(projectile->shapeID));
 
     if (full)
@@ -224,8 +248,8 @@ void destroyProjectile(struct hashmap_s *shapeMap, CC_SList *projectiles, projec
         b2DestroyBody(projectile->bodyID);
     }
 
-    SAFE_FREE(projectile->shapeID);
-    SAFE_FREE(projectile);
+    free(projectile->shapeID);
+    free(projectile);
 }
 
 void destroyAllProjectiles(struct hashmap_s *shapeMap, CC_SList *projectiles)
@@ -347,14 +371,34 @@ bool handleProjectileBeginContact(struct hashmap_s *shapeMap, CC_SList *projecti
     return false;
 }
 
-void handleProjectileEndContact(const entity *e)
+bool handleProjectileEndContact(struct hashmap_s *shapeMap, CC_SList *projectiles, const entity *p, const entity *e)
 {
-    assert(e != NULL);
+    assert(shapeMap != NULL);
+    assert(p != NULL);
 
-    projectileEntity *projectile = (projectileEntity *)e->entity;
+    projectileEntity *projectile = (projectileEntity *)p->entity;
+    // e (shape B in the collision) will be NULL if it's another
+    // projectile that was just destroyed
+    if (e == NULL || (e->type != BOUNCY_WALL && e->type != FLOATING_BOUNCY_WALL))
+    {
+        projectile->bounces++;
+    }
+    else
+    {
+        projectile->bouncyWallBounces++;
+    }
+    uint8_t maxBounces = weaponBounce(projectile->type);
+    if (projectile->bounces == maxBounces || projectile->bouncyWallBounces == maxBounces * 3)
+    {
+        destroyProjectile(shapeMap, projectiles, projectile, true);
+        return true;
+    }
+
     b2Vec2 velocity = b2Body_GetLinearVelocity(projectile->bodyID);
     b2Vec2 newVel = b2MulSV(weaponFire(projectile->type) * weaponInvMass(projectile->type), b2Normalize(velocity));
     b2Body_SetLinearVelocity(projectile->bodyID, newVel);
+
+    return false;
 }
 
 void handleContactEvents(const b2WorldId worldID, struct hashmap_s *shapeMap, CC_SList *projectiles)
@@ -362,43 +406,26 @@ void handleContactEvents(const b2WorldId worldID, struct hashmap_s *shapeMap, CC
     assert(shapeMap != NULL);
 
     b2ContactEvents events = b2World_GetContactEvents(worldID);
-    for (int i = 0; i < events.beginCount; ++i)
-    {
-        const b2ContactBeginTouchEvent *event = events.beginEvents + i;
-        entity *e1 = (entity *)hashmap_get(shapeMap, &event->shapeIdA, sizeof(event->shapeIdA));
-        if (e1 == NULL)
-        {
-            continue;
-        }
-        entity *e2 = (entity *)hashmap_get(shapeMap, &event->shapeIdB, sizeof(event->shapeIdB));
-        if (e2 == NULL)
-        {
-            continue;
-        }
-
-        bool projectileDestroyed = false;
-        if (e1->type == PROJECTILE_ENTITY)
-        {
-            projectileDestroyed = handleProjectileBeginContact(shapeMap, projectiles, e1, e2);
-        }
-        if (!projectileDestroyed && e2->type == PROJECTILE_ENTITY)
-        {
-            handleProjectileBeginContact(shapeMap, projectiles, e2, e1);
-        }
-    }
-
     for (int i = 0; i < events.endCount; ++i)
     {
         const b2ContactEndTouchEvent *event = events.endEvents + i;
         entity *e1 = (entity *)hashmap_get(shapeMap, &event->shapeIdA, sizeof(event->shapeIdA));
-        if (e1 != NULL && e1->type == PROJECTILE_ENTITY)
-        {
-            handleProjectileEndContact(e1);
-        }
         entity *e2 = (entity *)hashmap_get(shapeMap, &event->shapeIdB, sizeof(event->shapeIdB));
+
+        if (e1 == NULL)
+        {
+            ERROR("could not find shape A for end contact event");
+        }
+        else if (e1->type == PROJECTILE_ENTITY)
+        {
+            if (handleProjectileEndContact(shapeMap, projectiles, e1, e2))
+            {
+                e1 = NULL;
+            }
+        }
         if (e2 != NULL && e2->type == PROJECTILE_ENTITY)
         {
-            handleProjectileEndContact(e2);
+            handleProjectileEndContact(shapeMap, projectiles, e2, e1);
         }
     }
 }

@@ -5,6 +5,10 @@
 
 #define INFINITE_AMMO -1
 
+// wall settings
+#define BOUNCY_WALL_RESTITUTION 0.9
+#define WALL_DENSITY 50.0f
+
 // drone settings
 #define DRONE_RADIUS 1.0f
 #define DRONE_DENSITY 1.25f

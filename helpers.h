@@ -11,7 +11,7 @@ const float scale = 50.0f;
 
 #define ERRORF(fmt, args...)                                                    \
     fprintf(stderr, " %s:%s:%d\n" fmt, __FILE__, __FUNCTION__, __LINE__, args); \
-    exit(1);
+    exit(1)
 #define ERROR(msg) ERRORF(msg, NULL)
 
 #ifndef NDEBUG
@@ -20,7 +20,7 @@ const float scale = 50.0f;
     struct tm *timeinfo;                                                                                                               \
     timeinfo = localtime(&t);                                                                                                          \
     printf(" %d:%d:%d %s:%s:%d\n" fmt, timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec, __FILE__, __FUNCTION__, __LINE__, args); \
-    fflush(stdout);
+    fflush(stdout)
 #define DEBUG_LOG(msg) DEBUG_LOGF(msg, NULL)
 #else
 #define DEBUG_LOGF(fmt, args...)
@@ -34,13 +34,6 @@ const float scale = 50.0f;
     assert(vec.x >= min);         \
     assert(vec.y <= max);         \
     assert(vec.y >= min);
-
-#define SAFE_FREE(p) \
-    if (p != NULL)   \
-    {                \
-        free(p);     \
-        p = NULL;    \
-    }
 
 b2Vec2 createb2Vec(const float x, const float y)
 {
