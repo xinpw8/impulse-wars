@@ -15,12 +15,14 @@ const float scale = 50.0f;
 #define ERROR(msg) ERRORF(msg, NULL)
 
 #ifndef NDEBUG
-#define DEBUG_LOGF(fmt, args...)                                                                                                       \
-    time_t t = time(NULL);                                                                                                             \
-    struct tm *timeinfo;                                                                                                               \
-    timeinfo = localtime(&t);                                                                                                          \
-    printf(" %d:%d:%d %s:%s:%d\n" fmt, timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec, __FILE__, __FUNCTION__, __LINE__, args); \
-    fflush(stdout)
+#define DEBUG_LOGF(fmt, args...)                                                                                                           \
+    {                                                                                                                                      \
+        time_t t = time(NULL);                                                                                                             \
+        struct tm *timeinfo;                                                                                                               \
+        timeinfo = localtime(&t);                                                                                                          \
+        printf(" %d:%d:%d %s:%s:%d\n" fmt, timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec, __FILE__, __FUNCTION__, __LINE__, args); \
+        fflush(stdout);                                                                                                                    \
+    }
 #define DEBUG_LOG(msg) DEBUG_LOGF(msg, NULL)
 #else
 #define DEBUG_LOGF(fmt, args...)
@@ -38,16 +40,6 @@ const float scale = 50.0f;
 b2Vec2 createb2Vec(const float x, const float y)
 {
     return (b2Vec2){.x = x, .y = y};
-}
-
-Vector2 b2VecToRayVec(const b2Vec2 v)
-{
-    return (Vector2){.x = v.x * scale, .y = v.y * scale};
-}
-
-b2Vec2 rayVecToB2Vec(const Vector2 v)
-{
-    return (b2Vec2){.x = v.x / scale, .y = v.y / scale};
 }
 
 bool b2VecEqual(const b2Vec2 v1, const b2Vec2 v2)

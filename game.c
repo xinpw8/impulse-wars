@@ -52,24 +52,25 @@ playerInputs getPlayerInputs(const droneEntity *drone)
 
     if (IsKeyDown(KEY_W))
     {
-        inputs.move = (b2Vec2){0.0f, -1.0f};
+        inputs.move.y += -1.0f;
     }
     if (IsKeyDown(KEY_S))
     {
-        inputs.move = (b2Vec2){0.0f, 1.0f};
+        inputs.move.y += 1.0f;
     }
     if (IsKeyDown(KEY_A))
     {
-        inputs.move = (b2Vec2){-1.0f, 0.0f};
+        inputs.move.x += -1.0f;
     }
     if (IsKeyDown(KEY_D))
     {
-        inputs.move = (b2Vec2){1.0f, 0.0f};
+        inputs.move.x += 1.0f;
     }
 
     Vector2 mousePos = (Vector2){.x = (float)GetMouseX(), .y = (float)GetMouseY()};
     b2Vec2 dronePos = b2Body_GetPosition(drone->bodyID);
     inputs.aim = b2Sub(rayVecToB2Vec(mousePos), dronePos);
+    DEBUG_LOGF("mouse aim: %f %f", inputs.aim.x, inputs.aim.y);
 
     if (IsMouseButtonDown(MOUSE_BUTTON_LEFT))
     {
@@ -107,10 +108,10 @@ void handlePlayerDroneInputs(const b2WorldId worldID, CC_SList *projectiles, dro
 //     CC_SList *projectiles;
 //     cc_slist_new(&projectiles);
 
-//     createWall(worldID, ((float)width / 2.0f) / scale, 1000.0f / scale, 1600.0f / scale, 100.0f / scale, STANDARD_WALL);
-//     createWall(worldID, 110.0f / scale, ((float)height / 2.0f) / scale, 100.0f / scale, 1020.0f / scale, BOUNCY_WALL);
-//     createWall(worldID, ((float)width - 110.0f) / scale, ((float)height / 2.0f) / scale, 100.0f / scale, 1020.0f / scale, BOUNCY_WALL);
-//     createWall(worldID, ((float)width / 2.0f) / scale, 80.0f / scale, 1600.0f / scale, 100.0f / scale, STANDARD_WALL);
+//     createWall(worldID, ((float)width / 2.0f) / scale, 1000.0f / scale, 32.0f, 2.0f, STANDARD_WALL);
+//     createWall(worldID, 110.0f / scale, ((float)height / 2.0f) / scale, 2.0f, 20.4f, BOUNCY_WALL);
+//     createWall(worldID, ((float)width - 110.0f) / scale, ((float)height / 2.0f) / scale, 2.0f, 20.4f, BOUNCY_WALL);
+//     createWall(worldID, ((float)width / 2.0f) / scale, 80.0f / scale, 32.0f, 2.0f, STANDARD_WALL);
 
 //     droneEntity *playerDrone = createDrone(worldID, ((float)width / 2.0f) / scale, ((float)height / 2.0f) / scale);
 //     droneEntity *aiDrone = createDrone(worldID, ((float)width / 2.0f + 1.0f) / scale, ((float)height / 2.0f + 200.0f) / scale);
@@ -158,8 +159,6 @@ int main(void)
     // perfTest(30.0f);
     // return 0;
 
-    int width = 1920;
-    int height = 1080;
     SetConfigFlags(FLAG_MSAA_4X_HINT);
     InitWindow(width, height, "test");
 
@@ -172,15 +171,15 @@ int main(void)
     CC_SList *projectiles;
     cc_slist_new(&projectiles);
 
-    wallEntity *wall = createWall(worldID, ((float)width / 2.0f) / scale, 1000.0f / scale, 1600.0f / scale, 100.0f / scale, STANDARD_WALL_ENTITY, false);
-    wallEntity *wall2 = createWall(worldID, 110.0f / scale, ((float)height / 2.0f) / scale, 100.0f / scale, 1020.0f / scale, BOUNCY_WALL_ENTITY, false);
-    wallEntity *wall3 = createWall(worldID, ((float)width - 110.0f) / scale, ((float)height / 2.0f) / scale, 100.0f / scale, 1020.0f / scale, BOUNCY_WALL_ENTITY, false);
-    wallEntity *wall4 = createWall(worldID, ((float)width / 2.0f) / scale, 80.0f / scale, 1600.0f / scale, 100.0f / scale, STANDARD_WALL_ENTITY, false);
+    wallEntity *wall = createWall(worldID, 0.0f, 9.0f, 32.0f, 2.0f, STANDARD_WALL_ENTITY, false);
+    wallEntity *wall2 = createWall(worldID, -15.0f, 0.0f, 2.0f, 20.0f, BOUNCY_WALL_ENTITY, false);
+    wallEntity *wall3 = createWall(worldID, 15.0f, 0.0f, 2.0f, 20.0f, BOUNCY_WALL_ENTITY, false);
+    wallEntity *wall4 = createWall(worldID, 0.0f, -9.0f, 32.0f, 2.0f, STANDARD_WALL_ENTITY, false);
 
-    weaponPickupEntity *pickup = createWeaponPickup(worldID, ((float)width / 4.0f) / scale, ((float)height / 4.0f) / scale, MACHINEGUN_WEAPON);
+    weaponPickupEntity *pickup = createWeaponPickup(worldID, -10.0f, -4.0f, MACHINEGUN_WEAPON);
 
-    droneEntity *playerDrone = createDrone(worldID, ((float)width / 2.0f) / scale, ((float)height / 2.0f) / scale);
-    droneEntity *aiDrone = createDrone(worldID, ((float)width / 2.0f + 1.0f) / scale, ((float)height / 2.0f + 200.0f) / scale);
+    droneEntity *playerDrone = createDrone(worldID, -5.0f, 0.0f);
+    droneEntity *aiDrone = createDrone(worldID, 5.0f, 0.0f);
 
     while (!WindowShouldClose())
     {

@@ -4,11 +4,37 @@
 #include "helpers.h"
 #include "game.h"
 
+const int width = 1920;
+const int height = 1080;
+
+const float halfWidth = (float)width / 2.0f;
+const float halfHeight = (float)height / 2.0f;
+
 const Color barolo = {.r = 165, .b = 8, .g = 37, .a = 255};
 
 const float halfDroneRadius = DRONE_RADIUS / 2.0f;
 const float aimGuideWidthExtent = 2.0f * DRONE_RADIUS;
 const float aimGuideHeightExtent = 0.1f * DRONE_RADIUS;
+
+float b2XToRayX(const float x)
+{
+    return halfWidth + x * scale;
+}
+
+float b2YToRayY(const float y)
+{
+    return halfHeight + y * scale;
+}
+
+Vector2 b2VecToRayVec(const b2Vec2 v)
+{
+    return (Vector2){.x = b2XToRayX(v.x), .y = b2YToRayY(v.y)};
+}
+
+b2Vec2 rayVecToB2Vec(const Vector2 v)
+{
+    return (b2Vec2){.x = (v.x - halfWidth) / scale, .y = (v.y - halfHeight) / scale};
+}
 
 void renderWall(const wallEntity *wall)
 {
@@ -53,14 +79,16 @@ void renderDrone(const droneEntity *drone, b2Vec2 move, b2Vec2 aim)
     }
 
     b2Vec2 pos = b2Body_GetPosition(drone->bodyID);
+    float rayX = b2XToRayX(pos.x);
+    float rayY = b2YToRayY(pos.y);
 
     if (!b2VecEqual(move, b2Vec2_zero))
     {
         float moveMagnitude = b2Length(move);
         float moveRot = RAD2DEG * b2Rot_GetAngle(b2MakeRot(b2Atan2(-move.y, -move.x)));
         Rectangle moveGuide = {
-            .x = (pos.x) * scale,
-            .y = (pos.y) * scale,
+            .x = rayX,
+            .y = rayY,
             .width = ((halfDroneRadius * moveMagnitude) + halfDroneRadius) * scale * 2.0f,
             .height = halfDroneRadius * scale * 2.0f,
         };
@@ -69,8 +97,8 @@ void renderDrone(const droneEntity *drone, b2Vec2 move, b2Vec2 aim)
 
     float aimRot = RAD2DEG * b2Rot_GetAngle(b2MakeRot(b2Atan2(aim.y, aim.x)));
     Rectangle aimGuide = {
-        .x = (pos.x) * scale,
-        .y = (pos.y) * scale,
+        .x = rayX,
+        .y = rayY,
         .width = aimGuideWidthExtent * scale * 2.0f,
         .height = aimGuideHeightExtent * scale * 2.0f,
     };
