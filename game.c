@@ -6,87 +6,92 @@ const float lStickDeadzoneY = 0.1f;
 const float rStickDeadzoneX = 0.1f;
 const float rStickDeadzoneY = 0.1f;
 
-typedef struct gamepadInputs
+typedef struct playerInputs
 {
-    b2Vec2 lStick;
-    b2Vec2 rStick;
-    bool rTrigger;
-} gamepadInputs;
+    b2Vec2 move;
+    b2Vec2 aim;
+    bool shoot;
+} playerInputs;
 
-gamepadInputs getGamepadInputs()
+playerInputs getPlayerInputs(const droneEntity *drone)
 {
-    gamepadInputs inputs = {0};
+    playerInputs inputs = {0};
+    if (IsGamepadAvailable(0))
+    {
+        float lStickX = GetGamepadAxisMovement(0, GAMEPAD_AXIS_LEFT_X);
+        float lStickY = GetGamepadAxisMovement(0, GAMEPAD_AXIS_LEFT_Y);
+        float rStickX = GetGamepadAxisMovement(0, GAMEPAD_AXIS_RIGHT_X);
+        float rStickY = GetGamepadAxisMovement(0, GAMEPAD_AXIS_RIGHT_Y);
 
-    float lStickX = GetGamepadAxisMovement(0, GAMEPAD_AXIS_LEFT_X);
-    float lStickY = GetGamepadAxisMovement(0, GAMEPAD_AXIS_LEFT_Y);
-    float rStickX = GetGamepadAxisMovement(0, GAMEPAD_AXIS_RIGHT_X);
-    float rStickY = GetGamepadAxisMovement(0, GAMEPAD_AXIS_RIGHT_Y);
+        if (lStickX > -lStickDeadzoneX && lStickX < lStickDeadzoneX)
+        {
+            lStickX = 0.0f;
+        }
+        if (lStickY > -lStickDeadzoneY && lStickY < lStickDeadzoneY)
+        {
+            lStickY = 0.0f;
+        }
+        if (rStickX > -rStickDeadzoneX && rStickX < rStickDeadzoneX)
+        {
+            rStickX = 0.0f;
+        }
+        if (rStickY > -rStickDeadzoneY && rStickY < rStickDeadzoneY)
+        {
+            rStickY = 0.0f;
+        }
+        inputs.move = (b2Vec2){.x = lStickX, .y = lStickY};
+        inputs.aim = b2Normalize((b2Vec2){.x = rStickX, .y = rStickY});
 
-    if (lStickX > -lStickDeadzoneX && lStickX < lStickDeadzoneX)
-    {
-        lStickX = 0.0f;
+        inputs.shoot = IsGamepadButtonDown(0, GAMEPAD_BUTTON_RIGHT_TRIGGER_2);
+        if (!inputs.shoot)
+        {
+            inputs.shoot = IsGamepadButtonDown(0, GAMEPAD_BUTTON_RIGHT_TRIGGER_1);
+        }
+        return inputs;
     }
-    if (lStickY > -lStickDeadzoneY && lStickY < lStickDeadzoneY)
-    {
-        lStickY = 0.0f;
-    }
-    if (rStickX > -rStickDeadzoneX && rStickX < rStickDeadzoneX)
-    {
-        rStickX = 0.0f;
-    }
-    if (rStickY > -rStickDeadzoneY && rStickY < rStickDeadzoneY)
-    {
-        rStickY = 0.0f;
-    }
-    inputs.lStick = (b2Vec2){.x = lStickX, .y = lStickY};
-    inputs.rStick = b2Normalize((b2Vec2){.x = rStickX, .y = rStickY});
 
-    inputs.rTrigger = IsGamepadButtonDown(0, GAMEPAD_BUTTON_RIGHT_TRIGGER_2);
-    if (!inputs.rTrigger)
+    if (IsKeyDown(KEY_W))
     {
-        inputs.rTrigger = IsGamepadButtonDown(0, GAMEPAD_BUTTON_RIGHT_TRIGGER_1);
+        inputs.move = (b2Vec2){0.0f, -1.0f};
+    }
+    if (IsKeyDown(KEY_S))
+    {
+        inputs.move = (b2Vec2){0.0f, 1.0f};
+    }
+    if (IsKeyDown(KEY_A))
+    {
+        inputs.move = (b2Vec2){-1.0f, 0.0f};
+    }
+    if (IsKeyDown(KEY_D))
+    {
+        inputs.move = (b2Vec2){1.0f, 0.0f};
+    }
+
+    Vector2 mousePos = (Vector2){.x = (float)GetMouseX(), .y = (float)GetMouseY()};
+    b2Vec2 dronePos = b2Body_GetPosition(drone->bodyID);
+    inputs.aim = b2Sub(rayVecToB2Vec(mousePos), dronePos);
+
+    if (IsMouseButtonDown(MOUSE_BUTTON_LEFT))
+    {
+        inputs.shoot = true;
     }
 
     return inputs;
 }
 
-void handlePlayerDroneInputs(const b2WorldId worldID, CC_SList *projectiles, droneEntity *drone)
+void handlePlayerDroneInputs(const b2WorldId worldID, CC_SList *projectiles, droneEntity *drone, const playerInputs inputs)
 {
-    gamepadInputs inputs = getGamepadInputs();
-    if (b2AbsFloat(inputs.lStick.x) > 0 || b2AbsFloat(inputs.lStick.y) > 0)
+    if (!b2VecEqual(inputs.move, b2Vec2_zero))
     {
-        droneMove(drone, inputs.lStick);
+        droneMove(drone, inputs.move);
     }
-    else
+    if (inputs.shoot)
     {
-        if (IsKeyDown(KEY_W))
-        {
-            droneMove(drone, (b2Vec2){0.0f, -1.0f});
-        }
-        if (IsKeyDown(KEY_S))
-        {
-            droneMove(drone, (b2Vec2){0.0f, 1.0f});
-        }
-        if (IsKeyDown(KEY_A))
-        {
-            droneMove(drone, (b2Vec2){-1.0f, 0.0f});
-        }
-        if (IsKeyDown(KEY_D))
-        {
-            droneMove(drone, (b2Vec2){1.0f, 0.0f});
-        }
+        droneShoot(worldID, projectiles, drone, inputs.aim);
     }
-
-    if (inputs.rTrigger)
+    if (!b2VecEqual(inputs.aim, b2Vec2_zero))
     {
-        droneShoot(worldID, projectiles, drone, inputs.rStick);
-    }
-    else if (IsKeyDown(KEY_SPACE) || IsMouseButtonDown(MOUSE_BUTTON_LEFT))
-    {
-        Vector2 mousePos = (Vector2){.x = (float)GetMouseX(), .y = (float)GetMouseY()};
-        b2Vec2 dronePos = b2Body_GetPosition(drone->bodyID);
-        b2Vec2 mouseAim = b2Sub(rayVecToB2Vec(mousePos), dronePos);
-        droneShoot(worldID, projectiles, drone, mouseAim);
+        drone->lastAim = b2Normalize(inputs.aim);
     }
 }
 
@@ -158,7 +163,7 @@ int main(void)
     SetConfigFlags(FLAG_MSAA_4X_HINT);
     InitWindow(width, height, "test");
 
-    SetTargetFPS(175);
+    SetTargetFPS(60);
 
     b2WorldDef worldDef = b2DefaultWorldDef();
     worldDef.gravity = createb2Vec(0.0f, 0.0f);
@@ -167,10 +172,10 @@ int main(void)
     CC_SList *projectiles;
     cc_slist_new(&projectiles);
 
-    wallEntity *wall = createWall(worldID, ((float)width / 2.0f) / scale, 1000.0f / scale, 1600.0f / scale, 100.0f / scale, STANDARD_WALL_ENTITY);
-    wallEntity *wall2 = createWall(worldID, 110.0f / scale, ((float)height / 2.0f) / scale, 100.0f / scale, 1020.0f / scale, BOUNCY_WALL_ENTITY);
-    wallEntity *wall3 = createWall(worldID, ((float)width - 110.0f) / scale, ((float)height / 2.0f) / scale, 100.0f / scale, 1020.0f / scale, BOUNCY_WALL_ENTITY);
-    wallEntity *wall4 = createWall(worldID, ((float)width / 2.0f) / scale, 80.0f / scale, 1600.0f / scale, 100.0f / scale, STANDARD_WALL_ENTITY);
+    wallEntity *wall = createWall(worldID, ((float)width / 2.0f) / scale, 1000.0f / scale, 1600.0f / scale, 100.0f / scale, STANDARD_WALL_ENTITY, false);
+    wallEntity *wall2 = createWall(worldID, 110.0f / scale, ((float)height / 2.0f) / scale, 100.0f / scale, 1020.0f / scale, BOUNCY_WALL_ENTITY, false);
+    wallEntity *wall3 = createWall(worldID, ((float)width - 110.0f) / scale, ((float)height / 2.0f) / scale, 100.0f / scale, 1020.0f / scale, BOUNCY_WALL_ENTITY, false);
+    wallEntity *wall4 = createWall(worldID, ((float)width / 2.0f) / scale, 80.0f / scale, 1600.0f / scale, 100.0f / scale, STANDARD_WALL_ENTITY, false);
 
     weaponPickupEntity *pickup = createWeaponPickup(worldID, ((float)width / 4.0f) / scale, ((float)height / 4.0f) / scale, MACHINEGUN_WEAPON);
 
@@ -179,14 +184,15 @@ int main(void)
 
     while (!WindowShouldClose())
     {
-        handlePlayerDroneInputs(worldID, projectiles, playerDrone);
+        playerInputs inputs = getPlayerInputs(playerDrone);
+        handlePlayerDroneInputs(worldID, projectiles, playerDrone, inputs);
 
         float frameTime = GetFrameTime();
         droneStep(playerDrone, frameTime);
         droneStep(aiDrone, frameTime);
         projectilesStep(projectiles);
 
-        b2World_Step(worldID, frameTime, 4);
+        b2World_Step(worldID, 1.0f / 60.0f, 4);
 
         handleContactEvents(worldID, projectiles);
         handleSensorEvents(worldID);
@@ -198,8 +204,8 @@ int main(void)
 
         renderWeaponPickup(pickup);
 
-        renderDrone(playerDrone);
-        renderDrone(aiDrone);
+        renderDrone(playerDrone, inputs.move, inputs.aim);
+        renderDrone(aiDrone, b2Vec2_zero, b2Vec2_zero);
         renderProjectiles(projectiles);
 
         renderWall(wall);

@@ -16,11 +16,8 @@
 enum entityType
 {
     STANDARD_WALL_ENTITY,
-    FLOATING_STANDARD_WALL_ENTITY,
     BOUNCY_WALL_ENTITY,
-    FLOATING_BOUNCY_WALL_ENTITY,
     DEATH_WALL_ENTITY,
-    FLOATING_DEATH_WALL_ENTITY,
     WEAPON_PICKUP_ENTITY,
     PROJECTILE_ENTITY,
     DRONE_ENTITY,
@@ -44,6 +41,7 @@ typedef struct wallEntity
     b2BodyId bodyID;
     b2ShapeId *shapeID;
     b2Vec2 extent;
+    bool isFloating;
     enum entityType type;
 } wallEntity;
 
@@ -79,14 +77,14 @@ typedef struct droneEntity
     b2Vec2 lastAim;
 } droneEntity;
 
-wallEntity *createWall(const b2WorldId worldID, const float posX, const float posY, const float width, const float height, const enum entityType type)
+wallEntity *createWall(const b2WorldId worldID, const float posX, const float posY, const float width, const float height, const enum entityType type, bool floating)
 {
     assert(type != DRONE_ENTITY);
     assert(type != PROJECTILE_ENTITY);
 
     b2BodyDef wallBodyDef = b2DefaultBodyDef();
     wallBodyDef.position = createb2Vec(posX, posY);
-    if (type == FLOATING_STANDARD_WALL_ENTITY || type == FLOATING_BOUNCY_WALL_ENTITY || type == FLOATING_DEATH_WALL_ENTITY)
+    if (floating)
     {
         wallBodyDef.type = b2_dynamicBody;
     }
@@ -96,7 +94,7 @@ wallEntity *createWall(const b2WorldId worldID, const float posX, const float po
     b2ShapeDef wallShapeDef = b2DefaultShapeDef();
     wallShapeDef.density = WALL_DENSITY;
     wallShapeDef.restitution = 0.0f;
-    if (type == BOUNCY_WALL_ENTITY || type == FLOATING_BOUNCY_WALL_ENTITY)
+    if (type == BOUNCY_WALL_ENTITY)
     {
         wallShapeDef.restitution = BOUNCY_WALL_RESTITUTION;
     }
@@ -107,6 +105,7 @@ wallEntity *createWall(const b2WorldId worldID, const float posX, const float po
     wall->bodyID = wallBodyID;
     wall->shapeID = (b2ShapeId *)calloc(1, sizeof(b2ShapeId));
     wall->extent = extent;
+    wall->isFloating = floating;
     wall->type = type;
 
     entity *e = (entity *)calloc(1, sizeof(entity));
@@ -318,7 +317,6 @@ void droneShoot(const b2WorldId worldID, CC_SList *projectiles, droneEntity *dro
     if (!b2VecEqual(aim, b2Vec2_zero))
     {
         normAim = b2Normalize(aim);
-        drone->lastAim = normAim;
     }
     b2Vec2 aimRecoil = weaponAimRecoil(drone->weapon);
     b2Vec2 recoil = b2MulAdd(aimRecoil, -weaponRecoil(drone->weapon), normAim);
@@ -385,7 +383,7 @@ bool handleProjectileBeginContact(CC_SList *projectiles, const entity *e1, const
     assert(e2 != NULL);
 
     projectileEntity *projectile = (projectileEntity *)e1->entity;
-    if (e2->type != BOUNCY_WALL_ENTITY && e2->type != FLOATING_BOUNCY_WALL_ENTITY)
+    if (e2->type != BOUNCY_WALL_ENTITY)
     {
         projectile->bounces++;
     }
@@ -410,7 +408,7 @@ bool handleProjectileEndContact(CC_SList *projectiles, const entity *p, const en
     projectileEntity *projectile = (projectileEntity *)p->entity;
     // e (shape B in the collision) will be NULL if it's another
     // projectile that was just destroyed
-    if (e == NULL || (e->type != BOUNCY_WALL_ENTITY && e->type != FLOATING_BOUNCY_WALL_ENTITY))
+    if (e == NULL || e->type != BOUNCY_WALL_ENTITY)
     {
         projectile->bounces++;
     }
