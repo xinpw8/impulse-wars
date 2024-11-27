@@ -50,7 +50,7 @@ gamepadInputs getGamepadInputs()
     return inputs;
 }
 
-void handlePlayerDroneInputs(const b2WorldId worldID, struct hashmap_s *shapeMap, CC_SList *projectiles, droneEntity *drone)
+void handlePlayerDroneInputs(const b2WorldId worldID, CC_SList *projectiles, droneEntity *drone)
 {
     gamepadInputs inputs = getGamepadInputs();
     if (b2AbsFloat(inputs.lStick.x) > 0 || b2AbsFloat(inputs.lStick.y) > 0)
@@ -79,14 +79,14 @@ void handlePlayerDroneInputs(const b2WorldId worldID, struct hashmap_s *shapeMap
 
     if (inputs.rTrigger)
     {
-        droneShoot(worldID, shapeMap, projectiles, drone, inputs.rStick);
+        droneShoot(worldID, projectiles, drone, inputs.rStick);
     }
     else if (IsKeyDown(KEY_SPACE) || IsMouseButtonDown(MOUSE_BUTTON_LEFT))
     {
         Vector2 mousePos = (Vector2){.x = (float)GetMouseX(), .y = (float)GetMouseY()};
         b2Vec2 dronePos = b2Body_GetPosition(drone->bodyID);
         b2Vec2 mouseAim = b2Sub(rayVecToB2Vec(mousePos), dronePos);
-        droneShoot(worldID, shapeMap, projectiles, drone, mouseAim);
+        droneShoot(worldID, projectiles, drone, mouseAim);
     }
 }
 
@@ -99,20 +99,16 @@ void handlePlayerDroneInputs(const b2WorldId worldID, struct hashmap_s *shapeMap
 //     worldDef.gravity = createb2Vec(0.0f, 0.0f);
 //     b2WorldId worldID = b2CreateWorld(&worldDef);
 
-//     const unsigned initalSize = 64;
-//     struct hashmap_s shapeMap;
-//     if (0 != hashmap_create(initalSize, &shapeMap))
-//     {
-//         ERROR("error creating hashmap");
-//     }
+//     CC_SList *projectiles;
+//     cc_slist_new(&projectiles);
 
-//     createWall(worldID, &shapeMap, ((float)width / 2.0f) / scale, 1000.0f / scale, 1600.0f / scale, 100.0f / scale, STANDARD_WALL);
-//     createWall(worldID, &shapeMap, 110.0f / scale, ((float)height / 2.0f) / scale, 100.0f / scale, 1020.0f / scale, BOUNCY_WALL);
-//     createWall(worldID, &shapeMap, ((float)width - 110.0f) / scale, ((float)height / 2.0f) / scale, 100.0f / scale, 1020.0f / scale, BOUNCY_WALL);
-//     createWall(worldID, &shapeMap, ((float)width / 2.0f) / scale, 80.0f / scale, 1600.0f / scale, 100.0f / scale, STANDARD_WALL);
+//     createWall(worldID, ((float)width / 2.0f) / scale, 1000.0f / scale, 1600.0f / scale, 100.0f / scale, STANDARD_WALL);
+//     createWall(worldID, 110.0f / scale, ((float)height / 2.0f) / scale, 100.0f / scale, 1020.0f / scale, BOUNCY_WALL);
+//     createWall(worldID, ((float)width - 110.0f) / scale, ((float)height / 2.0f) / scale, 100.0f / scale, 1020.0f / scale, BOUNCY_WALL);
+//     createWall(worldID, ((float)width / 2.0f) / scale, 80.0f / scale, 1600.0f / scale, 100.0f / scale, STANDARD_WALL);
 
-//     droneEntity *playerDrone = createDrone(worldID, &shapeMap, ((float)width / 2.0f) / scale, ((float)height / 2.0f) / scale);
-//     droneEntity *aiDrone = createDrone(worldID, &shapeMap, ((float)width / 2.0f + 1.0f) / scale, ((float)height / 2.0f + 200.0f) / scale);
+//     droneEntity *playerDrone = createDrone(worldID, ((float)width / 2.0f) / scale, ((float)height / 2.0f) / scale);
+//     droneEntity *aiDrone = createDrone(worldID, ((float)width / 2.0f + 1.0f) / scale, ((float)height / 2.0f + 200.0f) / scale);
 
 //     int i = 0;
 //     time_t start = time(NULL);
@@ -124,7 +120,7 @@ void handlePlayerDroneInputs(const b2WorldId worldID, struct hashmap_s *shapeMap
 //         if (randInt(0, 1))
 //         {
 //             b2Vec2 aim = {.x = randFloat(-1.0f, 1.0f), .y = randFloat(-1.0f, 1.0f)};
-//             droneShoot(worldID, &shapeMap, playerDrone, aim);
+//             droneShoot(worldID, projectiles, playerDrone, aim);
 //         }
 
 //         b2Vec2 aiMove = {.x = randFloat(-1.0f, 1.0f), .y = randFloat(-1.0f, 1.0f)};
@@ -132,28 +128,30 @@ void handlePlayerDroneInputs(const b2WorldId worldID, struct hashmap_s *shapeMap
 //         if (randInt(0, 1))
 //         {
 //             b2Vec2 aim = {.x = randFloat(-1.0f, 1.0f), .y = randFloat(-1.0f, 1.0f)};
-//             droneShoot(worldID, &shapeMap, aiDrone, aim);
+//             droneShoot(worldID, projectiles, aiDrone, aim);
 //         }
 
 //         float frameTime = (float)cur - (float)start;
-//         droneStep(&shapeMap, playerDrone, frameTime);
-//         droneStep(&shapeMap, aiDrone, frameTime);
+//         droneStep(playerDrone, frameTime);
+//         droneStep(aiDrone, frameTime);
 
 //         b2World_Step(worldID, frameTime, 4);
 
-//         handleContactEvents(worldID, &shapeMap);
+//         handleContactEvents(worldID, projectiles);
 
 //         cur = time(NULL);
 //         i++;
 //     }
 
 //     time_t end = time(NULL);
-//     printf("SPS: %f\n", (float)i / (float)(end - start));
+//     printf("SPS: %f\n", ((float)i * 2) / (float)(end - start));
 // }
 
 int main(void)
 {
     srand(time(NULL));
+    // perfTest(30.0f);
+    // return 0;
 
     int width = 1920;
     int height = 1080;
@@ -166,38 +164,29 @@ int main(void)
     worldDef.gravity = createb2Vec(0.0f, 0.0f);
     b2WorldId worldID = b2CreateWorld(&worldDef);
 
-    // TODO: set custom hash function to use shapeID id
-    // TODO: set this based on number of drones
-    const unsigned initalSize = 64;
-    struct hashmap_s shapeMap;
-    if (0 != hashmap_create(initalSize, &shapeMap))
-    {
-        ERROR("error creating hashmap");
-    }
-
     CC_SList *projectiles;
     cc_slist_new(&projectiles);
 
-    wallEntity *wall = createWall(worldID, &shapeMap, ((float)width / 2.0f) / scale, 1000.0f / scale, 1600.0f / scale, 100.0f / scale, STANDARD_WALL);
-    wallEntity *wall2 = createWall(worldID, &shapeMap, 110.0f / scale, ((float)height / 2.0f) / scale, 100.0f / scale, 1020.0f / scale, BOUNCY_WALL);
-    wallEntity *wall3 = createWall(worldID, &shapeMap, ((float)width - 110.0f) / scale, ((float)height / 2.0f) / scale, 100.0f / scale, 1020.0f / scale, BOUNCY_WALL);
-    wallEntity *wall4 = createWall(worldID, &shapeMap, ((float)width / 2.0f) / scale, 80.0f / scale, 1600.0f / scale, 100.0f / scale, STANDARD_WALL);
+    wallEntity *wall = createWall(worldID, ((float)width / 2.0f) / scale, 1000.0f / scale, 1600.0f / scale, 100.0f / scale, STANDARD_WALL);
+    wallEntity *wall2 = createWall(worldID, 110.0f / scale, ((float)height / 2.0f) / scale, 100.0f / scale, 1020.0f / scale, BOUNCY_WALL);
+    wallEntity *wall3 = createWall(worldID, ((float)width - 110.0f) / scale, ((float)height / 2.0f) / scale, 100.0f / scale, 1020.0f / scale, BOUNCY_WALL);
+    wallEntity *wall4 = createWall(worldID, ((float)width / 2.0f) / scale, 80.0f / scale, 1600.0f / scale, 100.0f / scale, STANDARD_WALL);
 
-    droneEntity *playerDrone = createDrone(worldID, &shapeMap, ((float)width / 2.0f) / scale, ((float)height / 2.0f) / scale);
-    droneEntity *aiDrone = createDrone(worldID, &shapeMap, ((float)width / 2.0f + 1.0f) / scale, ((float)height / 2.0f + 200.0f) / scale);
+    droneEntity *playerDrone = createDrone(worldID, ((float)width / 2.0f) / scale, ((float)height / 2.0f) / scale);
+    droneEntity *aiDrone = createDrone(worldID, ((float)width / 2.0f + 1.0f) / scale, ((float)height / 2.0f + 200.0f) / scale);
 
     while (!WindowShouldClose())
     {
-        handlePlayerDroneInputs(worldID, &shapeMap, projectiles, playerDrone);
+        handlePlayerDroneInputs(worldID, projectiles, playerDrone);
 
         float frameTime = GetFrameTime();
-        droneStep(&shapeMap, playerDrone, frameTime);
-        droneStep(&shapeMap, aiDrone, frameTime);
-        projectilesStep(&shapeMap, projectiles);
+        droneStep(playerDrone, frameTime);
+        droneStep(aiDrone, frameTime);
+        projectilesStep(projectiles);
 
         b2World_Step(worldID, frameTime, 4);
 
-        handleContactEvents(worldID, &shapeMap, projectiles);
+        handleContactEvents(worldID, projectiles);
 
         BeginDrawing();
 
@@ -216,12 +205,11 @@ int main(void)
         EndDrawing();
     }
 
-    destroyDrone(&shapeMap, playerDrone);
-    destroyDrone(&shapeMap, aiDrone);
-    destroyAllProjectiles(&shapeMap, projectiles);
+    destroyDrone(playerDrone);
+    destroyDrone(aiDrone);
+    destroyAllProjectiles(projectiles);
 
     cc_slist_destroy(projectiles);
-    hashmap_destroy(&shapeMap);
 
     b2DestroyWorld(worldID);
     CloseWindow();

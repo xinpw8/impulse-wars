@@ -5,7 +5,6 @@
 #include "raylib.h"
 
 #include "include/cc_slist.h"
-#include "include/hashmap.h"
 
 #include "helpers.h"
 #include "settings.h"
@@ -80,9 +79,8 @@ typedef struct droneEntity
     b2Vec2 lastAim;
 } droneEntity;
 
-wallEntity *createWall(const b2WorldId worldID, struct hashmap_s *shapeMap, const float posX, const float posY, const float width, const float height, const enum entityType type)
+wallEntity *createWall(const b2WorldId worldID, const float posX, const float posY, const float width, const float height, const enum entityType type)
 {
-    assert(shapeMap != NULL);
     assert(type != DRONE_ENTITY);
     assert(type != PROJECTILE_ENTITY);
 
@@ -105,12 +103,9 @@ wallEntity *createWall(const b2WorldId worldID, struct hashmap_s *shapeMap, cons
     wallShapeDef.filter.categoryBits = WALL_SHAPE;
     wallShapeDef.filter.maskBits = WALL_SHAPE | PROJECTILE_SHAPE | DRONE_SHAPE;
 
-    b2ShapeId *wallShapeID = (b2ShapeId *)calloc(1, sizeof(b2ShapeId));
-    *wallShapeID = b2CreatePolygonShape(wallBodyID, &wallShapeDef, &bouncyWall);
-
     wallEntity *wall = (wallEntity *)calloc(1, sizeof(wallEntity));
     wall->bodyID = wallBodyID;
-    wall->shapeID = wallShapeID;
+    wall->shapeID = (b2ShapeId *)calloc(1, sizeof(b2ShapeId));
     wall->extent = extent;
     wall->type = type;
 
@@ -118,16 +113,14 @@ wallEntity *createWall(const b2WorldId worldID, struct hashmap_s *shapeMap, cons
     e->type = type;
     e->entity = wall;
 
-    if (0 != hashmap_put(shapeMap, wallShapeID, sizeof(wallShapeID), e))
-    {
-        ERROR("error adding wall shape to hashmap");
-    }
+    wallShapeDef.userData = e;
+    *wall->shapeID = b2CreatePolygonShape(wallBodyID, &wallShapeDef, &bouncyWall);
+
     return wall;
 }
 
-weaponPickupEntity *createWeaponPickup(const b2WorldId worldID, struct hashmap_s *shapeMap, const float posX, const float posY, const enum weaponType type)
+weaponPickupEntity *createWeaponPickup(const b2WorldId worldID, const float posX, const float posY, const enum weaponType type)
 {
-    assert(shapeMap != NULL);
     assert(type != STANDARD_WEAPON);
 
     b2BodyDef pickupBodyDef = b2DefaultBodyDef();
@@ -139,44 +132,35 @@ weaponPickupEntity *createWeaponPickup(const b2WorldId worldID, struct hashmap_s
     pickupShapeDef.isSensor = true;
     b2Circle pickupCircle = {.center = {.x = 0.0f, .y = 0.0f}, .radius = 0.9f};
 
-    b2ShapeId *pickupShapeID = (b2ShapeId *)calloc(1, sizeof(b2ShapeId));
-    *pickupShapeID = b2CreateCircleShape(pickupBodyID, &pickupShapeDef, &pickupCircle);
-
     weaponPickupEntity *pickup = (weaponPickupEntity *)calloc(1, sizeof(weaponPickupEntity));
     pickup->bodyID = pickupBodyID;
-    pickup->shapeID = pickupShapeID;
+    pickup->shapeID = (b2ShapeId *)calloc(1, sizeof(b2ShapeId));
     pickup->weapon = type;
 
     entity *e = (entity *)calloc(1, sizeof(entity));
     e->type = WEAPON_PICKUP;
     e->entity = pickup;
 
-    if (0 != hashmap_put(shapeMap, pickupShapeID, sizeof(pickupShapeID), e))
-    {
-        ERROR("error adding pickup shape to hashmap");
-    }
+    pickupShapeDef.userData = e;
+    *pickup->shapeID = b2CreateCircleShape(pickupBodyID, &pickupShapeDef, &pickupCircle);
+
     return pickup;
 }
 
-void destroyWeaponPickup(const b2WorldId worldID, struct hashmap_s *shapeMap, weaponPickupEntity *pickup)
+void destroyWeaponPickup(const b2WorldId worldID, weaponPickupEntity *pickup)
 {
-    assert(shapeMap != NULL);
     assert(pickup != NULL);
 
-    entity *e = (entity *)hashmap_get(shapeMap, pickup->shapeID, sizeof(pickup->shapeID));
+    entity *e = (entity *)b2Shape_GetUserData(*pickup->shapeID);
     free(e);
-
-    hashmap_remove(shapeMap, pickup->shapeID, sizeof(pickup->shapeID));
 
     b2DestroyBody(pickup->bodyID);
     free(pickup->shapeID);
     free(pickup);
 }
 
-droneEntity *createDrone(const b2WorldId worldID, struct hashmap_s *shapeMap, const float posX, const float posY)
+droneEntity *createDrone(const b2WorldId worldID, const float posX, const float posY)
 {
-    assert(shapeMap != NULL);
-
     b2BodyDef droneBodyDef = b2DefaultBodyDef();
     droneBodyDef.type = b2_dynamicBody;
     droneBodyDef.position = createb2Vec(posX, posY);
@@ -191,12 +175,9 @@ droneEntity *createDrone(const b2WorldId worldID, struct hashmap_s *shapeMap, co
     droneShapeDef.enableSensorEvents = true;
     b2Circle droneCircle = {.center = {.x = 0.0f, .y = 0.0f}, .radius = DRONE_RADIUS};
 
-    b2ShapeId *droneShapeID = (b2ShapeId *)calloc(1, sizeof(b2ShapeId));
-    *droneShapeID = b2CreateCircleShape(droneBodyID, &droneShapeDef, &droneCircle);
-
     droneEntity *drone = (droneEntity *)calloc(1, sizeof(droneEntity));
     drone->bodyID = droneBodyID;
-    drone->shapeID = droneShapeID;
+    drone->shapeID = (b2ShapeId *)calloc(1, sizeof(b2ShapeId));
     drone->weapon = DRONE_DEFAULT_WEAPON;
     drone->ammo = weaponAmmo(drone->weapon);
     drone->shotThisStep = false;
@@ -206,22 +187,18 @@ droneEntity *createDrone(const b2WorldId worldID, struct hashmap_s *shapeMap, co
     e->type = DRONE_ENTITY;
     e->entity = drone;
 
-    if (0 != hashmap_put(shapeMap, droneShapeID, sizeof(droneShapeID), e))
-    {
-        ERROR("error adding drone shape to hashmap");
-    }
+    droneShapeDef.userData = e;
+    *drone->shapeID = b2CreateCircleShape(droneBodyID, &droneShapeDef, &droneCircle);
+
     return drone;
 }
 
-void destroyDrone(struct hashmap_s *shapeMap, droneEntity *drone)
+void destroyDrone(droneEntity *drone)
 {
-    assert(shapeMap != NULL);
     assert(drone != NULL);
 
-    entity *e = (entity *)hashmap_get(shapeMap, drone->shapeID, sizeof(drone->shapeID));
+    entity *e = (entity *)b2Shape_GetUserData(*drone->shapeID);
     free(e);
-
-    hashmap_remove(shapeMap, drone->shapeID, sizeof(drone->shapeID));
 
     b2DestroyBody(drone->bodyID);
     free(drone->shapeID);
@@ -237,9 +214,8 @@ void droneMove(const droneEntity *drone, const b2Vec2 direction)
     b2Body_ApplyForceToCenter(drone->bodyID, force, true);
 }
 
-void createProjectile(const b2WorldId worldID, struct hashmap_s *shapeMap, CC_SList *projectiles, droneEntity *drone, const b2Vec2 normAim, const b2Vec2 aimRecoil)
+void createProjectile(const b2WorldId worldID, CC_SList *projectiles, droneEntity *drone, const b2Vec2 normAim, const b2Vec2 aimRecoil)
 {
-    assert(shapeMap != NULL);
     assert(drone != NULL);
     ASSERT_VEC(normAim, -1.0f, 1.0f);
 
@@ -283,20 +259,15 @@ void createProjectile(const b2WorldId worldID, struct hashmap_s *shapeMap, CC_SL
     e->type = PROJECTILE_ENTITY;
     e->entity = projectile;
 
-    if (0 != hashmap_put(shapeMap, projectileShapeID, sizeof(projectileShapeID), e))
-    {
-        ERROR("error adding projectile to hashmap");
-    }
+    b2Shape_SetUserData(*projectile->shapeID, e);
 }
 
-void destroyProjectile(struct hashmap_s *shapeMap, CC_SList *projectiles, projectileEntity *projectile, bool full)
+void destroyProjectile(CC_SList *projectiles, projectileEntity *projectile, bool full)
 {
-    assert(shapeMap != NULL);
     assert(projectile != NULL);
 
-    entity *e = (entity *)hashmap_get(shapeMap, projectile->shapeID, sizeof(projectile->shapeID));
+    entity *e = (entity *)b2Shape_GetUserData(*projectile->shapeID);
     free(e);
-    hashmap_remove(shapeMap, projectile->shapeID, sizeof(projectile->shapeID));
 
     if (full)
     {
@@ -308,12 +279,12 @@ void destroyProjectile(struct hashmap_s *shapeMap, CC_SList *projectiles, projec
     free(projectile);
 }
 
-void destroyAllProjectiles(struct hashmap_s *shapeMap, CC_SList *projectiles)
+void destroyAllProjectiles(CC_SList *projectiles)
 {
     for (SNode *cur = projectiles->head; cur != NULL; cur = cur->next)
     {
         projectileEntity *projectile = (projectileEntity *)cur->data;
-        destroyProjectile(shapeMap, projectiles, projectile, false);
+        destroyProjectile(projectiles, projectile, false);
     }
 }
 
@@ -325,9 +296,8 @@ void droneChangeWeapon(droneEntity *drone, enum weaponType weapon)
     drone->triggerHeldSteps = 0;
 }
 
-void droneShoot(const b2WorldId worldID, struct hashmap_s *shapeMap, CC_SList *projectiles, droneEntity *drone, const b2Vec2 aim)
+void droneShoot(const b2WorldId worldID, CC_SList *projectiles, droneEntity *drone, const b2Vec2 aim)
 {
-    assert(shapeMap != NULL);
     assert(drone != NULL);
     assert(drone->ammo != 0);
 
@@ -353,7 +323,7 @@ void droneShoot(const b2WorldId worldID, struct hashmap_s *shapeMap, CC_SList *p
     b2Vec2 recoil = b2MulAdd(aimRecoil, -weaponRecoil(drone->weapon), normAim);
     b2Body_ApplyLinearImpulseToCenter(drone->bodyID, recoil, true);
 
-    createProjectile(worldID, shapeMap, projectiles, drone, normAim, aimRecoil);
+    createProjectile(worldID, projectiles, drone, normAim, aimRecoil);
 
     if (drone->ammo == 0)
     {
@@ -361,9 +331,8 @@ void droneShoot(const b2WorldId worldID, struct hashmap_s *shapeMap, CC_SList *p
     }
 }
 
-void droneStep(struct hashmap_s *shapeMap, droneEntity *drone, const float frameTime)
+void droneStep(droneEntity *drone, const float frameTime)
 {
-    assert(shapeMap != NULL);
     assert(drone != NULL);
 
     drone->weaponCooldown = b2MaxFloat(drone->weaponCooldown - frameTime, 0.0f);
@@ -388,7 +357,7 @@ void droneStep(struct hashmap_s *shapeMap, droneEntity *drone, const float frame
     }
 }
 
-void projectilesStep(struct hashmap_s *shapeMap, CC_SList *projectiles)
+void projectilesStep(CC_SList *projectiles)
 {
     CC_SListIter iter;
     cc_slist_iter_init(&iter, projectiles);
@@ -401,7 +370,7 @@ void projectilesStep(struct hashmap_s *shapeMap, CC_SList *projectiles)
         if (projectile->distance >= weaponMaxDistance(projectile->type))
         {
             cc_slist_iter_remove(&iter, NULL);
-            destroyProjectile(shapeMap, projectiles, projectile, true);
+            destroyProjectile(projectiles, projectile, true);
             continue;
         }
 
@@ -409,9 +378,8 @@ void projectilesStep(struct hashmap_s *shapeMap, CC_SList *projectiles)
     }
 }
 
-bool handleProjectileBeginContact(struct hashmap_s *shapeMap, CC_SList *projectiles, const entity *e1, const entity *e2)
+bool handleProjectileBeginContact(CC_SList *projectiles, const entity *e1, const entity *e2)
 {
-    assert(shapeMap != NULL);
     assert(e1 != NULL);
     assert(e2 != NULL);
 
@@ -427,16 +395,15 @@ bool handleProjectileBeginContact(struct hashmap_s *shapeMap, CC_SList *projecti
     uint8_t maxBounces = weaponBounce(projectile->type);
     if (projectile->bounces == maxBounces || projectile->bouncyWallBounces == maxBounces * 3)
     {
-        destroyProjectile(shapeMap, projectiles, projectile, true);
+        destroyProjectile(projectiles, projectile, true);
         return true;
     }
 
     return false;
 }
 
-bool handleProjectileEndContact(struct hashmap_s *shapeMap, CC_SList *projectiles, const entity *p, const entity *e)
+bool handleProjectileEndContact(CC_SList *projectiles, const entity *p, const entity *e)
 {
-    assert(shapeMap != NULL);
     assert(p != NULL);
 
     projectileEntity *projectile = (projectileEntity *)p->entity;
@@ -453,7 +420,7 @@ bool handleProjectileEndContact(struct hashmap_s *shapeMap, CC_SList *projectile
     uint8_t maxBounces = weaponBounce(projectile->type);
     if (projectile->bounces == maxBounces || projectile->bouncyWallBounces == maxBounces * 3)
     {
-        destroyProjectile(shapeMap, projectiles, projectile, true);
+        destroyProjectile(projectiles, projectile, true);
         return true;
     }
 
@@ -464,17 +431,15 @@ bool handleProjectileEndContact(struct hashmap_s *shapeMap, CC_SList *projectile
     return false;
 }
 
-void handleContactEvents(const b2WorldId worldID, struct hashmap_s *shapeMap, CC_SList *projectiles)
+void handleContactEvents(const b2WorldId worldID, CC_SList *projectiles)
 {
-    assert(shapeMap != NULL);
-
     b2ContactEvents events = b2World_GetContactEvents(worldID);
     for (int i = 0; i < events.endCount; ++i)
     {
         const b2ContactEndTouchEvent *event = events.endEvents + i;
         // TODO: remove hashmap and use shape userdata instead?
-        entity *e1 = (entity *)hashmap_get(shapeMap, &event->shapeIdA, sizeof(event->shapeIdA));
-        entity *e2 = (entity *)hashmap_get(shapeMap, &event->shapeIdB, sizeof(event->shapeIdB));
+        entity *e1 = (entity *)b2Shape_GetUserData(event->shapeIdA);
+        entity *e2 = (entity *)b2Shape_GetUserData(event->shapeIdB);
 
         if (e1 == NULL)
         {
@@ -482,19 +447,19 @@ void handleContactEvents(const b2WorldId worldID, struct hashmap_s *shapeMap, CC
         }
         else if (e1->type == PROJECTILE_ENTITY)
         {
-            if (handleProjectileEndContact(shapeMap, projectiles, e1, e2))
+            if (handleProjectileEndContact(projectiles, e1, e2))
             {
                 e1 = NULL;
             }
         }
         if (e2 != NULL && e2->type == PROJECTILE_ENTITY)
         {
-            handleProjectileEndContact(shapeMap, projectiles, e2, e1);
+            handleProjectileEndContact(projectiles, e2, e1);
         }
     }
 }
 
-void handleDroneBeginTouch(const b2WorldId worldID, struct hashmap_s *shapeMap, const entity *s, entity *v)
+void handleDroneBeginTouch(const b2WorldId worldID, const entity *s, entity *v)
 {
     weaponPickupEntity *pickup = (weaponPickupEntity *)s->entity;
     droneEntity *drone = (droneEntity *)v->entity;
@@ -502,18 +467,18 @@ void handleDroneBeginTouch(const b2WorldId worldID, struct hashmap_s *shapeMap, 
     destroyWeaponPickup(worldID, pickup);
 }
 
-void handleSensorEvents(const b2WorldId worldID, struct hashmap_s *shapeMap)
+void handleSensorEvents(const b2WorldId worldID)
 {
     b2SensorEvents events = b2World_GetSensorEvents(worldID);
     for (int i = 0; i < events.beginCount; ++i)
     {
         const b2SensorBeginTouchEvent *event = events.beginEvents + i;
-        entity *s = (entity *)hashmap_get(shapeMap, &event->sensorShapeId, sizeof(event->sensorShapeId));
+        entity *s = (entity *)b2Shape_GetUserData(event->sensorShapeId);
         if (s == NULL)
         {
             ERROR("could not find sensor shape for begin touch event");
         }
-        entity *v = (entity *)hashmap_get(shapeMap, &event->visitorShapeId, sizeof(event->visitorShapeId));
+        entity *v = (entity *)b2Shape_GetUserData(event->visitorShapeId);
         if (v == NULL)
         {
             ERROR("could not find visitor shape for begin touch event");
