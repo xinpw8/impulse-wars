@@ -36,10 +36,17 @@ typedef struct entity
     void *entity;
 } entity;
 
+typedef struct mapBounds
+{
+    b2Vec2 min;
+    b2Vec2 max;
+} mapBounds;
+
 typedef struct wallEntity
 {
     b2BodyId bodyID;
     b2ShapeId *shapeID;
+    b2Vec2 position;
     b2Vec2 extent;
     bool isFloating;
     enum entityType type;
@@ -50,6 +57,7 @@ typedef struct weaponPickupEntity
     b2BodyId bodyID;
     b2ShapeId *shapeID;
     enum weaponType weapon;
+    float respawnWait;
 } weaponPickupEntity;
 
 typedef struct droneEntity droneEntity;
@@ -57,7 +65,7 @@ typedef struct droneEntity droneEntity;
 typedef struct projectileEntity
 {
     b2BodyId bodyID;
-    b2ShapeId *shapeID;
+    b2ShapeId shapeID;
     enum weaponType type;
     b2Vec2 lastPos;
     float distance;
@@ -104,6 +112,10 @@ wallEntity *createWall(const b2WorldId worldID, const float posX, const float po
     wallEntity *wall = (wallEntity *)calloc(1, sizeof(wallEntity));
     wall->bodyID = wallBodyID;
     wall->shapeID = (b2ShapeId *)calloc(1, sizeof(b2ShapeId));
+    if (!floating)
+    {
+        wall->position = wallBodyDef.position;
+    }
     wall->extent = extent;
     wall->isFloating = floating;
     wall->type = type;
@@ -118,8 +130,10 @@ wallEntity *createWall(const b2WorldId worldID, const float posX, const float po
     return wall;
 }
 
+// TODO: randomly set initial placement
 weaponPickupEntity *createWeaponPickup(const b2WorldId worldID, const float posX, const float posY, const enum weaponType type)
 {
+    assert(b2World_IsValid(worldID));
     assert(type != STANDARD_WEAPON);
 
     b2BodyDef pickupBodyDef = b2DefaultBodyDef();
@@ -135,6 +149,7 @@ weaponPickupEntity *createWeaponPickup(const b2WorldId worldID, const float posX
     pickup->bodyID = pickupBodyID;
     pickup->shapeID = (b2ShapeId *)calloc(1, sizeof(b2ShapeId));
     pickup->weapon = type;
+    pickup->respawnWait = 0.0f;
 
     entity *e = (entity *)calloc(1, sizeof(entity));
     e->type = WEAPON_PICKUP_ENTITY;
@@ -149,6 +164,7 @@ weaponPickupEntity *createWeaponPickup(const b2WorldId worldID, const float posX
 
 void destroyWeaponPickup(const b2WorldId worldID, weaponPickupEntity *pickup)
 {
+    assert(b2World_IsValid(worldID));
     assert(pickup != NULL);
 
     entity *e = (entity *)b2Shape_GetUserData(*pickup->shapeID);
@@ -161,6 +177,8 @@ void destroyWeaponPickup(const b2WorldId worldID, weaponPickupEntity *pickup)
 
 droneEntity *createDrone(const b2WorldId worldID, const float posX, const float posY)
 {
+    assert(b2World_IsValid(worldID));
+
     b2BodyDef droneBodyDef = b2DefaultBodyDef();
     droneBodyDef.type = b2_dynamicBody;
     droneBodyDef.position = createb2Vec(posX, posY);
@@ -216,6 +234,8 @@ void droneMove(const droneEntity *drone, const b2Vec2 direction)
 
 void createProjectile(const b2WorldId worldID, CC_SList *projectiles, droneEntity *drone, const b2Vec2 normAim, const b2Vec2 aimRecoil)
 {
+    assert(b2World_IsValid(worldID));
+    assert(projectiles != NULL);
     assert(drone != NULL);
     ASSERT_VEC(normAim, -1.0f, 1.0f);
 
@@ -236,8 +256,7 @@ void createProjectile(const b2WorldId worldID, CC_SList *projectiles, droneEntit
     projectileShapeDef.filter.maskBits = WALL_SHAPE | PROJECTILE_SHAPE | DRONE_SHAPE;
     b2Circle projectileCircle = {.center = {.x = 0.0f, .y = 0.0f}, .radius = radius};
 
-    b2ShapeId *projectileShapeID = (b2ShapeId *)calloc(1, sizeof(b2ShapeId));
-    *projectileShapeID = b2CreateCircleShape(projectileBodyID, &projectileShapeDef, &projectileCircle);
+    b2ShapeId projectileShapeID = b2CreateCircleShape(projectileBodyID, &projectileShapeDef, &projectileCircle);
 
     // add lateral drone velocity to projectile
     b2Vec2 droneVel = b2Body_GetLinearVelocity(drone->bodyID);
@@ -259,14 +278,14 @@ void createProjectile(const b2WorldId worldID, CC_SList *projectiles, droneEntit
     e->type = PROJECTILE_ENTITY;
     e->entity = projectile;
 
-    b2Shape_SetUserData(*projectile->shapeID, e);
+    b2Shape_SetUserData(projectile->shapeID, e);
 }
 
 void destroyProjectile(CC_SList *projectiles, projectileEntity *projectile, bool full)
 {
     assert(projectile != NULL);
 
-    entity *e = (entity *)b2Shape_GetUserData(*projectile->shapeID);
+    entity *e = (entity *)b2Shape_GetUserData(projectile->shapeID);
     free(e);
 
     if (full)
@@ -275,7 +294,6 @@ void destroyProjectile(CC_SList *projectiles, projectileEntity *projectile, bool
         b2DestroyBody(projectile->bodyID);
     }
 
-    free(projectile->shapeID);
     free(projectile);
 }
 
@@ -298,6 +316,7 @@ void droneChangeWeapon(droneEntity *drone, enum weaponType weapon)
 
 void droneShoot(const b2WorldId worldID, CC_SList *projectiles, droneEntity *drone, const b2Vec2 aim)
 {
+    assert(b2World_IsValid(worldID));
     assert(drone != NULL);
     assert(drone->ammo != 0);
 
@@ -333,8 +352,9 @@ void droneShoot(const b2WorldId worldID, CC_SList *projectiles, droneEntity *dro
 void droneStep(droneEntity *drone, const float frameTime)
 {
     assert(drone != NULL);
+    assert(frameTime != 0.0f);
 
-    drone->weaponCooldown = b2MaxFloat(drone->weaponCooldown - frameTime, 0.0f);
+    drone->weaponCooldown = fmaxf(drone->weaponCooldown - frameTime, 0.0f);
     if (!drone->shotThisStep)
     {
         drone->triggerHeldSteps = 0;
@@ -377,6 +397,23 @@ void projectilesStep(CC_SList *projectiles)
     }
 }
 
+void weaponPickupStep(weaponPickupEntity *pickup, const float frameTime, const mapBounds bounds)
+{
+    assert(pickup != NULL);
+    assert(frameTime != 0.0f);
+
+    if (pickup->respawnWait != 0.0f)
+    {
+        pickup->respawnWait = fmaxf(pickup->respawnWait - frameTime, 0.0f);
+        if (pickup->respawnWait == 0.0f)
+        {
+            // TODO: make sure this isn't too close to other drones or pickups
+            b2Vec2 pos = {.x = randFloat(bounds.min.x, bounds.max.x), .y = randFloat(bounds.min.y, bounds.max.y)};
+            b2Body_SetTransform(pickup->bodyID, pos, b2MakeRot(0.0f));
+        }
+    }
+}
+
 bool handleProjectileBeginContact(CC_SList *projectiles, const entity *e1, const entity *e2)
 {
     assert(e1 != NULL);
@@ -403,6 +440,7 @@ bool handleProjectileBeginContact(CC_SList *projectiles, const entity *e1, const
 
 bool handleProjectileEndContact(CC_SList *projectiles, const entity *p, const entity *e)
 {
+    assert(projectiles != NULL);
     assert(p != NULL);
 
     projectileEntity *projectile = (projectileEntity *)p->entity;
@@ -432,6 +470,9 @@ bool handleProjectileEndContact(CC_SList *projectiles, const entity *p, const en
 
 void handleContactEvents(const b2WorldId worldID, CC_SList *projectiles)
 {
+    assert(b2World_IsValid(worldID));
+    assert(projectiles != NULL);
+
     b2ContactEvents events = b2World_GetContactEvents(worldID);
     for (int i = 0; i < events.endCount; ++i)
     {
@@ -466,15 +507,23 @@ void handleContactEvents(const b2WorldId worldID, CC_SList *projectiles)
 
 void handleDroneBeginTouch(const b2WorldId worldID, const entity *s, entity *v)
 {
+    assert(b2World_IsValid(worldID));
+
     weaponPickupEntity *pickup = (weaponPickupEntity *)s->entity;
+    if (pickup->respawnWait != 0.0f)
+    {
+        return;
+    }
+    pickup->respawnWait = PICKUP_RESPAWN_WAIT;
+
     droneEntity *drone = (droneEntity *)v->entity;
     droneChangeWeapon(drone, pickup->weapon);
-    // TODO: disable/hide for a bit, then enable in a new spot instead of destroying
-    // destroyWeaponPickup(worldID, pickup);
 }
 
 void handleSensorEvents(const b2WorldId worldID)
 {
+    assert(b2World_IsValid(worldID));
+
     b2SensorEvents events = b2World_GetSensorEvents(worldID);
     for (int i = 0; i < events.beginCount; ++i)
     {

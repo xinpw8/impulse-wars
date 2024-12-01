@@ -7,8 +7,6 @@
 #include <assert.h>
 #include <stdio.h>
 
-const float scale = 50.0f;
-
 #define ERRORF(fmt, args...)                                                    \
     fprintf(stderr, " %s:%s:%d\n" fmt, __FILE__, __FUNCTION__, __LINE__, args); \
     exit(1)

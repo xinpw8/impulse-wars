@@ -4,8 +4,10 @@
 #include "helpers.h"
 #include "game.h"
 
-const int width = 1920;
-const int height = 1080;
+const float scale = 10.0f;
+
+const int width = 1500;
+const int height = 1000;
 
 const float halfWidth = (float)width / 2.0f;
 const float halfHeight = (float)height / 2.0f;
@@ -67,6 +69,11 @@ void renderWall(const wallEntity *wall)
 
 void renderWeaponPickup(const weaponPickupEntity *pickup)
 {
+    if (pickup->respawnWait != 0.0f)
+    {
+        return;
+    }
+
     b2Vec2 pos = b2Body_GetPosition(pickup->bodyID);
     DrawCircleV(b2VecToRayVec(pos), DRONE_RADIUS * scale, LIME);
 }
