@@ -78,13 +78,33 @@ void renderWall(const wallEntity *wall)
 
 void renderWeaponPickup(const weaponPickupEntity *pickup)
 {
-    if (pickup->respawnWait != 0.0f)
+    if (pickup->respawnWait != 0.0f || pickup->disabled)
     {
         return;
     }
 
-    b2Vec2 pos = b2Body_GetPosition(pickup->bodyID);
-    DrawCircleV(b2VecToRayVec(pos), DRONE_RADIUS * scale, LIME);
+    b2Vec2 pickupPos = b2Body_GetPosition(pickup->bodyID);
+    Vector2 pos = b2VecToRayVec(pickupPos);
+    Rectangle rec = {
+        .x = pos.x,
+        .y = pos.y,
+        .width = PICKUP_THICKNESS * scale,
+        .height = PICKUP_THICKNESS * scale,
+    };
+    Vector2 origin = {.x = (PICKUP_THICKNESS / 2.0f) * scale, .y = (PICKUP_THICKNESS / 2.0f) * scale};
+    DrawRectanglePro(rec, origin, 0.0f, LIME);
+
+    char *name = "";
+    switch (pickup->weapon)
+    {
+    case MACHINEGUN_WEAPON:
+        name = "MACH";
+        break;
+    default:
+        ERRORF("unknown weapon pickup type %d", pickup->weapon);
+    }
+
+    DrawText(name, rec.x - origin.x + 1, rec.y - origin.y + 10, 10, BLACK);
 }
 
 void renderDrone(const droneEntity *drone, b2Vec2 move, b2Vec2 aim)
