@@ -111,12 +111,12 @@ int main(void)
     worldDef.gravity = createb2Vec(0.0f, 0.0f);
     b2WorldId worldID = b2CreateWorld(&worldDef);
 
-    CC_SList *projectiles;
-    cc_slist_new(&projectiles);
+    CC_Deque *entities;
+    cc_deque_new(&entities);
 
     CC_Deque *walls;
     CC_Deque *emptyCells;
-    createMap("layout.txt", worldID, &walls, &emptyCells);
+    createMap("prototype_arena.txt", worldID, entities, &walls, &emptyCells);
 
     mapBounds bounds = {.min = {.x = FLT_MAX, .y = FLT_MAX}, .max = {.x = FLT_MIN, .y = FLT_MIN}};
     for (size_t i = 0; i < cc_deque_size(walls); i++)
@@ -129,12 +129,13 @@ int main(void)
         bounds.max.y = fmaxf(wall->position.y + wall->extent.y - WALL_THICKNESS, bounds.max.y);
     }
 
-    weaponPickupEntity *pickup = createWeaponPickup(worldID, emptyCells, MACHINEGUN_WEAPON);
+    droneEntity *playerDrone = createDrone(worldID, entities, emptyCells);
+    droneEntity *aiDrone = createDrone(worldID, entities, emptyCells);
 
-    b2Vec2 pos = findOpenPos(emptyCells);
-    droneEntity *playerDrone = createDrone(worldID, pos.x, pos.y);
-    pos = findOpenPos(emptyCells);
-    droneEntity *aiDrone = createDrone(worldID, pos.x, pos.y);
+    weaponPickupEntity *pickup = createWeaponPickup(worldID, entities, emptyCells, MACHINEGUN_WEAPON);
+
+    CC_SList *projectiles;
+    cc_slist_new(&projectiles);
 
     while (!WindowShouldClose())
     {
@@ -145,9 +146,9 @@ int main(void)
         droneStep(playerDrone, frameTime);
         droneStep(aiDrone, frameTime);
         projectilesStep(projectiles);
-        weaponPickupStep(emptyCells, pickup, frameTime);
+        weaponPickupStep(entities, emptyCells, pickup, frameTime);
 
-        b2World_Step(worldID, 1.0f / 60.0f, 4);
+        b2World_Step(worldID, 1.0f / 60.0f, 8);
 
         handleContactEvents(worldID, projectiles);
         handleSensorEvents(worldID);
@@ -157,18 +158,18 @@ int main(void)
         ClearBackground(BLACK);
         DrawFPS(10, 10);
 
-        renderWeaponPickup(pickup);
-
-        renderDrone(playerDrone, inputs.move, inputs.aim);
-        renderDrone(aiDrone, b2Vec2_zero, b2Vec2_zero);
-        renderProjectiles(projectiles);
-
         for (size_t i = 0; i < cc_deque_size(walls); i++)
         {
             wallEntity *wall;
             cc_deque_get_at(walls, i, (void **)&wall);
             renderWall(wall);
         }
+
+        renderWeaponPickup(pickup);
+
+        renderDrone(playerDrone, inputs.move, inputs.aim);
+        renderDrone(aiDrone, b2Vec2_zero, b2Vec2_zero);
+        renderProjectiles(projectiles);
 
         DrawCircleV(b2VecToRayVec((b2Vec2){.x = bounds.min.x, .y = bounds.max.y}), 0.3f * scale, GREEN);
         DrawCircleV(b2VecToRayVec((b2Vec2){.x = bounds.max.x, .y = bounds.max.y}), 0.3f * scale, GREEN);

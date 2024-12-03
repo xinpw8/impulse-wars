@@ -4,10 +4,10 @@
 #include "helpers.h"
 #include "game.h"
 
-const float scale = 15.0f;
+const float scale = 20.0f; // 10.0f;
 
-const int width = 1300;
-const int height = 890;
+const int width = 1500;
+const int height = 1000;
 
 const float halfWidth = (float)width / 2.0f;
 const float halfHeight = (float)height / 2.0f;
@@ -78,7 +78,7 @@ void renderWall(const wallEntity *wall)
 
 void renderWeaponPickup(const weaponPickupEntity *pickup)
 {
-    if (pickup->respawnWait != 0.0f || pickup->disabled)
+    if (pickup->respawnWait != 0.0f || pickup->floatingWallsTouching != 0)
     {
         return;
     }
@@ -135,8 +135,8 @@ void renderDrone(const droneEntity *drone, b2Vec2 move, b2Vec2 aim)
     Rectangle aimGuide = {
         .x = rayX,
         .y = rayY,
-        .width = aimGuideWidthExtent * scale * 2.0f,
-        .height = aimGuideHeightExtent * scale * 2.0f,
+        .width = aimGuideWidthExtent * scale * 3.0f,
+        .height = aimGuideHeightExtent * scale * 3.0f,
     };
     DrawRectanglePro(aimGuide, (Vector2){.x = 0.0f, .y = aimGuideHeightExtent * scale}, aimRot, RED);
 

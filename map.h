@@ -5,7 +5,7 @@
 
 #include "game.h"
 
-void createMap(const char *layoutPath, const b2WorldId worldID, CC_Deque **walls, CC_Deque **emptyCells)
+void createMap(const char *layoutPath, const b2WorldId worldID, CC_Deque *entities, CC_Deque **walls, CC_Deque **emptyCells)
 {
     FILE *file = fopen(layoutPath, "r");
     if (!file)
@@ -46,9 +46,10 @@ void createMap(const char *layoutPath, const b2WorldId worldID, CC_Deque **walls
             char cell = line[col];
             enum entityType wallType;
             bool floating = false;
-            const float x = ((col / 2) - (width / 2.0f)) * WALL_THICKNESS;
-            const float y = ((height / 2.0f) - (height - row) - 1) * WALL_THICKNESS;
+            float x = ((col / 2) - (width / 2.0f)) * WALL_THICKNESS;
+            float y = ((height / 2.0f) - (height - row) - 1) * WALL_THICKNESS;
 
+            float thickness = WALL_THICKNESS;
             switch (cell)
             {
             case ' ':
@@ -60,16 +61,19 @@ void createMap(const char *layoutPath, const b2WorldId worldID, CC_Deque **walls
                 cc_deque_add(*emptyCells, pos);
                 continue;
             case 'w':
+                thickness = FLOATING_WALL_THICKNESS;
                 floating = true;
             case 'W':
                 wallType = STANDARD_WALL_ENTITY;
                 break;
             case 'b':
+                thickness = FLOATING_WALL_THICKNESS;
                 floating = true;
             case 'B':
                 wallType = BOUNCY_WALL_ENTITY;
                 break;
             case 'd':
+                thickness = FLOATING_WALL_THICKNESS;
                 floating = true;
             case 'D':
                 wallType = DEATH_WALL_ENTITY;
@@ -80,7 +84,7 @@ void createMap(const char *layoutPath, const b2WorldId worldID, CC_Deque **walls
 
             DEBUG_LOGF("creating wall at: (%f %f)", x, y);
 
-            wallEntity *wall = createWall(worldID, x, y, WALL_THICKNESS, WALL_THICKNESS, wallType, floating);
+            wallEntity *wall = createWall(worldID, entities, x, y, thickness, thickness, wallType, floating);
             cc_deque_add(*walls, wall);
         }
         row++;

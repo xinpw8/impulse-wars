@@ -6,40 +6,41 @@
 #define INFINITE_AMMO -1
 
 // wall settings
-#define WALL_THICKNESS 3.0f
+#define WALL_THICKNESS 4.0f
+#define FLOATING_WALL_THICKNESS 3.0f
 #define BOUNCY_WALL_RESTITUTION 1.0f
-#define WALL_DENSITY 10.0f
+#define WALL_DENSITY 5.0f
 
 // weapon pickup settings
-#define PICKUP_THICKNESS 2.0f
-#define PICKUP_RESPAWN_WAIT 3.0f
+#define PICKUP_THICKNESS 3.0f
+#define PICKUP_RESPAWN_WAIT 1.0f
 
 // drone settings
 #define DRONE_RADIUS 1.0f
 #define DRONE_DENSITY 1.25f
-#define DRONE_MOVE_MAGNITUDE 17.5f
-#define DRONE_DRAG_COEFFICIENT 3.25f
+#define DRONE_MOVE_MAGNITUDE 25.0f
+#define DRONE_LINEAR_DAMPING 1.0f
 #define DRONE_MOVE_AIM_DIVISOR 10.0f
-#define DRONE_DEFAULT_WEAPON MACHINEGUN_WEAPON
+#define DRONE_DEFAULT_WEAPON STANDARD_WEAPON
 
 // weapon projectile settings
 #define STANDARD_AMMO INFINITE_AMMO
 #define STANDARD_RECOIL_MAGNITUDE 12.5f
-#define STANDARD_FIRE_MAGNITUDE 25.0f
+#define STANDARD_FIRE_MAGNITUDE 15.5f
 #define STANDARD_COOL_DOWN 0.37f
 #define STANDARD_MAX_DISTANCE 80.0f
 #define STANDARD_RADIUS 0.2
-#define STANDARD_DENSITY 8.0f
+#define STANDARD_DENSITY 3.0f
 #define STANDARD_INV_MASS INV_MASS(STANDARD_DENSITY, STANDARD_RADIUS)
 #define STANDARD_BOUNCE 2
 
 #define MACHINEGUN_AMMO 35
 #define MACHINEGUN_RECOIL_MAGNITUDE 5.0f
-#define MACHINEGUN_FIRE_MAGNITUDE 20.0f
+#define MACHINEGUN_FIRE_MAGNITUDE 10.0f
 #define MACHINEGUN_COOL_DOWN 0.07f
 #define MACHINEGUN_MAX_DISTANCE 120.0f
 #define MACHINEGUN_RADIUS 0.15f
-#define MACHINEGUN_DENSITY 3.0f
+#define MACHINEGUN_DENSITY 2.0f
 #define MACHINEGUN_INV_MASS INV_MASS(MACHINEGUN_DENSITY, MACHINEGUN_RADIUS)
 #define MACHINEGUN_BOUNCE 1
 
@@ -52,7 +53,7 @@ enum weaponType
 };
 
 // amount the aim can be randomly varied by
-b2Vec2 weaponAimRecoil(enum weaponType type)
+b2Vec2 weaponAimRecoil(const enum weaponType type)
 {
     float aimRecoilMax = 0.0f;
     switch (type)
@@ -72,7 +73,7 @@ b2Vec2 weaponAimRecoil(enum weaponType type)
 }
 
 // max ammo of weapon
-int8_t weaponAmmo(enum weaponType type)
+int8_t weaponAmmo(const enum weaponType type)
 {
     switch (type)
     {
@@ -86,7 +87,7 @@ int8_t weaponAmmo(enum weaponType type)
 }
 
 // amount of recoil to apply to drone
-float weaponRecoil(enum weaponType type)
+float weaponRecoil(const enum weaponType type)
 {
     switch (type)
     {
@@ -100,7 +101,7 @@ float weaponRecoil(enum weaponType type)
 }
 
 // amount of force to apply to projectile
-float weaponFire(enum weaponType type)
+float weaponFire(const enum weaponType type)
 {
     switch (type)
     {
@@ -114,7 +115,7 @@ float weaponFire(enum weaponType type)
 }
 
 // time in seconds of cooldown between shots
-float weaponCoolDown(enum weaponType type)
+float weaponCoolDown(const enum weaponType type)
 {
     switch (type)
     {
@@ -128,7 +129,7 @@ float weaponCoolDown(enum weaponType type)
 }
 
 // max distance of projectile before it is destroyed
-float weaponMaxDistance(enum weaponType type)
+float weaponMaxDistance(const enum weaponType type)
 {
     switch (type)
     {
@@ -142,7 +143,7 @@ float weaponMaxDistance(enum weaponType type)
 }
 
 // radius of projectile shape, affects size and mass
-float weaponRadius(enum weaponType type)
+float weaponRadius(const enum weaponType type)
 {
     switch (type)
     {
@@ -156,7 +157,7 @@ float weaponRadius(enum weaponType type)
 }
 
 // density of projectile, affects mass
-float weaponDensity(enum weaponType type)
+float weaponDensity(const enum weaponType type)
 {
     switch (type)
     {
@@ -169,9 +170,28 @@ float weaponDensity(enum weaponType type)
     }
 }
 
+b2Vec2 weaponAdjustAim(const enum weaponType type, const uint16_t heat, const b2Vec2 normAim)
+{
+    switch (type)
+    {
+    case STANDARD_WEAPON:
+        return normAim;
+    case MACHINEGUN_WEAPON:
+        const float swayCoef = logBasef((heat / 5.0f) + 1, 180);
+        const float maxSway = 0.15f;
+        const float swayX = randFloat(maxSway * -swayCoef, maxSway * swayCoef);
+        const float swayY = randFloat(maxSway * -swayCoef, maxSway * swayCoef);
+        DEBUG_LOGF("heat=%d sway=(%f %f)", heat, swayX, swayY);
+        b2Vec2 aim = {.x = normAim.x + swayX, .y = normAim.y + swayY};
+        return b2Normalize(aim);
+    default:
+        ERRORF("unknown weapon type %d", type);
+    }
+}
+
 // projectile inverse mass, used to keep projectile velocity constant
 // when bouncing off other bodies
-float weaponInvMass(enum weaponType type)
+float weaponInvMass(const enum weaponType type)
 {
     switch (type)
     {
@@ -185,7 +205,7 @@ float weaponInvMass(enum weaponType type)
 }
 
 // amount of times projectile can bounce before being destroyed
-uint8_t weaponBounce(enum weaponType type)
+uint8_t weaponBounce(const enum weaponType type)
 {
     uint8_t bounce = 0;
     switch (type)

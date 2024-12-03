@@ -6,6 +6,7 @@
 
 #include <assert.h>
 #include <stdio.h>
+#include <time.h>
 
 #define ERRORF(fmt, args...)                                                    \
     fprintf(stderr, " %s:%s:%d\n" fmt, __FILE__, __FUNCTION__, __LINE__, args); \
@@ -13,13 +14,13 @@
 #define ERROR(msg) ERRORF(msg, NULL)
 
 #ifndef NDEBUG
-#define DEBUG_LOGF(fmt, args...)                                                                                                           \
-    {                                                                                                                                      \
-        time_t t = time(NULL);                                                                                                             \
-        struct tm *timeinfo;                                                                                                               \
-        timeinfo = localtime(&t);                                                                                                          \
-        printf(" %d:%d:%d %s:%s:%d\n" fmt, timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec, __FILE__, __FUNCTION__, __LINE__, args); \
-        fflush(stdout);                                                                                                                    \
+#define DEBUG_LOGF(fmt, args...)                                                                                                              \
+    {                                                                                                                                         \
+        time_t _t = time(NULL);                                                                                                               \
+        struct tm *_timeinfo;                                                                                                                 \
+        _timeinfo = localtime(&_t);                                                                                                           \
+        printf(" %d:%d:%d %s:%s:%d\n" fmt, _timeinfo->tm_hour, _timeinfo->tm_min, _timeinfo->tm_sec, __FILE__, __FUNCTION__, __LINE__, args); \
+        fflush(stdout);                                                                                                                       \
     }
 #define DEBUG_LOG(msg) DEBUG_LOGF(msg, NULL)
 #else
@@ -45,15 +46,20 @@ bool b2VecEqual(const b2Vec2 v1, const b2Vec2 v2)
     return v1.x == v2.x && v1.y == v2.y;
 }
 
-float randFloat(float min, float max)
+float randFloat(const float min, const float max)
 {
     float n = rand() / (float)RAND_MAX;
     return min + n * (max - min);
 }
 
-int randInt(int min, int max)
+int randInt(const int min, const int max)
 {
     return min + rand() % (max - min + 1);
+}
+
+float logBasef(const float v, const float b)
+{
+    return log2f(v) / log2(b);
 }
 
 #endif
