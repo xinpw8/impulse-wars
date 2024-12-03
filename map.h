@@ -5,13 +5,13 @@
 
 #include "game.h"
 
-CC_Deque *createMap(const char *layoutPath, const b2WorldId worldID)
+void createMap(const char *layoutPath, const b2WorldId worldID, CC_Deque **walls, CC_Deque **emptyCells)
 {
     FILE *file = fopen(layoutPath, "r");
     if (!file)
     {
         perror("Failed to open map file");
-        return NULL;
+        return;
     }
 
     int width = 0;
@@ -25,10 +25,11 @@ CC_Deque *createMap(const char *layoutPath, const b2WorldId worldID)
         }
         height++;
     }
+    width /= 2;
     rewind(file);
 
-    CC_Deque *walls;
-    cc_deque_new(&walls);
+    cc_deque_new(walls);
+    cc_deque_new(emptyCells);
 
     int row = 0;
     while (fgets(line, sizeof(line), file))
@@ -44,31 +45,46 @@ CC_Deque *createMap(const char *layoutPath, const b2WorldId worldID)
         {
             char cell = line[col];
             enum entityType wallType;
+            bool floating = false;
+            const float x = ((col / 2) - (width / 2.0f)) * WALL_THICKNESS;
+            const float y = ((height / 2.0f) - (height - row) - 1) * WALL_THICKNESS;
+
             switch (cell)
             {
-            case 'O':
+            case ' ':
                 continue;
+            case 'O':
+                b2Vec2 *pos = malloc(sizeof(b2Vec2));
+                pos->x = x;
+                pos->y = y;
+                cc_deque_add(*emptyCells, pos);
+                continue;
+            case 'w':
+                floating = true;
             case 'W':
                 wallType = STANDARD_WALL_ENTITY;
                 break;
+            case 'b':
+                floating = true;
             case 'B':
                 wallType = BOUNCY_WALL_ENTITY;
+                break;
+            case 'd':
+                floating = true;
+            case 'D':
+                wallType = DEATH_WALL_ENTITY;
                 break;
             default:
                 ERRORF("unknown map layout cell %c", cell);
             }
 
-            float x = (col - width / 2.0f) * WALL_THICKNESS;
-            float y = (height / 2.0f - row - 1) * WALL_THICKNESS;
             DEBUG_LOGF("creating wall at: (%f %f)", x, y);
 
-            wallEntity *wall = createWall(worldID, x, y, WALL_THICKNESS, WALL_THICKNESS, wallType, false);
-            cc_deque_add(walls, wall);
+            wallEntity *wall = createWall(worldID, x, y, WALL_THICKNESS, WALL_THICKNESS, wallType, floating);
+            cc_deque_add(*walls, wall);
         }
         row++;
     }
 
     fclose(file);
-
-    return walls;
 }

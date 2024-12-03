@@ -4,10 +4,10 @@
 #include "helpers.h"
 #include "game.h"
 
-const float scale = 10.0f;
+const float scale = 15.0f;
 
-const int width = 1500;
-const int height = 1000;
+const int width = 1300;
+const int height = 890;
 
 const float halfWidth = (float)width / 2.0f;
 const float halfHeight = (float)height / 2.0f;
@@ -25,7 +25,7 @@ float b2XToRayX(const float x)
 
 float b2YToRayY(const float y)
 {
-    return halfHeight + y * scale;
+    return (halfHeight + y * scale) + (4 * scale);
 }
 
 Vector2 b2VecToRayVec(const b2Vec2 v)
@@ -59,12 +59,21 @@ void renderWall(const wallEntity *wall)
     b2Vec2 wallPos = b2Body_GetPosition(wall->bodyID);
     Vector2 pos = b2VecToRayVec(wallPos);
     Rectangle rec = {
-        .x = pos.x - wall->extent.x * scale,
-        .y = pos.y - wall->extent.y * scale,
+        .x = pos.x,
+        .y = pos.y,
         .width = wall->extent.x * scale * 2.0f,
         .height = wall->extent.y * scale * 2.0f,
     };
-    DrawRectanglePro(rec, (Vector2){.x = 0.0f, .y = 0.0f}, 0.0f, color);
+
+    Vector2 origin = {.x = wall->extent.x * scale, .y = wall->extent.y * scale};
+    float angle = 0.0f;
+    if (wall->isFloating)
+    {
+        angle = b2Rot_GetAngle(b2Body_GetRotation(wall->bodyID));
+        angle *= RAD2DEG;
+    }
+
+    DrawRectanglePro(rec, origin, angle, color);
 }
 
 void renderWeaponPickup(const weaponPickupEntity *pickup)

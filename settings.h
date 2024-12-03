@@ -7,8 +7,8 @@
 
 // wall settings
 #define WALL_THICKNESS 3.0f
-#define BOUNCY_WALL_RESTITUTION 0.9f
-#define WALL_DENSITY 50.0f
+#define BOUNCY_WALL_RESTITUTION 1.0f
+#define WALL_DENSITY 10.0f
 
 // weapon pickup settings
 #define PICKUP_RESPAWN_WAIT 3.0f
@@ -17,29 +17,28 @@
 #define DRONE_RADIUS 1.0f
 #define DRONE_DENSITY 1.25f
 #define DRONE_MOVE_MAGNITUDE 17.5f
-#define DRONE_DRAG_COEFFICIENT 3.5f
-#define DRONE_DEFAULT_WEAPON STANDARD_WEAPON
+#define DRONE_DRAG_COEFFICIENT 3.25f
+#define DRONE_MOVE_AIM_DIVISOR 10.0f
+#define DRONE_DEFAULT_WEAPON MACHINEGUN_WEAPON
 
 // weapon projectile settings
 #define STANDARD_AMMO INFINITE_AMMO
 #define STANDARD_RECOIL_MAGNITUDE 12.5f
 #define STANDARD_FIRE_MAGNITUDE 25.0f
-#define STANDARD_DRONE_MOVE_COEF 1.0f
 #define STANDARD_COOL_DOWN 0.37f
-#define STANDARD_MAX_DISTANCE 75.0f // needs tuning
+#define STANDARD_MAX_DISTANCE 80.0f
 #define STANDARD_RADIUS 0.2
 #define STANDARD_DENSITY 8.0f
 #define STANDARD_INV_MASS INV_MASS(STANDARD_DENSITY, STANDARD_RADIUS)
 #define STANDARD_BOUNCE 2
 
 #define MACHINEGUN_AMMO 35
-#define MACHINEGUN_RECOIL_MAGNITUDE 3.0f
-#define MACHINEGUN_FIRE_MAGNITUDE 12.0f
-#define MACHINEGUN_DRONE_MOVE_COEF 0.5f
-#define MACHINEGUN_COOL_DOWN 0.045f
-#define MACHINEGUN_MAX_DISTANCE 100.0f
+#define MACHINEGUN_RECOIL_MAGNITUDE 3.5f
+#define MACHINEGUN_FIRE_MAGNITUDE 20.0f
+#define MACHINEGUN_COOL_DOWN 0.07f
+#define MACHINEGUN_MAX_DISTANCE 120.0f
 #define MACHINEGUN_RADIUS 0.15f
-#define MACHINEGUN_DENSITY 5.0f
+#define MACHINEGUN_DENSITY 3.0f
 #define MACHINEGUN_INV_MASS INV_MASS(MACHINEGUN_DENSITY, MACHINEGUN_RADIUS)
 #define MACHINEGUN_BOUNCE 1
 
@@ -108,20 +107,6 @@ float weaponFire(enum weaponType type)
         return STANDARD_FIRE_MAGNITUDE;
     case MACHINEGUN_WEAPON:
         return MACHINEGUN_FIRE_MAGNITUDE;
-    default:
-        ERRORF("unknown weapon type %d", type);
-    }
-}
-
-// amount of parent drone lateral movement for be applied to projectile
-float weaponDroneMoveCoef(enum weaponType type)
-{
-    switch (type)
-    {
-    case STANDARD_WEAPON:
-        return STANDARD_DRONE_MOVE_COEF;
-    case MACHINEGUN_WEAPON:
-        return MACHINEGUN_DRONE_MOVE_COEF;
     default:
         ERRORF("unknown weapon type %d", type);
     }

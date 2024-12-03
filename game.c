@@ -98,68 +98,9 @@ void handlePlayerDroneInputs(const b2WorldId worldID, CC_SList *projectiles, dro
     }
 }
 
-// void perfTest(float testTime)
-// {
-//     int width = 1920;
-//     int height = 1080;
-
-//     b2WorldDef worldDef = b2DefaultWorldDef();
-//     worldDef.gravity = createb2Vec(0.0f, 0.0f);
-//     b2WorldId worldID = b2CreateWorld(&worldDef);
-
-//     CC_SList *projectiles;
-//     cc_slist_new(&projectiles);
-
-//     createWall(worldID, ((float)width /WALL_THICKNESS) / scale, 1000.0f / scale, 32.0f,WALL_THICKNESS, STANDARD_WALL);
-//     createWall(worldID, 110.0f / scale, ((float)height /WALL_THICKNESS) / scale,WALL_THICKNESS, 20.4f, BOUNCY_WALL);
-//     createWall(worldID, ((float)width - 110.0f) / scale, ((float)height /WALL_THICKNESS) / scale,WALL_THICKNESS, 20.4f, BOUNCY_WALL);
-//     createWall(worldID, ((float)width /WALL_THICKNESS) / scale, 80.0f / scale, 32.0f,WALL_THICKNESS, STANDARD_WALL);
-
-//     droneEntity *playerDrone = createDrone(worldID, ((float)width /WALL_THICKNESS) / scale, ((float)height /WALL_THICKNESS) / scale);
-//     droneEntity *aiDrone = createDrone(worldID, ((float)width /WALL_THICKNESS + 1.0f) / scale, ((float)height /WALL_THICKNESS + 200.0f) / scale);
-
-//     int i = 0;
-//     time_t start = time(NULL);
-//     time_t cur = start;
-//     while (cur - start < testTime)
-//     {
-//         b2Vec2 playerMove = {.x = randFloat(-1.0f, 1.0f), .y = randFloat(-1.0f, 1.0f)};
-//         droneMove(playerDrone, playerMove);
-//         if (randInt(0, 1))
-//         {
-//             b2Vec2 aim = {.x = randFloat(-1.0f, 1.0f), .y = randFloat(-1.0f, 1.0f)};
-//             droneShoot(worldID, projectiles, playerDrone, aim);
-//         }
-
-//         b2Vec2 aiMove = {.x = randFloat(-1.0f, 1.0f), .y = randFloat(-1.0f, 1.0f)};
-//         droneMove(aiDrone, aiMove);
-//         if (randInt(0, 1))
-//         {
-//             b2Vec2 aim = {.x = randFloat(-1.0f, 1.0f), .y = randFloat(-1.0f, 1.0f)};
-//             droneShoot(worldID, projectiles, aiDrone, aim);
-//         }
-
-//         float frameTime = (float)cur - (float)start;
-//         droneStep(playerDrone, frameTime);
-//         droneStep(aiDrone, frameTime);
-
-//         b2World_Step(worldID, frameTime, 4);
-
-//         handleContactEvents(worldID, projectiles);
-
-//         cur = time(NULL);
-//         i++;
-//     }
-
-//     time_t end = time(NULL);
-//     printf("SPS: %f\n", ((float)i * 2) / (float)(end - start));
-// }
-
 int main(void)
 {
     srand(time(NULL));
-    // perfTest(30.0f);
-    // return 0;
 
     SetConfigFlags(FLAG_MSAA_4X_HINT);
     InitWindow(width, height, "test");
@@ -173,12 +114,14 @@ int main(void)
     CC_SList *projectiles;
     cc_slist_new(&projectiles);
 
-    CC_Deque *walls = createMap("layout.txt", worldID);
+    CC_Deque *walls;
+    CC_Deque *emptyCells;
+    createMap("layout.txt", worldID, &walls, &emptyCells);
 
-    wallEntity *wall;
     mapBounds bounds = {.min = {.x = FLT_MAX, .y = FLT_MAX}, .max = {.x = FLT_MIN, .y = FLT_MIN}};
     for (size_t i = 0; i < cc_deque_size(walls); i++)
     {
+        wallEntity *wall;
         cc_deque_get_at(walls, i, (void **)&wall);
         bounds.min.x = fminf(wall->position.x - wall->extent.x + WALL_THICKNESS, bounds.min.x);
         bounds.min.y = fminf(wall->position.y - wall->extent.y + WALL_THICKNESS, bounds.min.y);
@@ -186,10 +129,12 @@ int main(void)
         bounds.max.y = fmaxf(wall->position.y + wall->extent.y - WALL_THICKNESS, bounds.max.y);
     }
 
-    weaponPickupEntity *pickup = createWeaponPickup(worldID, -10.0f, -4.0f, MACHINEGUN_WEAPON);
+    weaponPickupEntity *pickup = createWeaponPickup(worldID, emptyCells, MACHINEGUN_WEAPON);
 
-    droneEntity *playerDrone = createDrone(worldID, -5.0f, 0.0f);
-    droneEntity *aiDrone = createDrone(worldID, 5.0f, 0.0f);
+    b2Vec2 pos = findOpenPos(emptyCells);
+    droneEntity *playerDrone = createDrone(worldID, pos.x, pos.y);
+    pos = findOpenPos(emptyCells);
+    droneEntity *aiDrone = createDrone(worldID, pos.x, pos.y);
 
     while (!WindowShouldClose())
     {
@@ -200,7 +145,7 @@ int main(void)
         droneStep(playerDrone, frameTime);
         droneStep(aiDrone, frameTime);
         projectilesStep(projectiles);
-        weaponPickupStep(pickup, frameTime, bounds);
+        weaponPickupStep(emptyCells, pickup, frameTime);
 
         b2World_Step(worldID, 1.0f / 60.0f, 4);
 
@@ -218,9 +163,9 @@ int main(void)
         renderDrone(aiDrone, b2Vec2_zero, b2Vec2_zero);
         renderProjectiles(projectiles);
 
-        wallEntity *wall;
         for (size_t i = 0; i < cc_deque_size(walls); i++)
         {
+            wallEntity *wall;
             cc_deque_get_at(walls, i, (void **)&wall);
             renderWall(wall);
         }
@@ -233,11 +178,28 @@ int main(void)
         EndDrawing();
     }
 
+    destroyWeaponPickup(pickup);
     destroyDrone(playerDrone);
     destroyDrone(aiDrone);
     destroyAllProjectiles(projectiles);
 
+    for (size_t i = 0; i < cc_deque_size(walls); i++)
+    {
+        wallEntity *wall;
+        cc_deque_get_at(walls, i, (void **)&wall);
+        destroyWall(worldID, wall);
+    }
+
+    for (size_t i = 0; i < cc_deque_size(emptyCells); i++)
+    {
+        b2Vec2 *pos;
+        cc_deque_get_at(emptyCells, i, (void **)&pos);
+        free(pos);
+    }
+
     cc_slist_destroy(projectiles);
+    cc_deque_destroy(walls);
+    cc_deque_destroy(emptyCells);
 
     b2DestroyWorld(worldID);
     CloseWindow();
