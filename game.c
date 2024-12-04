@@ -113,10 +113,12 @@ int main(void)
 
     CC_Deque *entities;
     cc_deque_new(&entities);
-
     CC_Deque *walls;
+    cc_deque_new(&walls);
     CC_Deque *emptyCells;
-    createMap("prototype_arena.txt", worldID, entities, &walls, &emptyCells);
+    cc_deque_new(&emptyCells);
+
+    createMap("snipers.txt", worldID, entities, walls, emptyCells);
 
     mapBounds bounds = {.min = {.x = FLT_MAX, .y = FLT_MAX}, .max = {.x = FLT_MIN, .y = FLT_MIN}};
     for (size_t i = 0; i < cc_deque_size(walls); i++)
@@ -132,7 +134,8 @@ int main(void)
     droneEntity *playerDrone = createDrone(worldID, entities, emptyCells);
     droneEntity *aiDrone = createDrone(worldID, entities, emptyCells);
 
-    weaponPickupEntity *pickup = createWeaponPickup(worldID, entities, emptyCells, MACHINEGUN_WEAPON);
+    weaponPickupEntity *machPickup = createWeaponPickup(worldID, entities, emptyCells, MACHINEGUN_WEAPON);
+    weaponPickupEntity *snipPickup = createWeaponPickup(worldID, entities, emptyCells, SNIPER_WEAPON);
 
     CC_SList *projectiles;
     cc_slist_new(&projectiles);
@@ -146,7 +149,8 @@ int main(void)
         droneStep(playerDrone, frameTime);
         droneStep(aiDrone, frameTime);
         projectilesStep(projectiles);
-        weaponPickupStep(entities, emptyCells, pickup, frameTime);
+        weaponPickupStep(entities, emptyCells, machPickup, frameTime);
+        weaponPickupStep(entities, emptyCells, snipPickup, frameTime);
 
         b2World_Step(worldID, 1.0f / 60.0f, 8);
 
@@ -165,7 +169,8 @@ int main(void)
             renderWall(wall);
         }
 
-        renderWeaponPickup(pickup);
+        renderWeaponPickup(machPickup);
+        renderWeaponPickup(snipPickup);
 
         renderDrone(playerDrone, inputs.move, inputs.aim);
         renderDrone(aiDrone, b2Vec2_zero, b2Vec2_zero);
@@ -179,7 +184,8 @@ int main(void)
         EndDrawing();
     }
 
-    destroyWeaponPickup(pickup);
+    destroyWeaponPickup(machPickup);
+    destroyWeaponPickup(snipPickup);
     destroyDrone(playerDrone);
     destroyDrone(aiDrone);
     destroyAllProjectiles(projectiles);

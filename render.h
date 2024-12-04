@@ -4,7 +4,7 @@
 #include "helpers.h"
 #include "game.h"
 
-const float scale = 20.0f; // 10.0f;
+const float scale = 10.0f;
 
 const int width = 1500;
 const int height = 1000;
@@ -100,6 +100,9 @@ void renderWeaponPickup(const weaponPickupEntity *pickup)
     case MACHINEGUN_WEAPON:
         name = "MACH";
         break;
+    case SNIPER_WEAPON:
+        name = "SNIP";
+        break;
     default:
         ERRORF("unknown weapon pickup type %d", pickup->weapon);
     }
@@ -141,6 +144,29 @@ void renderDrone(const droneEntity *drone, b2Vec2 move, b2Vec2 aim)
     DrawRectanglePro(aimGuide, (Vector2){.x = 0.0f, .y = aimGuideHeightExtent * scale}, aimRot, RED);
 
     DrawCircleV(b2VecToRayVec(pos), DRONE_RADIUS * scale, barolo);
+}
+
+void renderEntity(const entity *e)
+{
+    switch (e->type)
+    {
+    case STANDARD_WALL_ENTITY:
+    case BOUNCY_WALL_ENTITY:
+    case DEATH_WALL_ENTITY:
+        const wallEntity *w = (wallEntity *)e->entity;
+        renderWall(w);
+        break;
+    case WEAPON_PICKUP_ENTITY:
+        const weaponPickupEntity *p = (weaponPickupEntity *)e->entity;
+        renderWeaponPickup(p);
+        break;
+    case DRONE_ENTITY:
+        const droneEntity *d = (droneEntity *)e->entity;
+        renderDrone(d, b2Vec2_zero, b2Vec2_zero);
+        break;
+    default:
+        ERRORF("unknown entity type while rendering entity %d", e->type);
+    }
 }
 
 void renderProjectiles(CC_SList *projectiles)

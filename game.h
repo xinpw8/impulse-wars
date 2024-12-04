@@ -372,7 +372,7 @@ void droneMove(const droneEntity *drone, const b2Vec2 direction)
     b2Body_ApplyForceToCenter(drone->bodyID, force, true);
 }
 
-void createProjectile(const b2WorldId worldID, CC_SList *projectiles, droneEntity *drone, const b2Vec2 normAim, const b2Vec2 aimRecoil)
+void createProjectile(const b2WorldId worldID, CC_SList *projectiles, droneEntity *drone, const b2Vec2 normAim)
 {
     assert(b2World_IsValid(worldID));
     assert(projectiles != NULL);
@@ -404,7 +404,6 @@ void createProjectile(const b2WorldId worldID, CC_SList *projectiles, droneEntit
     lateralVel = b2MulSV(projectileShapeDef.density / DRONE_MOVE_AIM_DIVISOR, lateralVel);
     b2Vec2 aim = weaponAdjustAim(drone->weapon, drone->heat, normAim);
     b2Vec2 fire = b2MulAdd(lateralVel, weaponFire(drone->weapon), aim);
-    fire = b2Add(fire, aimRecoil);
     b2Body_ApplyLinearImpulseToCenter(projectileBodyID, fire, true);
 
     projectileEntity *projectile = (projectileEntity *)calloc(1, sizeof(projectileEntity));
@@ -483,11 +482,11 @@ void droneShoot(const b2WorldId worldID, CC_SList *projectiles, droneEntity *dro
     b2Vec2 recoil = b2MulAdd(aimRecoil, -weaponRecoil(drone->weapon), normAim);
     b2Body_ApplyLinearImpulseToCenter(drone->bodyID, recoil, true);
 
-    createProjectile(worldID, projectiles, drone, normAim, aimRecoil);
+    createProjectile(worldID, projectiles, drone, normAim);
 
     if (drone->ammo == 0)
     {
-        droneChangeWeapon(drone, STANDARD_WEAPON);
+        droneChangeWeapon(drone, DRONE_DEFAULT_WEAPON);
     }
 }
 

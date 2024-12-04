@@ -1,3 +1,4 @@
+#include <errno.h>
 #include <string.h>
 
 #include "box2d/box2d.h"
@@ -5,13 +6,12 @@
 
 #include "game.h"
 
-void createMap(const char *layoutPath, const b2WorldId worldID, CC_Deque *entities, CC_Deque **walls, CC_Deque **emptyCells)
+void createMap(const char *layoutPath, const b2WorldId worldID, CC_Deque *entities, CC_Deque *walls, CC_Deque *emptyCells)
 {
     FILE *file = fopen(layoutPath, "r");
     if (!file)
     {
-        perror("Failed to open map file");
-        return;
+        ERRORF("failed to open map file %s: %s", layoutPath, strerror(errno));
     }
 
     int width = 0;
@@ -27,9 +27,6 @@ void createMap(const char *layoutPath, const b2WorldId worldID, CC_Deque *entiti
     }
     width /= 2;
     rewind(file);
-
-    cc_deque_new(walls);
-    cc_deque_new(emptyCells);
 
     int row = 0;
     while (fgets(line, sizeof(line), file))
@@ -58,7 +55,7 @@ void createMap(const char *layoutPath, const b2WorldId worldID, CC_Deque *entiti
                 b2Vec2 *pos = malloc(sizeof(b2Vec2));
                 pos->x = x;
                 pos->y = y;
-                cc_deque_add(*emptyCells, pos);
+                cc_deque_add(emptyCells, pos);
                 continue;
             case 'w':
                 thickness = FLOATING_WALL_THICKNESS;
@@ -85,7 +82,7 @@ void createMap(const char *layoutPath, const b2WorldId worldID, CC_Deque *entiti
             DEBUG_LOGF("creating wall at: (%f %f)", x, y);
 
             wallEntity *wall = createWall(worldID, entities, x, y, thickness, thickness, wallType, floating);
-            cc_deque_add(*walls, wall);
+            cc_deque_add(walls, wall);
         }
         row++;
     }

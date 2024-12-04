@@ -21,7 +21,7 @@
 #define DRONE_MOVE_MAGNITUDE 25.0f
 #define DRONE_LINEAR_DAMPING 1.0f
 #define DRONE_MOVE_AIM_DIVISOR 10.0f
-#define DRONE_DEFAULT_WEAPON STANDARD_WEAPON
+#define DRONE_DEFAULT_WEAPON SNIPER_WEAPON // STANDARD_WEAPON
 
 // weapon projectile settings
 #define STANDARD_AMMO INFINITE_AMMO
@@ -43,13 +43,23 @@
 #define MACHINEGUN_DENSITY 2.0f
 #define MACHINEGUN_INV_MASS INV_MASS(MACHINEGUN_DENSITY, MACHINEGUN_RADIUS)
 #define MACHINEGUN_BOUNCE 1
-
 #define MACHINEGUN_AIM_RECOIL_MAX 0.1f
+
+#define SNIPER_AMMO INFINITE_AMMO // 3
+#define SNIPER_RECOIL_MAGNITUDE 60.0f
+#define SNIPER_FIRE_MAGNITUDE 120.0f
+#define SNIPER_COOL_DOWN 1.0f
+#define SNIPER_MAX_DISTANCE 500.0f
+#define SNIPER_RADIUS 0.5f
+#define SNIPER_DENSITY 1.0f
+#define SNIPER_INV_MASS INV_MASS(SNIPER_DENSITY, SNIPER_RADIUS)
+#define SNIPER_BOUNCE 0
 
 enum weaponType
 {
     STANDARD_WEAPON,
     MACHINEGUN_WEAPON,
+    SNIPER_WEAPON,
 };
 
 // amount the aim can be randomly varied by
@@ -81,6 +91,8 @@ int8_t weaponAmmo(const enum weaponType type)
         return STANDARD_AMMO;
     case MACHINEGUN_WEAPON:
         return MACHINEGUN_AMMO;
+    case SNIPER_WEAPON:
+        return SNIPER_AMMO;
     default:
         ERRORF("unknown weapon type %d", type);
     }
@@ -95,6 +107,8 @@ float weaponRecoil(const enum weaponType type)
         return STANDARD_RECOIL_MAGNITUDE;
     case MACHINEGUN_WEAPON:
         return MACHINEGUN_RECOIL_MAGNITUDE;
+    case SNIPER_WEAPON:
+        return SNIPER_RECOIL_MAGNITUDE;
     default:
         ERRORF("unknown weapon type %d", type);
     }
@@ -109,6 +123,8 @@ float weaponFire(const enum weaponType type)
         return STANDARD_FIRE_MAGNITUDE;
     case MACHINEGUN_WEAPON:
         return MACHINEGUN_FIRE_MAGNITUDE;
+    case SNIPER_WEAPON:
+        return SNIPER_FIRE_MAGNITUDE;
     default:
         ERRORF("unknown weapon type %d", type);
     }
@@ -123,6 +139,8 @@ float weaponCoolDown(const enum weaponType type)
         return STANDARD_COOL_DOWN;
     case MACHINEGUN_WEAPON:
         return MACHINEGUN_COOL_DOWN;
+    case SNIPER_WEAPON:
+        return SNIPER_COOL_DOWN;
     default:
         ERRORF("unknown weapon type %d", type);
     }
@@ -137,6 +155,8 @@ float weaponMaxDistance(const enum weaponType type)
         return STANDARD_MAX_DISTANCE;
     case MACHINEGUN_WEAPON:
         return MACHINEGUN_MAX_DISTANCE;
+    case SNIPER_WEAPON:
+        return SNIPER_MAX_DISTANCE;
     default:
         ERRORF("unknown weapon type %d", type);
     }
@@ -151,6 +171,8 @@ float weaponRadius(const enum weaponType type)
         return STANDARD_RADIUS;
     case MACHINEGUN_WEAPON:
         return MACHINEGUN_RADIUS;
+    case SNIPER_WEAPON:
+        return SNIPER_RADIUS;
     default:
         ERRORF("unknown weapon type %d", type);
     }
@@ -165,6 +187,8 @@ float weaponDensity(const enum weaponType type)
         return STANDARD_DENSITY;
     case MACHINEGUN_WEAPON:
         return MACHINEGUN_DENSITY;
+    case SNIPER_WEAPON:
+        return SNIPER_DENSITY;
     default:
         ERRORF("unknown weapon type %d", type);
     }
@@ -184,6 +208,8 @@ b2Vec2 weaponAdjustAim(const enum weaponType type, const uint16_t heat, const b2
         DEBUG_LOGF("heat=%d sway=(%f %f)", heat, swayX, swayY);
         b2Vec2 aim = {.x = normAim.x + swayX, .y = normAim.y + swayY};
         return b2Normalize(aim);
+    case SNIPER_WEAPON:
+        return normAim;
     default:
         ERRORF("unknown weapon type %d", type);
     }
@@ -199,6 +225,8 @@ float weaponInvMass(const enum weaponType type)
         return STANDARD_INV_MASS;
     case MACHINEGUN_WEAPON:
         return MACHINEGUN_INV_MASS;
+    case SNIPER_WEAPON:
+        return SNIPER_INV_MASS;
     default:
         ERRORF("unknown weapon type %d", type);
     }
@@ -215,6 +243,9 @@ uint8_t weaponBounce(const enum weaponType type)
         break;
     case MACHINEGUN_WEAPON:
         bounce = MACHINEGUN_BOUNCE;
+        break;
+    case SNIPER_WEAPON:
+        bounce = SNIPER_BOUNCE;
         break;
     default:
         ERRORF("unknown weapon type %d", type);
