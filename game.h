@@ -75,7 +75,6 @@ typedef struct projectileEntity
     b2Vec2 lastPos;
     float distance;
     uint8_t bounces;
-    uint8_t bouncyWallBounces;
 } projectileEntity;
 
 typedef struct droneEntity
@@ -101,8 +100,8 @@ wallEntity *createWall(const b2WorldId worldID, CC_Deque *entities, const float 
     if (floating)
     {
         wallBodyDef.type = b2_dynamicBody;
-        wallBodyDef.linearDamping = 0.5f;
-        wallBodyDef.angularDamping = 0.5f;
+        wallBodyDef.linearDamping = FLOATING_WALL_DAMPING;
+        wallBodyDef.angularDamping = FLOATING_WALL_DAMPING;
     }
     b2BodyId wallBodyID = b2CreateBody(worldID, &wallBodyDef);
     b2Vec2 extent = {.x = width / 2.0f, .y = height / 2.0f};
@@ -468,7 +467,7 @@ void droneShoot(const b2WorldId worldID, CC_SList *projectiles, droneEntity *dro
     {
         return;
     }
-    if (drone->weapon != STANDARD_WEAPON && drone->ammo != INFINITE_AMMO)
+    if (drone->weapon != STANDARD_WEAPON && drone->ammo != INFINITE)
     {
         drone->ammo--;
     }
@@ -517,10 +516,15 @@ void projectilesStep(CC_SList *projectiles)
     projectileEntity *projectile;
     while (cc_slist_iter_next(&iter, (void **)&projectile) != CC_ITER_END)
     {
-        b2Vec2 pos = b2Body_GetPosition(projectile->bodyID);
-        b2Vec2 distance = b2Sub(pos, projectile->lastPos);
+        const float maxDistance = weaponMaxDistance(projectile->type);
+        if (maxDistance == INFINITE)
+        {
+            continue;
+        }
+        const b2Vec2 pos = b2Body_GetPosition(projectile->bodyID);
+        const b2Vec2 distance = b2Sub(pos, projectile->lastPos);
         projectile->distance += b2Length(distance);
-        if (projectile->distance >= weaponMaxDistance(projectile->type))
+        if (projectile->distance >= maxDistance)
         {
             cc_slist_iter_remove(&iter, NULL);
             destroyProjectile(projectiles, projectile, true);
@@ -556,16 +560,22 @@ bool handleProjectileBeginContact(CC_SList *projectiles, const entity *p, const 
     projectileEntity *projectile = (projectileEntity *)p->entity;
     // e (shape B in the collision) will be NULL if it's another
     // projectile that was just destroyed
-    if (e == NULL || e->type != BOUNCY_WALL_ENTITY)
+    if (e == NULL || (e != NULL && e->type == PROJECTILE_ENTITY))
+    {
+        // always allow projectiles to bounce off each other
+        return false;
+    }
+    else if (e != NULL && e->type == BOUNCY_WALL_ENTITY)
+    {
+        // always allow projectiles to bounce off bouncy walls
+        return false;
+    }
+    else if (e != NULL && e->type != BOUNCY_WALL_ENTITY)
     {
         projectile->bounces++;
     }
-    else
-    {
-        projectile->bouncyWallBounces++;
-    }
-    uint8_t maxBounces = weaponBounce(projectile->type);
-    if (projectile->bounces == maxBounces || projectile->bouncyWallBounces == maxBounces * 3)
+    const uint8_t maxBounces = weaponBounce(projectile->type);
+    if (projectile->bounces == maxBounces)
     {
         destroyProjectile(projectiles, projectile, true);
         return true;

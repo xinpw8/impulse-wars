@@ -162,6 +162,18 @@ int main(void)
         ClearBackground(BLACK);
         DrawFPS(10, 10);
 
+        // for (size_t i = 0; i < cc_deque_size(emptyCells); i++)
+        // {
+        //     b2Vec2 *emptyCell;
+        //     cc_deque_get_at(emptyCells, i, (void **)&emptyCell);
+        //     renderEmptyCell(*emptyCell);
+        // }
+
+        renderDroneGuides(worldID, playerDrone, inputs1.move, inputs1.aim, 0);
+        renderDroneGuides(worldID, aiDrone, inputs2.move, inputs2.aim, 1);
+        renderDrone(playerDrone, 0);
+        renderDrone(aiDrone, 1);
+
         for (size_t i = 0; i < cc_deque_size(walls); i++)
         {
             wallEntity *wall;
@@ -172,9 +184,10 @@ int main(void)
         renderWeaponPickup(machPickup);
         renderWeaponPickup(snipPickup);
 
-        renderDrone(playerDrone, inputs1.move, inputs1.aim);
-        renderDrone(aiDrone, inputs2.move, inputs2.aim);
         renderProjectiles(projectiles);
+
+        renderDroneLabels(playerDrone);
+        renderDroneLabels(aiDrone);
 
         DrawCircleV(b2VecToRayVec((b2Vec2){.x = bounds.min.x, .y = bounds.max.y}), 0.3f * scale, GREEN);
         DrawCircleV(b2VecToRayVec((b2Vec2){.x = bounds.max.x, .y = bounds.max.y}), 0.3f * scale, GREEN);
