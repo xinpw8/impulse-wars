@@ -3,6 +3,9 @@
 
 #include "helpers.h"
 
+#define FRAME_RATE 60.0f
+#define DELTA_TIME 1.0f / FRAME_RATE
+
 #define INFINITE_AMMO -1
 
 // wall settings
@@ -21,12 +24,13 @@
 #define DRONE_MOVE_MAGNITUDE 25.0f
 #define DRONE_LINEAR_DAMPING 1.0f
 #define DRONE_MOVE_AIM_DIVISOR 10.0f
-#define DRONE_DEFAULT_WEAPON SNIPER_WEAPON // STANDARD_WEAPON
+#define DRONE_DEFAULT_WEAPON STANDARD_WEAPON
 
 // weapon projectile settings
 #define STANDARD_AMMO INFINITE_AMMO
 #define STANDARD_RECOIL_MAGNITUDE 12.5f
 #define STANDARD_FIRE_MAGNITUDE 15.5f
+#define STANDARD_CHARGE 0.0f
 #define STANDARD_COOL_DOWN 0.37f
 #define STANDARD_MAX_DISTANCE 80.0f
 #define STANDARD_RADIUS 0.2
@@ -37,6 +41,7 @@
 #define MACHINEGUN_AMMO 35
 #define MACHINEGUN_RECOIL_MAGNITUDE 5.0f
 #define MACHINEGUN_FIRE_MAGNITUDE 10.0f
+#define MACHINEGUN_CHARGE 0.0f
 #define MACHINEGUN_COOL_DOWN 0.07f
 #define MACHINEGUN_MAX_DISTANCE 120.0f
 #define MACHINEGUN_RADIUS 0.15f
@@ -45,9 +50,10 @@
 #define MACHINEGUN_BOUNCE 1
 #define MACHINEGUN_AIM_RECOIL_MAX 0.1f
 
-#define SNIPER_AMMO INFINITE_AMMO // 3
+#define SNIPER_AMMO 3
 #define SNIPER_RECOIL_MAGNITUDE 60.0f
 #define SNIPER_FIRE_MAGNITUDE 120.0f
+#define SNIPER_CHARGE 1.0f
 #define SNIPER_COOL_DOWN 1.0f
 #define SNIPER_MAX_DISTANCE 500.0f
 #define SNIPER_RADIUS 0.5f
@@ -128,6 +134,27 @@ float weaponFire(const enum weaponType type)
     default:
         ERRORF("unknown weapon type %d", type);
     }
+}
+
+uint16_t weaponCharge(const enum weaponType type)
+{
+    float charge = 0.0f;
+    switch (type)
+    {
+    case STANDARD_WEAPON:
+        charge = STANDARD_CHARGE;
+        break;
+    case MACHINEGUN_WEAPON:
+        charge = MACHINEGUN_CHARGE;
+        break;
+    case SNIPER_WEAPON:
+        charge = SNIPER_CHARGE;
+        break;
+    default:
+        ERRORF("unknown weapon type %d", type);
+    }
+
+    return (uint16_t)(charge * FRAME_RATE);
 }
 
 // time in seconds of cooldown between shots

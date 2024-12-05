@@ -86,8 +86,8 @@ typedef struct droneEntity
     int8_t ammo;
     float weaponCooldown;
     bool shotThisStep;
-    uint16_t triggerHeldSteps;
     uint16_t heat;
+    uint16_t charge;
     b2Vec2 lastAim;
 } droneEntity;
 
@@ -382,6 +382,7 @@ void createProjectile(const b2WorldId worldID, CC_SList *projectiles, droneEntit
     b2BodyDef projectileBodyDef = b2DefaultBodyDef();
     projectileBodyDef.type = b2_dynamicBody;
     projectileBodyDef.fixedRotation = true;
+    projectileBodyDef.isBullet = true;
     b2Vec2 dronePos = b2Body_GetPosition(drone->bodyID);
     float radius = weaponRadius(drone->weapon);
     projectileBodyDef.position = b2MulAdd(dronePos, 1.0f + (radius * 1.5f), normAim);
@@ -450,7 +451,7 @@ void droneChangeWeapon(droneEntity *drone, const enum weaponType weapon)
     drone->weapon = weapon;
     drone->ammo = weaponAmmo(weapon);
     drone->weaponCooldown = 0.0f;
-    drone->triggerHeldSteps = 0;
+    drone->charge = 0;
     drone->heat = 0;
 }
 
@@ -461,9 +462,9 @@ void droneShoot(const b2WorldId worldID, CC_SList *projectiles, droneEntity *dro
     assert(drone->ammo != 0);
 
     drone->shotThisStep = true;
-    drone->triggerHeldSteps++;
+    drone->charge++;
     drone->heat++;
-    if (drone->weaponCooldown != 0.0f)
+    if (drone->weaponCooldown != 0.0f || drone->charge < weaponCharge(drone->weapon))
     {
         return;
     }
@@ -487,6 +488,7 @@ void droneShoot(const b2WorldId worldID, CC_SList *projectiles, droneEntity *dro
     if (drone->ammo == 0)
     {
         droneChangeWeapon(drone, DRONE_DEFAULT_WEAPON);
+        drone->weaponCooldown = weaponCoolDown(DRONE_DEFAULT_WEAPON);
     }
 }
 
@@ -498,7 +500,7 @@ void droneStep(droneEntity *drone, const float frameTime)
     drone->weaponCooldown = fmaxf(drone->weaponCooldown - frameTime, 0.0f);
     if (!drone->shotThisStep)
     {
-        drone->triggerHeldSteps = 0;
+        drone->charge = 0;
         drone->heat = fmaxf(drone->heat - 1, 0);
     }
     else

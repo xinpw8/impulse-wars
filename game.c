@@ -14,15 +14,15 @@ typedef struct playerInputs
     bool shoot;
 } playerInputs;
 
-playerInputs getPlayerInputs(const droneEntity *drone)
+playerInputs getPlayerInputs(const droneEntity *drone, const int gamepadIdx)
 {
     playerInputs inputs = {0};
-    if (IsGamepadAvailable(0))
+    if (IsGamepadAvailable(gamepadIdx))
     {
-        float lStickX = GetGamepadAxisMovement(0, GAMEPAD_AXIS_LEFT_X);
-        float lStickY = GetGamepadAxisMovement(0, GAMEPAD_AXIS_LEFT_Y);
-        float rStickX = GetGamepadAxisMovement(0, GAMEPAD_AXIS_RIGHT_X);
-        float rStickY = GetGamepadAxisMovement(0, GAMEPAD_AXIS_RIGHT_Y);
+        float lStickX = GetGamepadAxisMovement(gamepadIdx, GAMEPAD_AXIS_LEFT_X);
+        float lStickY = GetGamepadAxisMovement(gamepadIdx, GAMEPAD_AXIS_LEFT_Y);
+        float rStickX = GetGamepadAxisMovement(gamepadIdx, GAMEPAD_AXIS_RIGHT_X);
+        float rStickY = GetGamepadAxisMovement(gamepadIdx, GAMEPAD_AXIS_RIGHT_Y);
 
         if (lStickX > -lStickDeadzoneX && lStickX < lStickDeadzoneX)
         {
@@ -43,10 +43,10 @@ playerInputs getPlayerInputs(const droneEntity *drone)
         inputs.move = (b2Vec2){.x = lStickX, .y = lStickY};
         inputs.aim = b2Normalize((b2Vec2){.x = rStickX, .y = rStickY});
 
-        inputs.shoot = IsGamepadButtonDown(0, GAMEPAD_BUTTON_RIGHT_TRIGGER_2);
+        inputs.shoot = IsGamepadButtonDown(gamepadIdx, GAMEPAD_BUTTON_RIGHT_TRIGGER_2);
         if (!inputs.shoot)
         {
-            inputs.shoot = IsGamepadButtonDown(0, GAMEPAD_BUTTON_RIGHT_TRIGGER_1);
+            inputs.shoot = IsGamepadButtonDown(gamepadIdx, GAMEPAD_BUTTON_RIGHT_TRIGGER_1);
         }
         return inputs;
     }
@@ -75,8 +75,6 @@ playerInputs getPlayerInputs(const droneEntity *drone)
     if (IsMouseButtonDown(MOUSE_BUTTON_LEFT))
     {
         inputs.shoot = true;
-        b2Vec2 b2mousePos = rayVecToB2Vec(mousePos);
-        DEBUG_LOGF("mouse aim: %f %f", b2mousePos.x, b2mousePos.y);
     }
 
     return inputs;
@@ -142,8 +140,10 @@ int main(void)
 
     while (!WindowShouldClose())
     {
-        playerInputs inputs = getPlayerInputs(playerDrone);
-        handlePlayerDroneInputs(worldID, projectiles, playerDrone, inputs);
+        playerInputs inputs1 = getPlayerInputs(playerDrone, 0);
+        handlePlayerDroneInputs(worldID, projectiles, playerDrone, inputs1);
+        playerInputs inputs2 = getPlayerInputs(aiDrone, 1);
+        handlePlayerDroneInputs(worldID, projectiles, aiDrone, inputs2);
 
         float frameTime = fmaxf(GetFrameTime(), FLT_MIN);
         droneStep(playerDrone, frameTime);
@@ -172,8 +172,8 @@ int main(void)
         renderWeaponPickup(machPickup);
         renderWeaponPickup(snipPickup);
 
-        renderDrone(playerDrone, inputs.move, inputs.aim);
-        renderDrone(aiDrone, b2Vec2_zero, b2Vec2_zero);
+        renderDrone(playerDrone, inputs1.move, inputs1.aim);
+        renderDrone(aiDrone, inputs2.move, inputs2.aim);
         renderProjectiles(projectiles);
 
         DrawCircleV(b2VecToRayVec((b2Vec2){.x = bounds.min.x, .y = bounds.max.y}), 0.3f * scale, GREEN);
