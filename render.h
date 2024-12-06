@@ -4,10 +4,10 @@
 #include "helpers.h"
 #include "game.h"
 
-const float scale = 14.0f;
+const float scale = 12.0f;
 
 const int width = 1500;
-const int height = 1200;
+const int height = 1000;
 
 const float halfWidth = (float)width / 2.0f;
 const float halfHeight = (float)height / 2.0f;
@@ -236,11 +236,38 @@ void renderDrone(const droneEntity *drone, const int droneIdx)
 
 void renderDroneLabels(const droneEntity *drone)
 {
-    const Vector2 pos = b2VecToRayVec(b2Body_GetPosition(drone->bodyID));
+    const b2Vec2 pos = b2Body_GetPosition(drone->bodyID);
 
-    char ammoStr[5];
-    sprintf(ammoStr, "%d", drone->ammo);
-    DrawText(ammoStr, pos.x - (0.5f * scale), pos.y + (1.5f * scale), scale, WHITE);
+    const int bufferSize = 5;
+    char ammoStr[bufferSize];
+    snprintf(ammoStr, bufferSize, "%d", drone->ammo);
+    DrawText(ammoStr, b2XToRayX(pos.x - 0.5f), b2YToRayY(pos.y + 1.5f), scale, WHITE);
+
+    const float maxCharge = weaponCharge(drone->weapon);
+    if (maxCharge == 0.0f)
+    {
+        return;
+    }
+
+    const float chargeMeterWidth = 2.0f;
+    const float chargeMeterHeight = 1.0f;
+    Rectangle outlineRec = {
+        .x = b2XToRayX(pos.x - (chargeMeterWidth / 2.0f)),
+        .y = b2YToRayY(pos.y - (chargeMeterHeight / 2.0f) + 3.0f),
+        .width = chargeMeterWidth * scale,
+        .height = chargeMeterHeight * scale,
+    };
+    DrawRectangleLinesEx(outlineRec, scale / 20.0f, RAYWHITE);
+
+    const float fillRecWidth = (drone->charge / maxCharge) * chargeMeterWidth;
+    Rectangle fillRec = {
+        .x = b2XToRayX(pos.x - 1.0f),
+        .y = b2YToRayY(pos.y - (chargeMeterHeight / 2.0f) + 3.0f),
+        .width = fillRecWidth * scale,
+        .height = chargeMeterHeight * scale,
+    };
+    const Vector2 origin = {.x = 0.0f, .y = 0.0f};
+    DrawRectanglePro(fillRec, origin, 0.0f, RAYWHITE);
 }
 
 void renderProjectiles(CC_SList *projectiles)

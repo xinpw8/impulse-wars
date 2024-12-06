@@ -460,17 +460,23 @@ void droneShoot(const b2WorldId worldID, CC_SList *projectiles, droneEntity *dro
     assert(drone->ammo != 0);
 
     drone->shotThisStep = true;
-    drone->charge++;
     drone->heat++;
-    if (drone->weaponCooldown != 0.0f || drone->charge < weaponCharge(drone->weapon))
+    if (drone->weaponCooldown != 0.0f)
     {
         return;
     }
+    drone->charge++;
+    if (drone->charge < weaponCharge(drone->weapon))
+    {
+        return;
+    }
+
     if (drone->weapon != STANDARD_WEAPON && drone->ammo != INFINITE)
     {
         drone->ammo--;
     }
     drone->weaponCooldown = weaponCoolDown(drone->weapon);
+    drone->charge = 0.0f;
 
     b2Vec2 normAim = drone->lastAim;
     if (!b2VecEqual(aim, b2Vec2_zero))
@@ -500,7 +506,7 @@ void droneStep(droneEntity *drone, const float frameTime)
     drone->weaponCooldown = fmaxf(drone->weaponCooldown - frameTime, 0.0f);
     if (!drone->shotThisStep)
     {
-        drone->charge = 0;
+        drone->charge = fmaxf(drone->charge - 1, 0);
         drone->heat = fmaxf(drone->heat - 1, 0);
     }
     else
