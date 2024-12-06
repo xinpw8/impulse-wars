@@ -88,6 +88,7 @@ typedef struct droneEntity
     uint16_t heat;
     uint16_t charge;
     b2Vec2 lastAim;
+    bool dead;
 } droneEntity;
 
 wallEntity *createWall(const b2WorldId worldID, CC_Deque *entities, const float posX, const float posY, const float width, const float height, const enum entityType type, bool floating)
@@ -194,8 +195,6 @@ b2Vec2 findOpenPos(const CC_Deque *entities, const CC_Deque *emptyCells, const e
 {
     assert(entities != NULL);
     assert(emptyCells != NULL);
-
-    DEBUG_LOGF("finding distance for %d", type);
 
     const size_t nEmptyCells = cc_deque_size(emptyCells) - 1;
     assert(nEmptyCells > 0);
@@ -478,11 +477,13 @@ void droneShoot(const b2WorldId worldID, CC_SList *projectiles, droneEntity *dro
     {
         normAim = b2Normalize(aim);
     }
-    b2Vec2 aimRecoil = weaponAimRecoil(drone->weapon);
-    b2Vec2 recoil = b2MulAdd(aimRecoil, -weaponRecoil(drone->weapon), normAim);
+    b2Vec2 recoil = b2MulSV(-weaponRecoil(drone->weapon), normAim);
     b2Body_ApplyLinearImpulseToCenter(drone->bodyID, recoil, true);
 
-    createProjectile(worldID, projectiles, drone, normAim);
+    for (int i = 0; i < weaponProjectiles(drone->weapon); i++)
+    {
+        createProjectile(worldID, projectiles, drone, normAim);
+    }
 
     if (drone->ammo == 0)
     {
@@ -618,16 +619,32 @@ void handleContactEvents(const b2WorldId worldID, CC_SList *projectiles)
             assert(e2 != NULL);
         }
 
-        if (e1 != NULL && e1->type == PROJECTILE_ENTITY)
+        if (e1 != NULL)
         {
-            if (handleProjectileBeginContact(projectiles, e1, e2))
+            if (e1->type == PROJECTILE_ENTITY)
             {
-                e1 = NULL;
+                if (handleProjectileBeginContact(projectiles, e1, e2))
+                {
+                    e1 = NULL;
+                }
+            }
+            else if (e1->type == DEATH_WALL_ENTITY && e2 != NULL && e2->type == DRONE_ENTITY)
+            {
+                droneEntity *drone = (droneEntity *)e2->entity;
+                drone->dead = true;
             }
         }
-        if (e2 != NULL && e2->type == PROJECTILE_ENTITY)
+        if (e2 != NULL)
         {
-            handleProjectileBeginContact(projectiles, e2, e1);
+            if (e2->type == PROJECTILE_ENTITY)
+            {
+                handleProjectileBeginContact(projectiles, e2, e1);
+            }
+            else if (e2->type == DEATH_WALL_ENTITY && e1 != NULL && e1->type == DRONE_ENTITY)
+            {
+                droneEntity *drone = (droneEntity *)e1->entity;
+                drone->dead = true;
+            }
         }
     }
 

@@ -29,6 +29,7 @@
 
 // weapon projectile settings
 #define STANDARD_AMMO INFINITE
+#define STANDARD_PROJECTILES 1
 #define STANDARD_RECOIL_MAGNITUDE 12.5f
 #define STANDARD_FIRE_MAGNITUDE 15.5f
 #define STANDARD_CHARGE 0.0f
@@ -40,6 +41,7 @@
 #define STANDARD_BOUNCE 2
 
 #define MACHINEGUN_AMMO 35
+#define MACHINEGUN_PROJECTILES 1
 #define MACHINEGUN_RECOIL_MAGNITUDE 5.0f
 #define MACHINEGUN_FIRE_MAGNITUDE 20.0f
 #define MACHINEGUN_CHARGE 0.0f
@@ -49,9 +51,9 @@
 #define MACHINEGUN_DENSITY 3.0f
 #define MACHINEGUN_INV_MASS INV_MASS(MACHINEGUN_DENSITY, MACHINEGUN_RADIUS)
 #define MACHINEGUN_BOUNCE 1
-#define MACHINEGUN_AIM_RECOIL_MAX 0.1f
 
 #define SNIPER_AMMO 3
+#define SNIPER_PROJECTILES 1
 #define SNIPER_RECOIL_MAGNITUDE 60.0f
 #define SNIPER_FIRE_MAGNITUDE 120.0f
 #define SNIPER_CHARGE 1.0f
@@ -62,32 +64,25 @@
 #define SNIPER_INV_MASS INV_MASS(SNIPER_DENSITY, SNIPER_RADIUS)
 #define SNIPER_BOUNCE 0
 
+#define SHOTGUN_AMMO 8
+#define SHOTGUN_PROJECTILES 8
+#define SHOTGUN_RECOIL_MAGNITUDE 75.0f
+#define SHOTGUN_FIRE_MAGNITUDE 20.0f
+#define SHOTGUN_CHARGE 0.0f
+#define SHOTGUN_COOL_DOWN 1.0f
+#define SHOTGUN_MAX_DISTANCE 100.0f
+#define SHOTGUN_RADIUS 0.15f
+#define SHOTGUN_DENSITY 3.0f
+#define SHOTGUN_INV_MASS INV_MASS(SHOTGUN_DENSITY, SHOTGUN_RADIUS)
+#define SHOTGUN_BOUNCE 1
+
 enum weaponType
 {
     STANDARD_WEAPON,
     MACHINEGUN_WEAPON,
     SNIPER_WEAPON,
+    SHOTGUN_WEAPON,
 };
-
-// amount the aim can be randomly varied by
-b2Vec2 weaponAimRecoil(const enum weaponType type)
-{
-    float aimRecoilMax = 0.0f;
-    switch (type)
-    {
-    case MACHINEGUN_WEAPON:
-        return b2Vec2_zero;
-        aimRecoilMax = MACHINEGUN_AIM_RECOIL_MAX;
-        break;
-    default:
-        return b2Vec2_zero;
-    }
-
-    return (b2Vec2){
-        .x = randFloat(-aimRecoilMax, aimRecoilMax),
-        .y = randFloat(-aimRecoilMax, aimRecoilMax),
-    };
-}
 
 // max ammo of weapon
 int8_t weaponAmmo(const enum weaponType type)
@@ -105,6 +100,25 @@ int8_t weaponAmmo(const enum weaponType type)
         return MACHINEGUN_AMMO;
     case SNIPER_WEAPON:
         return SNIPER_AMMO;
+    case SHOTGUN_WEAPON:
+        return SHOTGUN_AMMO;
+    default:
+        ERRORF("unknown weapon type %d", type);
+    }
+}
+
+uint8_t weaponProjectiles(const enum weaponType type)
+{
+    switch (type)
+    {
+    case STANDARD_WEAPON:
+        return STANDARD_PROJECTILES;
+    case MACHINEGUN_WEAPON:
+        return MACHINEGUN_PROJECTILES;
+    case SNIPER_WEAPON:
+        return SNIPER_PROJECTILES;
+    case SHOTGUN_WEAPON:
+        return SHOTGUN_PROJECTILES;
     default:
         ERRORF("unknown weapon type %d", type);
     }
@@ -121,6 +135,8 @@ float weaponRecoil(const enum weaponType type)
         return MACHINEGUN_RECOIL_MAGNITUDE;
     case SNIPER_WEAPON:
         return SNIPER_RECOIL_MAGNITUDE;
+    case SHOTGUN_WEAPON:
+        return SHOTGUN_RECOIL_MAGNITUDE;
     default:
         ERRORF("unknown weapon type %d", type);
     }
@@ -137,6 +153,10 @@ float weaponFire(const enum weaponType type)
         return MACHINEGUN_FIRE_MAGNITUDE;
     case SNIPER_WEAPON:
         return SNIPER_FIRE_MAGNITUDE;
+    case SHOTGUN_WEAPON:
+        const int maxOffset = 3.0f;
+        const int fireOffset = randInt(-maxOffset, maxOffset);
+        return SHOTGUN_FIRE_MAGNITUDE + fireOffset;
     default:
         ERRORF("unknown weapon type %d", type);
     }
@@ -156,6 +176,9 @@ uint16_t weaponCharge(const enum weaponType type)
     case SNIPER_WEAPON:
         charge = SNIPER_CHARGE;
         break;
+    case SHOTGUN_WEAPON:
+        charge = SHOTGUN_CHARGE;
+        break;
     default:
         ERRORF("unknown weapon type %d", type);
     }
@@ -174,6 +197,8 @@ float weaponCoolDown(const enum weaponType type)
         return MACHINEGUN_COOL_DOWN;
     case SNIPER_WEAPON:
         return SNIPER_COOL_DOWN;
+    case SHOTGUN_WEAPON:
+        return SHOTGUN_COOL_DOWN;
     default:
         ERRORF("unknown weapon type %d", type);
     }
@@ -190,6 +215,8 @@ float weaponMaxDistance(const enum weaponType type)
         return MACHINEGUN_MAX_DISTANCE;
     case SNIPER_WEAPON:
         return SNIPER_MAX_DISTANCE;
+    case SHOTGUN_WEAPON:
+        return SHOTGUN_MAX_DISTANCE;
     default:
         ERRORF("unknown weapon type %d", type);
     }
@@ -206,6 +233,8 @@ float weaponRadius(const enum weaponType type)
         return MACHINEGUN_RADIUS;
     case SNIPER_WEAPON:
         return SNIPER_RADIUS;
+    case SHOTGUN_WEAPON:
+        return SHOTGUN_RADIUS;
     default:
         ERRORF("unknown weapon type %d", type);
     }
@@ -222,6 +251,8 @@ float weaponDensity(const enum weaponType type)
         return MACHINEGUN_DENSITY;
     case SNIPER_WEAPON:
         return SNIPER_DENSITY;
+    case SHOTGUN_WEAPON:
+        return SHOTGUN_DENSITY;
     default:
         ERRORF("unknown weapon type %d", type);
     }
@@ -238,11 +269,16 @@ b2Vec2 weaponAdjustAim(const enum weaponType type, const uint16_t heat, const b2
         const float maxSway = 0.15f;
         const float swayX = randFloat(maxSway * -swayCoef, maxSway * swayCoef);
         const float swayY = randFloat(maxSway * -swayCoef, maxSway * swayCoef);
-        DEBUG_LOGF("heat=%d sway=(%f %f)", heat, swayX, swayY);
-        b2Vec2 aim = {.x = normAim.x + swayX, .y = normAim.y + swayY};
-        return b2Normalize(aim);
+        b2Vec2 machinegunAim = {.x = normAim.x + swayX, .y = normAim.y + swayY};
+        return b2Normalize(machinegunAim);
     case SNIPER_WEAPON:
         return normAim;
+    case SHOTGUN_WEAPON:
+        const float maxOffset = 0.20f;
+        const float offsetX = randFloat(-maxOffset, maxOffset);
+        const float offsetY = randFloat(-maxOffset, maxOffset);
+        b2Vec2 shotgunAim = {.x = normAim.x + offsetX, .y = normAim.y + offsetY};
+        return b2Normalize(shotgunAim);
     default:
         ERRORF("unknown weapon type %d", type);
     }
@@ -260,6 +296,8 @@ float weaponInvMass(const enum weaponType type)
         return MACHINEGUN_INV_MASS;
     case SNIPER_WEAPON:
         return SNIPER_INV_MASS;
+    case SHOTGUN_WEAPON:
+        return SHOTGUN_INV_MASS;
     default:
         ERRORF("unknown weapon type %d", type);
     }
@@ -279,6 +317,9 @@ uint8_t weaponBounce(const enum weaponType type)
         break;
     case SNIPER_WEAPON:
         bounce = SNIPER_BOUNCE;
+        break;
+    case SHOTGUN_WEAPON:
+        bounce = SHOTGUN_BOUNCE;
         break;
     default:
         ERRORF("unknown weapon type %d", type);

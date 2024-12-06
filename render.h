@@ -113,6 +113,9 @@ void renderWeaponPickup(const weaponPickupEntity *pickup)
     case SNIPER_WEAPON:
         name = "SNIP";
         break;
+    case SHOTGUN_WEAPON:
+        name = "SHOT";
+        break;
     default:
         ERRORF("unknown weapon pickup type %d", pickup->weapon);
     }
@@ -204,6 +207,9 @@ void renderDroneGuides(const b2WorldId worldID, const droneEntity *drone, const 
         break;
     case SNIPER_WEAPON:
         aimGuideWidth = 100.0f;
+        break;
+    case SHOTGUN_WEAPON:
+        aimGuideWidth = 4.0f;
         break;
     default:
         ERRORF("unknown weapon when getting aim guide width %d", drone->weapon);
