@@ -1,7 +1,7 @@
-#ifndef SETTINGS_H
-#define SETTINGS_H
+#pragma once
 
 #include "helpers.h"
+#include "types.h"
 
 #define FRAME_RATE 60.0f
 #define DELTA_TIME 1.0f / FRAME_RATE
@@ -87,15 +87,6 @@
 #define IMPLODER_DENSITY 5.0f
 #define IMPLODER_INV_MASS INV_MASS(IMPLODER_DENSITY, IMPLODER_RADIUS)
 #define IMPLODER_BOUNCE 0
-
-enum weaponType
-{
-    STANDARD_WEAPON,
-    MACHINEGUN_WEAPON,
-    SNIPER_WEAPON,
-    SHOTGUN_WEAPON,
-    IMPLODER_WEAPON,
-};
 
 // max ammo of weapon
 int8_t weaponAmmo(const enum weaponType type)
@@ -392,5 +383,3 @@ bool weaponExplosion(const enum weaponType type, b2ExplosionDef *explosionDef)
         ERRORF("unknown weapon type %d", type);
     }
 }
-
-#endif

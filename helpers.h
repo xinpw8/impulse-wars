@@ -1,5 +1,4 @@
-#ifndef HELPERS_H
-#define HELPERS_H
+#pragma once
 
 #include "box2d/box2d.h"
 #include "raylib.h"
@@ -7,6 +6,9 @@
 #include <assert.h>
 #include <stdio.h>
 #include <time.h>
+
+// the result of b2MakeRot(0.0f) since I can't call that here
+const b2Rot zeroB2Rot = {.c = 1.0f, .s = 0.0f};
 
 #define ERRORF(fmt, args...)                                                    \
     fprintf(stderr, " %s:%s:%d\n" fmt, __FILE__, __FUNCTION__, __LINE__, args); \
@@ -61,5 +63,3 @@ float logBasef(const float v, const float b)
 {
     return log2f(v) / log2(b);
 }
-
-#endif

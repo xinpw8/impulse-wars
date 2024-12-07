@@ -1,8 +1,7 @@
-#ifndef RENDER_H
-#define RENDER_H
+#pragma once
 
 #include "helpers.h"
-#include "game.h"
+#include "env.h"
 
 const float scale = 12.0f;
 
@@ -143,7 +142,7 @@ Color getDroneColor(const int droneIdx)
     }
 }
 
-void renderDroneGuides(const b2WorldId worldID, const droneEntity *drone, const b2Vec2 move, b2Vec2 aim, const int droneIdx)
+void renderDroneGuides(const env *e, const droneEntity *drone, const b2Vec2 move, b2Vec2 aim, const int droneIdx)
 {
     b2Vec2 pos = b2Body_GetPosition(drone->bodyID);
     const float rayX = b2XToRayX(pos.x);
@@ -173,13 +172,13 @@ void renderDroneGuides(const b2WorldId worldID, const droneEntity *drone, const 
     const b2Vec2 rayEnd = b2MulAdd(pos, 150.0f, aim);
     const b2Vec2 translation = b2Sub(rayEnd, pos);
     const b2QueryFilter filter = {.categoryBits = PROJECTILE_SHAPE, .maskBits = WALL_SHAPE | DRONE_SHAPE};
-    const b2RayResult rayRes = b2World_CastRayClosest(worldID, pos, translation, filter);
-    const entity *e = (entity *)b2Shape_GetUserData(rayRes.shapeId);
+    const b2RayResult rayRes = b2World_CastRayClosest(e->worldID, pos, translation, filter);
+    const entity *ent = (entity *)b2Shape_GetUserData(rayRes.shapeId);
 
     b2DistanceCache cache = {0};
     bool shapeIsCircle = false;
     b2DistanceProxy proxyA = {0};
-    if (e->type == DRONE_ENTITY)
+    if (ent->type == DRONE_ENTITY)
     {
         proxyA.radius = DRONE_RADIUS;
         shapeIsCircle = true;
@@ -189,7 +188,7 @@ void renderDroneGuides(const b2WorldId worldID, const droneEntity *drone, const 
         proxyA.count = 1;
         proxyA.points[0] = (b2Vec2){.x = 0.0f, .y = 0.0f};
     }
-    const b2DistanceProxy proxyB = makeDistanceProxy(e->type, &shapeIsCircle);
+    const b2DistanceProxy proxyB = makeDistanceProxy(ent->type, &shapeIsCircle);
     const b2DistanceInput input = {
         .proxyA = proxyA,
         .proxyB = proxyB,
@@ -281,14 +280,68 @@ void renderDroneLabels(const droneEntity *drone)
     DrawRectanglePro(fillRec, origin, 0.0f, RAYWHITE);
 }
 
-void renderProjectiles(CC_SList *projectiles)
+void renderProjectiles(const env *e)
 {
-    for (SNode *cur = projectiles->head; cur != NULL; cur = cur->next)
+    for (SNode *cur = e->projectiles->head; cur != NULL; cur = cur->next)
     {
         projectileEntity *projectile = (projectileEntity *)cur->data;
-        b2Vec2 projectilePos = b2Body_GetPosition(projectile->bodyID);
-        DrawCircleV(b2VecToRayVec(projectilePos), scale * weaponRadius(projectile->type), PURPLE);
+        b2Vec2 pos = b2Body_GetPosition(projectile->bodyID);
+        DrawCircleV(b2VecToRayVec(pos), scale * weaponRadius(projectile->type), PURPLE);
     }
 }
 
-#endif
+void renderEnv(env *e, const CC_Deque *inputs)
+{
+    BeginDrawing();
+
+    ClearBackground(BLACK);
+    DrawFPS(10, 10);
+
+    // for (size_t i = 0; i < cc_deque_size(emptyCells); i++)
+    // {
+    //     b2Vec2 *emptyCell;
+    //     cc_deque_get_at(emptyCells, i, (void **)&emptyCell);
+    //     renderEmptyCell(*emptyCell);
+    // }
+
+    for (size_t i = 0; i < cc_deque_size(e->drones); i++)
+    {
+        droneEntity *drone;
+        cc_deque_get_at(e->drones, i, (void **)&drone);
+        droneInputs *input;
+        cc_deque_get_at(inputs, i, (void **)&input);
+
+        renderDroneGuides(e, drone, input->move, input->aim, i);
+    }
+    for (size_t i = 0; i < cc_deque_size(e->drones); i++)
+    {
+        droneEntity *drone;
+        cc_deque_get_at(e->drones, i, (void **)&drone);
+        renderDrone(drone, i);
+    }
+
+    for (size_t i = 0; i < cc_deque_size(e->walls); i++)
+    {
+        wallEntity *wall;
+        cc_deque_get_at(e->walls, i, (void **)&wall);
+        renderWall(wall);
+    }
+
+    for (size_t i = 0; i < cc_deque_size(e->pickups); i++)
+    {
+        weaponPickupEntity *pickup;
+        cc_deque_get_at(e->pickups, i, (void **)&pickup);
+        renderWeaponPickup(pickup);
+    }
+
+    renderProjectiles(e);
+
+    for (size_t i = 0; i < cc_deque_size(e->drones); i++)
+    {
+        droneEntity *drone;
+        cc_deque_get_at(e->drones, i, (void **)&drone);
+        renderDroneLabels(drone);
+    }
+
+    EndDrawing();
+}

@@ -18,8 +18,7 @@
  * along with Collections-C.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef COLLECTIONS_C_COMMON_H
-#define COLLECTIONS_C_COMMON_H
+#pragma once
 
 #ifdef __cplusplus
 extern "C"
@@ -73,5 +72,3 @@ extern "C"
 #ifdef __cplusplus
 }
 #endif
-
-#endif /* COLLECTIONS_C_COMMON_H */

@@ -18,8 +18,7 @@
  * along with Collections-C.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef COLLECTIONS_C_CC_SLIST_H
-#define COLLECTIONS_C_CC_SLIST_H
+#pragma once
 
 #ifdef __cplusplus
 extern "C"
@@ -176,8 +175,6 @@ extern "C"
 #ifdef __cplusplus
 }
 #endif
-
-#endif /* COLLECTIONS_C_CC_SLIST_H */
 
 struct cc_slist_s
 {
