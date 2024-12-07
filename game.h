@@ -419,9 +419,18 @@ void createProjectile(const b2WorldId worldID, CC_SList *projectiles, droneEntit
     b2Shape_SetUserData(projectile->shapeID, e);
 }
 
-void destroyProjectile(CC_SList *projectiles, projectileEntity *projectile, bool full)
+void destroyProjectile(const b2WorldId worldID, CC_SList *projectiles, projectileEntity *projectile, const bool full)
 {
+    assert(b2World_IsValid(worldID));
     assert(projectile != NULL);
+
+    b2ExplosionDef explosion;
+    if (weaponExplosion(projectile->type, &explosion))
+    {
+        explosion.position = b2Body_GetPosition(projectile->bodyID);
+        explosion.maskBits = WALL_SHAPE | DRONE_SHAPE;
+        b2World_Explode(worldID, &explosion);
+    }
 
     entity *e = (entity *)b2Shape_GetUserData(projectile->shapeID);
     free(e);
@@ -435,12 +444,12 @@ void destroyProjectile(CC_SList *projectiles, projectileEntity *projectile, bool
     free(projectile);
 }
 
-void destroyAllProjectiles(CC_SList *projectiles)
+void destroyAllProjectiles(const b2WorldId worldID, CC_SList *projectiles)
 {
     for (SNode *cur = projectiles->head; cur != NULL; cur = cur->next)
     {
         projectileEntity *projectile = (projectileEntity *)cur->data;
-        destroyProjectile(projectiles, projectile, false);
+        destroyProjectile(worldID, projectiles, projectile, false);
     }
 }
 
@@ -516,7 +525,7 @@ void droneStep(droneEntity *drone, const float frameTime)
     assert(drone->shotThisStep == false);
 }
 
-void projectilesStep(CC_SList *projectiles)
+void projectilesStep(const b2WorldId worldID, CC_SList *projectiles)
 {
     CC_SListIter iter;
     cc_slist_iter_init(&iter, projectiles);
@@ -534,7 +543,7 @@ void projectilesStep(CC_SList *projectiles)
         if (projectile->distance >= maxDistance)
         {
             cc_slist_iter_remove(&iter, NULL);
-            destroyProjectile(projectiles, projectile, true);
+            destroyProjectile(worldID, projectiles, projectile, true);
             continue;
         }
 
@@ -559,8 +568,9 @@ void weaponPickupStep(const CC_Deque *entities, const CC_Deque *emptyCells, weap
     }
 }
 
-bool handleProjectileBeginContact(CC_SList *projectiles, const entity *p, const entity *e)
+bool handleProjectileBeginContact(const b2WorldId worldID, CC_SList *projectiles, const entity *p, const entity *e)
 {
+    assert(b2World_IsValid(worldID));
     assert(projectiles != NULL);
     assert(p != NULL);
 
@@ -584,7 +594,7 @@ bool handleProjectileBeginContact(CC_SList *projectiles, const entity *p, const 
     const uint8_t maxBounces = weaponBounce(projectile->type);
     if (projectile->bounces == maxBounces)
     {
-        destroyProjectile(projectiles, projectile, true);
+        destroyProjectile(worldID, projectiles, projectile, true);
         return true;
     }
 
@@ -629,7 +639,7 @@ void handleContactEvents(const b2WorldId worldID, CC_SList *projectiles)
         {
             if (e1->type == PROJECTILE_ENTITY)
             {
-                if (handleProjectileBeginContact(projectiles, e1, e2))
+                if (handleProjectileBeginContact(worldID, projectiles, e1, e2))
                 {
                     e1 = NULL;
                 }
@@ -644,7 +654,7 @@ void handleContactEvents(const b2WorldId worldID, CC_SList *projectiles)
         {
             if (e2->type == PROJECTILE_ENTITY)
             {
-                handleProjectileBeginContact(projectiles, e2, e1);
+                handleProjectileBeginContact(worldID, projectiles, e2, e1);
             }
             else if (e2->type == DEATH_WALL_ENTITY && e1 != NULL && e1->type == DRONE_ENTITY)
             {

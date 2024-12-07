@@ -50,6 +50,10 @@ playerInputs getPlayerInputs(const droneEntity *drone, const int gamepadIdx)
         }
         return inputs;
     }
+    if (gamepadIdx != 0)
+    {
+        return inputs;
+    }
 
     if (IsKeyDown(KEY_W))
     {
@@ -67,6 +71,7 @@ playerInputs getPlayerInputs(const droneEntity *drone, const int gamepadIdx)
     {
         inputs.move.x += 1.0f;
     }
+    inputs.move = b2Normalize(inputs.move);
 
     Vector2 mousePos = (Vector2){.x = (float)GetMouseX(), .y = (float)GetMouseY()};
     b2Vec2 dronePos = b2Body_GetPosition(drone->bodyID);
@@ -151,6 +156,8 @@ int main(void)
             cc_deque_add(pickups, snipPickup);
             weaponPickupEntity *shotPickup = createWeaponPickup(worldID, entities, emptyCells, SHOTGUN_WEAPON);
             cc_deque_add(pickups, shotPickup);
+            weaponPickupEntity *implPickup = createWeaponPickup(worldID, entities, emptyCells, IMPLODER_WEAPON);
+            cc_deque_add(pickups, implPickup);
         }
 
         while (true)
@@ -166,19 +173,18 @@ int main(void)
             playerInputs inputs2 = getPlayerInputs(aiDrone, 1);
             handlePlayerDroneInputs(worldID, projectiles, aiDrone, inputs2);
 
-            float frameTime = fmaxf(GetFrameTime(), FLT_MIN);
-            droneStep(playerDrone, frameTime);
-            droneStep(aiDrone, frameTime);
-            projectilesStep(projectiles);
+            droneStep(playerDrone, DELTA_TIME);
+            droneStep(aiDrone, DELTA_TIME);
+            projectilesStep(worldID, projectiles);
 
             for (size_t i = 0; i < cc_deque_size(pickups); i++)
             {
                 weaponPickupEntity *pickup;
                 cc_deque_get_at(pickups, i, (void **)&pickup);
-                weaponPickupStep(entities, emptyCells, pickup, frameTime);
+                weaponPickupStep(entities, emptyCells, pickup, DELTA_TIME);
             }
 
-            b2World_Step(worldID, 1.0f / 60.0f, 8);
+            b2World_Step(worldID, DELTA_TIME, 8);
 
             handleContactEvents(worldID, projectiles);
             handleSensorEvents(worldID);
@@ -241,7 +247,7 @@ int main(void)
 
         destroyDrone(playerDrone);
         destroyDrone(aiDrone);
-        destroyAllProjectiles(projectiles);
+        destroyAllProjectiles(worldID, projectiles);
 
         for (size_t i = 0; i < cc_deque_size(walls); i++)
         {

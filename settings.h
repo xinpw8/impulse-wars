@@ -76,12 +76,25 @@
 #define SHOTGUN_INV_MASS INV_MASS(SHOTGUN_DENSITY, SHOTGUN_RADIUS)
 #define SHOTGUN_BOUNCE 1
 
+#define IMPLODER_AMMO 1
+#define IMPLODER_PROJECTILES 1
+#define IMPLODER_RECOIL_MAGNITUDE 20.0f
+#define IMPLODER_FIRE_MAGNITUDE 30.0f
+#define IMPLODER_CHARGE 2.0f
+#define IMPLODER_COOL_DOWN 0.0f
+#define IMPLODER_MAX_DISTANCE INFINITE
+#define IMPLODER_RADIUS 0.8f
+#define IMPLODER_DENSITY 5.0f
+#define IMPLODER_INV_MASS INV_MASS(IMPLODER_DENSITY, IMPLODER_RADIUS)
+#define IMPLODER_BOUNCE 0
+
 enum weaponType
 {
     STANDARD_WEAPON,
     MACHINEGUN_WEAPON,
     SNIPER_WEAPON,
     SHOTGUN_WEAPON,
+    IMPLODER_WEAPON,
 };
 
 // max ammo of weapon
@@ -102,6 +115,9 @@ int8_t weaponAmmo(const enum weaponType type)
         return SNIPER_AMMO;
     case SHOTGUN_WEAPON:
         return SHOTGUN_AMMO;
+    case IMPLODER_WEAPON:
+        return IMPLODER_AMMO;
+
     default:
         ERRORF("unknown weapon type %d", type);
     }
@@ -119,6 +135,9 @@ uint8_t weaponProjectiles(const enum weaponType type)
         return SNIPER_PROJECTILES;
     case SHOTGUN_WEAPON:
         return SHOTGUN_PROJECTILES;
+    case IMPLODER_WEAPON:
+        return IMPLODER_PROJECTILES;
+
     default:
         ERRORF("unknown weapon type %d", type);
     }
@@ -137,6 +156,9 @@ float weaponRecoil(const enum weaponType type)
         return SNIPER_RECOIL_MAGNITUDE;
     case SHOTGUN_WEAPON:
         return SHOTGUN_RECOIL_MAGNITUDE;
+    case IMPLODER_WEAPON:
+        return IMPLODER_RECOIL_MAGNITUDE;
+
     default:
         ERRORF("unknown weapon type %d", type);
     }
@@ -157,6 +179,8 @@ float weaponFire(const enum weaponType type)
         const int maxOffset = 3.0f;
         const int fireOffset = randInt(-maxOffset, maxOffset);
         return SHOTGUN_FIRE_MAGNITUDE + fireOffset;
+    case IMPLODER_WEAPON:
+        return IMPLODER_FIRE_MAGNITUDE;
     default:
         ERRORF("unknown weapon type %d", type);
     }
@@ -179,6 +203,9 @@ uint16_t weaponCharge(const enum weaponType type)
     case SHOTGUN_WEAPON:
         charge = SHOTGUN_CHARGE;
         break;
+    case IMPLODER_WEAPON:
+        charge = IMPLODER_CHARGE;
+        break;
     default:
         ERRORF("unknown weapon type %d", type);
     }
@@ -199,6 +226,8 @@ float weaponCoolDown(const enum weaponType type)
         return SNIPER_COOL_DOWN;
     case SHOTGUN_WEAPON:
         return SHOTGUN_COOL_DOWN;
+    case IMPLODER_WEAPON:
+        return IMPLODER_COOL_DOWN;
     default:
         ERRORF("unknown weapon type %d", type);
     }
@@ -217,6 +246,8 @@ float weaponMaxDistance(const enum weaponType type)
         return SNIPER_MAX_DISTANCE;
     case SHOTGUN_WEAPON:
         return SHOTGUN_MAX_DISTANCE;
+    case IMPLODER_WEAPON:
+        return IMPLODER_MAX_DISTANCE;
     default:
         ERRORF("unknown weapon type %d", type);
     }
@@ -235,6 +266,8 @@ float weaponRadius(const enum weaponType type)
         return SNIPER_RADIUS;
     case SHOTGUN_WEAPON:
         return SHOTGUN_RADIUS;
+    case IMPLODER_WEAPON:
+        return IMPLODER_RADIUS;
     default:
         ERRORF("unknown weapon type %d", type);
     }
@@ -253,6 +286,8 @@ float weaponDensity(const enum weaponType type)
         return SNIPER_DENSITY;
     case SHOTGUN_WEAPON:
         return SHOTGUN_DENSITY;
+    case IMPLODER_WEAPON:
+        return IMPLODER_DENSITY;
     default:
         ERRORF("unknown weapon type %d", type);
     }
@@ -279,6 +314,8 @@ b2Vec2 weaponAdjustAim(const enum weaponType type, const uint16_t heat, const b2
         const float offsetY = randFloat(-maxOffset, maxOffset);
         b2Vec2 shotgunAim = {.x = normAim.x + offsetX, .y = normAim.y + offsetY};
         return b2Normalize(shotgunAim);
+    case IMPLODER_WEAPON:
+        return normAim;
     default:
         ERRORF("unknown weapon type %d", type);
     }
@@ -298,6 +335,8 @@ float weaponInvMass(const enum weaponType type)
         return SNIPER_INV_MASS;
     case SHOTGUN_WEAPON:
         return SHOTGUN_INV_MASS;
+    case IMPLODER_WEAPON:
+        return IMPLODER_INV_MASS;
     default:
         ERRORF("unknown weapon type %d", type);
     }
@@ -321,10 +360,37 @@ uint8_t weaponBounce(const enum weaponType type)
     case SHOTGUN_WEAPON:
         bounce = SHOTGUN_BOUNCE;
         break;
+    case IMPLODER_WEAPON:
+        bounce = IMPLODER_BOUNCE;
+        break;
     default:
         ERRORF("unknown weapon type %d", type);
     }
     return bounce + 1;
+}
+
+// sets explosion parameters and returns true if an explosion should be created
+// when a projectile is destroyed
+bool weaponExplosion(const enum weaponType type, b2ExplosionDef *explosionDef)
+{
+    switch (type)
+    {
+    case STANDARD_WEAPON:
+        return false;
+    case MACHINEGUN_WEAPON:
+        return false;
+    case SNIPER_WEAPON:
+        return false;
+    case SHOTGUN_WEAPON:
+        return false;
+    case IMPLODER_WEAPON:
+        explosionDef->radius = 5.0f;
+        explosionDef->falloff = 5.0f;
+        explosionDef->impulsePerLength = -100.0f;
+        return true;
+    default:
+        ERRORF("unknown weapon type %d", type);
+    }
 }
 
 #endif

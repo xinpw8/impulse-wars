@@ -108,13 +108,16 @@ void renderWeaponPickup(const weaponPickupEntity *pickup)
     switch (pickup->weapon)
     {
     case MACHINEGUN_WEAPON:
-        name = "MACH";
+        name = "MCGN";
         break;
     case SNIPER_WEAPON:
-        name = "SNIP";
+        name = "SNPR";
         break;
     case SHOTGUN_WEAPON:
-        name = "SHOT";
+        name = "SHGN";
+        break;
+    case IMPLODER_WEAPON:
+        name = "IMPL";
         break;
     default:
         ERRORF("unknown weapon pickup type %d", pickup->weapon);
@@ -211,6 +214,9 @@ void renderDroneGuides(const b2WorldId worldID, const droneEntity *drone, const 
     case SHOTGUN_WEAPON:
         aimGuideWidth = 4.0f;
         break;
+    case IMPLODER_WEAPON:
+        aimGuideWidth = 5.0f;
+        break;
     default:
         ERRORF("unknown weapon when getting aim guide width %d", drone->weapon);
     }
@@ -241,7 +247,12 @@ void renderDroneLabels(const droneEntity *drone)
     const int bufferSize = 5;
     char ammoStr[bufferSize];
     snprintf(ammoStr, bufferSize, "%d", drone->ammo);
-    DrawText(ammoStr, b2XToRayX(pos.x - 0.5f), b2YToRayY(pos.y + 1.5f), scale, WHITE);
+    float posX = pos.x - 0.25;
+    if (drone->ammo >= 10 || drone->ammo == INFINITE)
+    {
+        posX -= 0.25f;
+    }
+    DrawText(ammoStr, b2XToRayX(posX), b2YToRayY(pos.y + 1.5f), scale, WHITE);
 
     const float maxCharge = weaponCharge(drone->weapon);
     if (maxCharge == 0.0f)
