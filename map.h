@@ -90,4 +90,9 @@ void createMap(env *e, const char *layoutPath)
     }
 
     fclose(file);
+
+    e->columns = width;
+    e->rows = height;
+
+    DEBUG_LOGF("empty cells: %zu", cc_deque_size(e->emptyCells));
 }

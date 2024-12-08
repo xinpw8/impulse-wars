@@ -95,6 +95,8 @@ typedef struct droneEntity
 typedef struct env
 {
     b2WorldId worldID;
+    uint8_t columns;
+    uint8_t rows;
     mapBounds bounds;
     CC_Deque *entities;
     CC_Deque *walls;
@@ -103,6 +105,9 @@ typedef struct env
     CC_Deque *pickups;
     CC_SList *projectiles;
 
+    uint16_t stepsLeft;
+    uint16_t suddenDeathSteps;
+    uint8_t suddenDeathWallCounter;
 } env;
 
 typedef struct droneInputs

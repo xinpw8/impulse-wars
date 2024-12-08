@@ -34,7 +34,7 @@ void createWall(env *e, const float posX, const float posY, const float width, c
     wallShapeDef.density = WALL_DENSITY;
     wallShapeDef.restitution = 0.0f;
     wallShapeDef.filter.categoryBits = WALL_SHAPE;
-    wallShapeDef.filter.maskBits = FLOATING_WALL_SHAPE | PROJECTILE_SHAPE | DRONE_SHAPE;
+    wallShapeDef.filter.maskBits = FLOATING_WALL_SHAPE | PROJECTILE_SHAPE | WEAPON_PICKUP_SHAPE | DRONE_SHAPE;
     if (floating)
     {
         wallShapeDef.filter.categoryBits = FLOATING_WALL_SHAPE;
@@ -124,10 +124,26 @@ bool overlapCallback(b2ShapeId shapeId, void *context)
     return false;
 }
 
+bool isOverlapping(env *e, const b2Vec2 pos, const float distance, const enum shapeCategory type, const uint64_t maskBits)
+{
+    b2AABB bounds = {
+        .lowerBound = {.x = pos.x - distance, .y = pos.y - distance},
+        .upperBound = {.x = pos.x + distance, .y = pos.y + distance},
+    };
+    b2QueryFilter filter = {
+        .categoryBits = type,
+        .maskBits = maskBits,
+    };
+    bool overlaps = false;
+    b2World_OverlapAABB(e->worldID, bounds, filter, overlapCallback, &overlaps);
+    return overlaps;
+}
+
 b2Vec2 findOpenPos(env *e, const enum shapeCategory type)
 {
     const size_t nEmptyCells = cc_deque_size(e->emptyCells) - 1;
     assert(nEmptyCells > 0);
+    // TODO: use bitsets to track what cells have been tried
     while (true)
     {
         const int cellIdx = randInt(0, nEmptyCells);
@@ -136,35 +152,13 @@ b2Vec2 findOpenPos(env *e, const enum shapeCategory type)
 
         if (type == DRONE_SHAPE)
         {
-            // TODO: enforce bigger distance between drones?
-            b2AABB overlap = {
-                .lowerBound = {.x = pos->x - DRONE_WALL_SPAWN_DISTANCE, .y = pos->y - DRONE_WALL_SPAWN_DISTANCE},
-                .upperBound = {.x = pos->x + DRONE_WALL_SPAWN_DISTANCE, .y = pos->y + DRONE_WALL_SPAWN_DISTANCE},
-            };
-            b2QueryFilter filter = {
-                .categoryBits = type,
-                .maskBits = WALL_SHAPE,
-            };
-            bool overlaps = false;
-            b2World_OverlapAABB(e->worldID, overlap, filter, overlapCallback, &overlaps);
-            if (overlaps)
+            if (isOverlapping(e, *pos, DRONE_WALL_SPAWN_DISTANCE, DRONE_SHAPE, WALL_SHAPE))
             {
                 continue;
             }
         }
 
-        b2AABB overlap = {
-            .lowerBound = {.x = pos->x - MIN_SPAWN_DISTANCE, .y = pos->y - MIN_SPAWN_DISTANCE},
-            .upperBound = {.x = pos->x + MIN_SPAWN_DISTANCE, .y = pos->y + MIN_SPAWN_DISTANCE},
-        };
-        b2QueryFilter filter = {
-            .categoryBits = type,
-            .maskBits = FLOATING_WALL_SHAPE | WEAPON_PICKUP_SHAPE | DRONE_SHAPE,
-        };
-
-        bool overlaps = false;
-        b2World_OverlapAABB(e->worldID, overlap, filter, overlapCallback, &overlaps);
-        if (!overlaps)
+        if (!isOverlapping(e, *pos, MIN_SPAWN_DISTANCE, type, FLOATING_WALL_SHAPE | WEAPON_PICKUP_SHAPE | DRONE_SHAPE))
         {
             return *pos;
         }
@@ -182,7 +176,7 @@ void createWeaponPickup(env *e, const enum weaponType type)
     b2BodyId pickupBodyID = b2CreateBody(e->worldID, &pickupBodyDef);
     b2ShapeDef pickupShapeDef = b2DefaultShapeDef();
     pickupShapeDef.filter.categoryBits = WEAPON_PICKUP_SHAPE;
-    pickupShapeDef.filter.maskBits = FLOATING_WALL_SHAPE | WEAPON_PICKUP_SHAPE | DRONE_SHAPE;
+    pickupShapeDef.filter.maskBits = WALL_SHAPE | FLOATING_WALL_SHAPE | WEAPON_PICKUP_SHAPE | DRONE_SHAPE;
     pickupShapeDef.isSensor = true;
 
     weaponPickupEntity *pickup = (weaponPickupEntity *)calloc(1, sizeof(weaponPickupEntity));
@@ -338,6 +332,95 @@ void destroyAllProjectiles(env *e)
     {
         projectileEntity *p = (projectileEntity *)cur->data;
         destroyProjectile(e, p, false);
+    }
+}
+
+void handleSuddenDeath(env *e)
+{
+    assert(e->suddenDeathSteps == 0);
+
+    e->suddenDeathWallCounter++;
+    createWall(
+        e,
+        e->bounds.min.x + ((e->columns / 2) * WALL_THICKNESS),
+        e->bounds.min.y + ((WALL_THICKNESS * (e->suddenDeathWallCounter - 1)) + (WALL_THICKNESS / 2)),
+        WALL_THICKNESS * (e->columns - e->suddenDeathWallCounter),
+        WALL_THICKNESS,
+        DEATH_WALL_ENTITY,
+        false);
+    createWall(
+        e,
+        e->bounds.max.x - ((e->columns / 2) * WALL_THICKNESS),
+        e->bounds.max.y - ((WALL_THICKNESS * (e->suddenDeathWallCounter - 1)) + (WALL_THICKNESS / 2)),
+        WALL_THICKNESS * (e->columns - e->suddenDeathWallCounter),
+        WALL_THICKNESS,
+        DEATH_WALL_ENTITY,
+        false);
+    createWall(
+        e,
+        e->bounds.min.x + ((WALL_THICKNESS * (e->suddenDeathWallCounter - 1)) + (WALL_THICKNESS / 2)),
+        e->bounds.max.y - ((e->columns / 2) * WALL_THICKNESS),
+        WALL_THICKNESS,
+        WALL_THICKNESS * (e->columns - e->suddenDeathWallCounter),
+        DEATH_WALL_ENTITY,
+        false);
+    createWall(
+        e,
+        e->bounds.max.x - ((WALL_THICKNESS * (e->suddenDeathWallCounter - 1)) + (WALL_THICKNESS / 2)),
+        e->bounds.min.y + ((e->columns / 2) * WALL_THICKNESS),
+        WALL_THICKNESS,
+        WALL_THICKNESS * (e->columns - e->suddenDeathWallCounter),
+        DEATH_WALL_ENTITY,
+        false);
+
+    // TODO: remove now non empty cells
+
+    bool droneDead = false;
+    for (size_t i = 0; i < cc_deque_size(e->drones); i++)
+    {
+        droneEntity *drone;
+        cc_deque_get_at(e->drones, i, (void **)&drone);
+
+        const b2Vec2 pos = b2Body_GetPosition(drone->bodyID);
+        if (isOverlapping(e, pos, DRONE_RADIUS, DRONE_SHAPE, WALL_SHAPE))
+        {
+            drone->dead = true;
+            droneDead = true;
+        }
+    }
+    if (droneDead)
+    {
+        return;
+    }
+
+    for (size_t i = 0; i < cc_deque_size(e->pickups); i++)
+    {
+        weaponPickupEntity *pickup;
+        cc_deque_get_at(e->pickups, i, (void **)&pickup);
+
+        const b2Vec2 pos = b2Body_GetPosition(pickup->bodyID);
+        if (isOverlapping(e, pos, PICKUP_THICKNESS, WEAPON_PICKUP_SHAPE, WALL_SHAPE))
+        {
+            pickup->respawnWait = PICKUP_RESPAWN_WAIT;
+        }
+    }
+
+    for (size_t i = 0; i < cc_deque_size(e->entities); i++)
+    {
+        entity *ent;
+        cc_deque_get_at(e->entities, i, (void **)&ent);
+        if (ent->type != STANDARD_WALL_ENTITY && ent->type != BOUNCY_WALL_ENTITY && ent->type != DEATH_WALL_ENTITY)
+        {
+            continue;
+        }
+        wallEntity *wall = (wallEntity *)ent->entity;
+
+        const b2Vec2 pos = b2Body_GetPosition(wall->bodyID);
+        if (isOverlapping(e, pos, FLOATING_WALL_THICKNESS, FLOATING_WALL_SHAPE, WALL_SHAPE))
+        {
+            // TODO: destroy wall?
+            b2Body_Disable(wall->bodyID);
+        }
     }
 }
 

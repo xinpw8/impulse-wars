@@ -10,6 +10,9 @@
 
 #define MIN_SPAWN_DISTANCE 7.5f
 
+#define ROUND_STEPS 91.0f * FRAME_RATE
+#define SUDDEN_DEATH_STEPS 10.0f * FRAME_RATE
+
 // wall settings
 #define WALL_THICKNESS 4.0f
 #define FLOATING_WALL_THICKNESS 3.0f

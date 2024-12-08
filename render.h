@@ -23,7 +23,7 @@ float b2XToRayX(const float x)
 
 float b2YToRayY(const float y)
 {
-    return (halfHeight + y * scale) + (4 * scale);
+    return (halfHeight + y * scale) + (8 * scale);
 }
 
 Vector2 b2VecToRayVec(const b2Vec2 v)
@@ -34,6 +34,27 @@ Vector2 b2VecToRayVec(const b2Vec2 v)
 b2Vec2 rayVecToB2Vec(const Vector2 v)
 {
     return (b2Vec2){.x = (v.x - halfWidth) / scale, .y = (v.y - halfHeight) / scale};
+}
+
+void renderUI(const env *e)
+{
+    if (e->stepsLeft == 0)
+    {
+        DrawText("SUDDEN DEATH", (width / 2) - (8 * scale), scale, 2 * scale, WHITE);
+        return;
+    }
+
+    const int bufferSize = 3;
+    char timerStr[bufferSize];
+    if (e->stepsLeft >= 10 * FRAME_RATE)
+    {
+        snprintf(timerStr, bufferSize, "%d", (uint16_t)(e->stepsLeft / FRAME_RATE));
+    }
+    else
+    {
+        snprintf(timerStr, bufferSize, "0%d", (uint16_t)(e->stepsLeft / FRAME_RATE));
+    }
+    DrawText(timerStr, (width / 2) - scale, scale, 2 * scale, WHITE);
 }
 
 void renderEmptyCell(const b2Vec2 emptyCell)
@@ -171,7 +192,7 @@ void renderDroneGuides(const env *e, const droneEntity *drone, const b2Vec2 move
 
     const b2Vec2 rayEnd = b2MulAdd(pos, 150.0f, aim);
     const b2Vec2 translation = b2Sub(rayEnd, pos);
-    const b2QueryFilter filter = {.categoryBits = PROJECTILE_SHAPE, .maskBits = WALL_SHAPE | DRONE_SHAPE};
+    const b2QueryFilter filter = {.categoryBits = PROJECTILE_SHAPE, .maskBits = WALL_SHAPE | FLOATING_WALL_SHAPE | DRONE_SHAPE};
     const b2RayResult rayRes = b2World_CastRayClosest(e->worldID, pos, translation, filter);
     const entity *ent = (entity *)b2Shape_GetUserData(rayRes.shapeId);
 
@@ -296,7 +317,9 @@ void renderEnv(env *e, const CC_Deque *inputs)
     BeginDrawing();
 
     ClearBackground(BLACK);
-    DrawFPS(10, 10);
+    DrawFPS(scale, scale);
+
+    renderUI(e);
 
     // for (size_t i = 0; i < cc_deque_size(emptyCells); i++)
     // {

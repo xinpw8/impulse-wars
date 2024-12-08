@@ -28,6 +28,10 @@ void setupEnv(env *e)
     cc_deque_new(&e->pickups);
     cc_slist_new(&e->projectiles);
 
+    e->stepsLeft = ROUND_STEPS;
+    e->suddenDeathSteps = SUDDEN_DEATH_STEPS;
+    e->suddenDeathWallCounter = 0;
+
     createMap(e, "prototype_arena.txt");
 
     mapBounds bounds = {.min = {.x = FLT_MAX, .y = FLT_MAX}, .max = {.x = FLT_MIN, .y = FLT_MIN}};
@@ -105,6 +109,17 @@ void resetEnv(env *e)
 
 void stepEnv(env *e, float deltaTime)
 {
+    e->stepsLeft = fmaxf(e->stepsLeft - 1, 0.0f);
+    if (e->stepsLeft == 0)
+    {
+        e->suddenDeathSteps = fmaxf(e->suddenDeathSteps - 1, 0.0f);
+        if (e->suddenDeathSteps == 0)
+        {
+            handleSuddenDeath(e);
+            e->suddenDeathSteps = SUDDEN_DEATH_STEPS;
+        }
+    }
+
     for (size_t i = 0; i < cc_deque_size(e->drones); i++)
     {
         droneEntity *drone;
