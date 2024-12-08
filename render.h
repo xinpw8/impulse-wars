@@ -192,8 +192,8 @@ void renderDroneGuides(const env *e, const droneEntity *drone, const b2Vec2 move
     const b2DistanceInput input = {
         .proxyA = proxyA,
         .proxyB = proxyB,
-        .transformA = {.p = pos, .q = zeroB2Rot},
-        .transformB = {.p = rayRes.point, .q = zeroB2Rot},
+        .transformA = {.p = pos, .q = b2Rot_identity},
+        .transformB = {.p = rayRes.point, .q = b2Rot_identity},
         .useRadii = shapeIsCircle,
     };
     const b2DistanceOutput output = b2ShapeDistance(&cache, &input, NULL, 0);
@@ -234,7 +234,8 @@ void renderDroneGuides(const env *e, const droneEntity *drone, const b2Vec2 move
 
 void renderDrone(const droneEntity *drone, const int droneIdx)
 {
-    const Vector2 raylibPos = b2VecToRayVec(b2Body_GetPosition(drone->bodyID));
+    const b2Vec2 pos = b2Body_GetPosition(drone->bodyID);
+    const Vector2 raylibPos = b2VecToRayVec(pos);
     DrawCircleV(raylibPos, DRONE_RADIUS * scale, BLACK);
     DrawCircleLinesV(raylibPos, DRONE_RADIUS * scale, getDroneColor(droneIdx));
 }

@@ -34,12 +34,17 @@ void createWall(env *e, const float posX, const float posY, const float width, c
     wallShapeDef.density = WALL_DENSITY;
     wallShapeDef.restitution = 0.0f;
     wallShapeDef.filter.categoryBits = WALL_SHAPE;
-    wallShapeDef.filter.maskBits = WALL_SHAPE | PROJECTILE_SHAPE | DRONE_SHAPE;
+    wallShapeDef.filter.maskBits = FLOATING_WALL_SHAPE | PROJECTILE_SHAPE | DRONE_SHAPE;
+    if (floating)
+    {
+        wallShapeDef.filter.categoryBits = FLOATING_WALL_SHAPE;
+        wallShapeDef.filter.maskBits |= WALL_SHAPE | WEAPON_PICKUP_SHAPE;
+        wallShapeDef.enableSensorEvents = true;
+    }
 
     if (type == BOUNCY_WALL_ENTITY)
     {
         wallShapeDef.restitution = BOUNCY_WALL_RESTITUTION;
-        wallShapeDef.enableSensorEvents = true;
     }
     if (type == DEATH_WALL_ENTITY)
     {
@@ -112,72 +117,54 @@ b2DistanceProxy makeDistanceProxy(const enum entityType type, bool *isCircle)
     return proxy;
 }
 
-b2Vec2 findOpenPos(env *e, const enum entityType type)
+bool overlapCallback(b2ShapeId shapeId, void *context)
+{
+    bool *overlaps = (bool *)context;
+    *overlaps = true;
+    return false;
+}
+
+b2Vec2 findOpenPos(env *e, const enum shapeCategory type)
 {
     const size_t nEmptyCells = cc_deque_size(e->emptyCells) - 1;
     assert(nEmptyCells > 0);
-    const size_t nEntities = cc_deque_size(e->entities);
-    b2DistanceCache cache = {0};
     while (true)
     {
         const int cellIdx = randInt(0, nEmptyCells);
         b2Vec2 *pos;
         cc_deque_get_at(e->emptyCells, cellIdx, (void **)&pos);
 
-        bool found = true;
-        bool shapeACircle = false;
-        const b2DistanceProxy proxyA = makeDistanceProxy(type, &shapeACircle);
-        for (int i = 0; i < nEntities; i++)
+        if (type == DRONE_SHAPE)
         {
-            entity *ent;
-            cc_deque_get_at(e->entities, i, (void **)&ent);
-            b2Transform transform;
-            switch (ent->type)
-            {
-            case DRONE_ENTITY:
-                const droneEntity *de = (droneEntity *)ent->entity;
-                transform = b2Body_GetTransform(de->bodyID);
-                break;
-            case WEAPON_PICKUP_ENTITY:
-                const weaponPickupEntity *pe = (weaponPickupEntity *)ent->entity;
-                transform = b2Body_GetTransform(pe->bodyID);
-                break;
-            case STANDARD_WALL_ENTITY:
-            case BOUNCY_WALL_ENTITY:
-            case DEATH_WALL_ENTITY:
-                const wallEntity *we = (wallEntity *)ent->entity;
-                transform = b2Body_GetTransform(we->bodyID);
-                break;
-            default:
-                ERRORF("unknown entity type for shape distance: %d", type);
-            }
-
-            float distance = b2Distance(*pos, transform.p);
-            if (distance < 7.5f)
-            {
-                found = false;
-                break;
-            }
-
-            bool shapeBCircle = false;
-            const b2DistanceProxy proxyB = makeDistanceProxy(ent->type, &shapeBCircle);
-            const b2DistanceInput input = {
-                .proxyA = proxyA,
-                .proxyB = proxyB,
-                .transformA = {.p = *pos, .q = zeroB2Rot},
-                .transformB = transform,
-                .useRadii = shapeACircle || shapeBCircle,
+            // TODO: enforce bigger distance between drones?
+            b2AABB overlap = {
+                .lowerBound = {.x = pos->x - DRONE_WALL_SPAWN_DISTANCE, .y = pos->y - DRONE_WALL_SPAWN_DISTANCE},
+                .upperBound = {.x = pos->x + DRONE_WALL_SPAWN_DISTANCE, .y = pos->y + DRONE_WALL_SPAWN_DISTANCE},
             };
-            const b2DistanceOutput output = b2ShapeDistance(&cache, &input, NULL, 0);
-            DEBUG_LOGF("cellIdx=%d i=%d type=%d posA=(%f, %f) posB=(%f, %f) distance=%f shapeDistance=%f", cellIdx, i, ent->type, pos->x, pos->y, transform.p.x, transform.p.y, distance, output.distance);
-            if (output.distance < 7.5)
+            b2QueryFilter filter = {
+                .categoryBits = type,
+                .maskBits = WALL_SHAPE,
+            };
+            bool overlaps = false;
+            b2World_OverlapAABB(e->worldID, overlap, filter, overlapCallback, &overlaps);
+            if (overlaps)
             {
-                found = false;
-                break;
+                continue;
             }
         }
 
-        if (found)
+        b2AABB overlap = {
+            .lowerBound = {.x = pos->x - MIN_SPAWN_DISTANCE, .y = pos->y - MIN_SPAWN_DISTANCE},
+            .upperBound = {.x = pos->x + MIN_SPAWN_DISTANCE, .y = pos->y + MIN_SPAWN_DISTANCE},
+        };
+        b2QueryFilter filter = {
+            .categoryBits = type,
+            .maskBits = FLOATING_WALL_SHAPE | WEAPON_PICKUP_SHAPE | DRONE_SHAPE,
+        };
+
+        bool overlaps = false;
+        b2World_OverlapAABB(e->worldID, overlap, filter, overlapCallback, &overlaps);
+        if (!overlaps)
         {
             return *pos;
         }
@@ -191,11 +178,11 @@ void createWeaponPickup(env *e, const enum weaponType type)
     assert(type != STANDARD_WEAPON);
 
     b2BodyDef pickupBodyDef = b2DefaultBodyDef();
-    pickupBodyDef.position = findOpenPos(e, WEAPON_PICKUP_ENTITY);
+    pickupBodyDef.position = findOpenPos(e, WEAPON_PICKUP_SHAPE);
     b2BodyId pickupBodyID = b2CreateBody(e->worldID, &pickupBodyDef);
     b2ShapeDef pickupShapeDef = b2DefaultShapeDef();
-    pickupShapeDef.filter.categoryBits = WEAPON_PICKUP_ENTITY;
-    pickupShapeDef.filter.maskBits = WALL_SHAPE | DRONE_SHAPE;
+    pickupShapeDef.filter.categoryBits = WEAPON_PICKUP_SHAPE;
+    pickupShapeDef.filter.maskBits = FLOATING_WALL_SHAPE | WEAPON_PICKUP_SHAPE | DRONE_SHAPE;
     pickupShapeDef.isSensor = true;
 
     weaponPickupEntity *pickup = (weaponPickupEntity *)calloc(1, sizeof(weaponPickupEntity));
@@ -229,7 +216,7 @@ void createDrone(env *e)
 {
     b2BodyDef droneBodyDef = b2DefaultBodyDef();
     droneBodyDef.type = b2_dynamicBody;
-    droneBodyDef.position = findOpenPos(e, DRONE_ENTITY);
+    droneBodyDef.position = findOpenPos(e, DRONE_SHAPE);
     droneBodyDef.linearDamping = DRONE_LINEAR_DAMPING;
     b2BodyId droneBodyID = b2CreateBody(e->worldID, &droneBodyDef);
     b2ShapeDef droneShapeDef = b2DefaultShapeDef();
@@ -237,10 +224,10 @@ void createDrone(env *e)
     droneShapeDef.friction = 0.0f;
     droneShapeDef.restitution = 0.2f;
     droneShapeDef.filter.categoryBits = DRONE_SHAPE;
-    droneShapeDef.filter.maskBits = WALL_SHAPE | PROJECTILE_SHAPE | DRONE_SHAPE;
+    droneShapeDef.filter.maskBits = WALL_SHAPE | FLOATING_WALL_SHAPE | WEAPON_PICKUP_SHAPE | PROJECTILE_SHAPE | DRONE_SHAPE;
     droneShapeDef.enableContactEvents = true;
     droneShapeDef.enableSensorEvents = true;
-    const b2Circle droneCircle = {.center = {.x = 0.0f, .y = 0.0f}, .radius = DRONE_RADIUS};
+    const b2Circle droneCircle = {.center = b2Vec2_zero, .radius = DRONE_RADIUS};
 
     droneEntity *drone = (droneEntity *)calloc(1, sizeof(droneEntity));
     drone->bodyID = droneBodyID;
@@ -295,8 +282,8 @@ void createProjectile(env *e, droneEntity *drone, const b2Vec2 normAim)
     projectileShapeDef.friction = 0.0f;
     projectileShapeDef.restitution = 1.0f;
     projectileShapeDef.filter.categoryBits = PROJECTILE_SHAPE;
-    projectileShapeDef.filter.maskBits = WALL_SHAPE | PROJECTILE_SHAPE | DRONE_SHAPE;
-    const b2Circle projectileCircle = {.center = {.x = 0.0f, .y = 0.0f}, .radius = radius};
+    projectileShapeDef.filter.maskBits = WALL_SHAPE | FLOATING_WALL_SHAPE | PROJECTILE_SHAPE | DRONE_SHAPE;
+    const b2Circle projectileCircle = {.center = b2Vec2_zero, .radius = radius};
 
     b2ShapeId projectileShapeID = b2CreateCircleShape(projectileBodyID, &projectileShapeDef, &projectileCircle);
 
@@ -329,7 +316,7 @@ void destroyProjectile(env *e, projectileEntity *projectile, const bool full)
     if (weaponExplosion(projectile->type, &explosion))
     {
         explosion.position = b2Body_GetPosition(projectile->bodyID);
-        explosion.maskBits = WALL_SHAPE | DRONE_SHAPE;
+        explosion.maskBits = FLOATING_WALL_SHAPE | DRONE_SHAPE;
         b2World_Explode(e->worldID, &explosion);
     }
 
@@ -458,7 +445,7 @@ void weaponPickupStep(env *e, weaponPickupEntity *pickup, const float frameTime)
         pickup->respawnWait = fmaxf(pickup->respawnWait - frameTime, 0.0f);
         if (pickup->respawnWait == 0.0f)
         {
-            b2Vec2 pos = findOpenPos(e, WEAPON_PICKUP_ENTITY);
+            b2Vec2 pos = findOpenPos(e, WEAPON_PICKUP_SHAPE);
             b2Body_SetTransform(pickup->bodyID, pos, b2MakeRot(0.0f));
         }
     }

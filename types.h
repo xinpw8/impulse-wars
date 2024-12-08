@@ -19,9 +19,11 @@ enum entityType
 
 enum shapeCategory
 {
-    WALL_SHAPE = 0x1,
-    PROJECTILE_SHAPE = 0x2,
-    DRONE_SHAPE = 0x4,
+    WALL_SHAPE = 1,
+    FLOATING_WALL_SHAPE = 2,
+    PROJECTILE_SHAPE = 4,
+    WEAPON_PICKUP_SHAPE = 8,
+    DRONE_SHAPE = 16,
 };
 
 typedef struct entity
