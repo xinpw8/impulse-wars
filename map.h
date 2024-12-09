@@ -82,7 +82,7 @@ void createMap(env *e, const char *layoutPath)
                 ERRORF("unknown map layout cell %c", cell);
             }
 
-            DEBUG_LOGF("creating wall at: (%f %f)", x, y);
+            // DEBUG_LOGF("creating wall at: (%f %f)", x, y);
 
             createWall(e, x, y, thickness, thickness, wallType, floating);
         }
@@ -95,4 +95,6 @@ void createMap(env *e, const char *layoutPath)
     e->rows = height;
 
     DEBUG_LOGF("empty cells: %zu", cc_deque_size(e->emptyCells));
+    assert(cc_deque_size(e->emptyCells) > 0);
+    assert(cc_deque_size(e->emptyCells) < MAX_EMPTY_CELLS);
 }

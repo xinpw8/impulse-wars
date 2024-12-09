@@ -6,12 +6,14 @@
 #define FRAME_RATE 60.0f
 #define DELTA_TIME 1.0f / FRAME_RATE
 
-#define INFINITE -1
+#define MAX_EMPTY_CELLS 300
 
 #define MIN_SPAWN_DISTANCE 7.5f
 
 #define ROUND_STEPS 91.0f * FRAME_RATE
 #define SUDDEN_DEATH_STEPS 10.0f * FRAME_RATE
+
+#define INFINITE -1
 
 // wall settings
 #define WALL_THICKNESS 4.0f

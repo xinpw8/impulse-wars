@@ -35,28 +35,45 @@
     assert(vec.y <= max);         \
     assert(vec.y >= min);
 
-b2Vec2 createb2Vec(const float x, const float y)
-{
-    return (b2Vec2){.x = x, .y = y};
-}
-
-bool b2VecEqual(const b2Vec2 v1, const b2Vec2 v2)
+static inline bool b2VecEqual(const b2Vec2 v1, const b2Vec2 v2)
 {
     return v1.x == v2.x && v1.y == v2.y;
 }
 
-float randFloat(const float min, const float max)
+static inline float randFloat(const float min, const float max)
 {
     float n = rand() / (float)RAND_MAX;
     return min + n * (max - min);
 }
 
-int randInt(const int min, const int max)
+static inline int randInt(const int min, const int max)
 {
     return min + rand() % (max - min + 1);
 }
 
-float logBasef(const float v, const float b)
+static inline float logBasef(const float v, const float b)
 {
     return log2f(v) / log2(b);
+}
+
+#define BITNSLOTS(nb) ((nb + sizeof(uint8_t) - 1) / sizeof(uint8_t))
+
+static inline uint16_t bitMask(const uint16_t n)
+{
+    return 1 << (n % sizeof(uint8_t));
+}
+
+static inline uint16_t bitSlot(const uint16_t n)
+{
+    return n / sizeof(uint8_t);
+}
+
+static inline void bitSet(uint8_t *b, const uint16_t n)
+{
+    b[bitSlot(n)] |= bitMask(n);
+}
+
+static inline bool bitTest(const uint8_t *b, const uint16_t n)
+{
+    return b[bitSlot(n)] & bitMask(n);
 }

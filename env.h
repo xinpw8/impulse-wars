@@ -18,7 +18,7 @@ void destroyEnv(env *e)
 void setupEnv(env *e)
 {
     b2WorldDef worldDef = b2DefaultWorldDef();
-    worldDef.gravity = createb2Vec(0.0f, 0.0f);
+    worldDef.gravity = (b2Vec2){.x = 0.0f, .y = 0.0f};
     e->worldID = b2CreateWorld(&worldDef);
 
     cc_deque_new(&e->entities);

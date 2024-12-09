@@ -21,7 +21,7 @@ void createWall(env *e, const float posX, const float posY, const float width, c
     assert(type != DRONE_ENTITY);
 
     b2BodyDef wallBodyDef = b2DefaultBodyDef();
-    wallBodyDef.position = createb2Vec(posX, posY);
+    wallBodyDef.position = (b2Vec2){.x = posX, .y = posY};
     if (floating)
     {
         wallBodyDef.type = b2_dynamicBody;
@@ -139,18 +139,38 @@ bool isOverlapping(env *e, const b2Vec2 pos, const float distance, const enum sh
     return overlaps;
 }
 
-b2Vec2 findOpenPos(env *e, const enum shapeCategory type)
+bool findOpenPos(env *e, const enum shapeCategory type, b2Vec2 *emptyPos)
 {
+    uint8_t checkedCells[BITNSLOTS(MAX_EMPTY_CELLS)] = {0};
     const size_t nEmptyCells = cc_deque_size(e->emptyCells) - 1;
-    assert(nEmptyCells > 0);
-    // TODO: use bitsets to track what cells have been tried
+    uint16_t attempts = 0;
+
     while (true)
     {
+        if (attempts == nEmptyCells)
+        {
+            return false;
+        }
         const int cellIdx = randInt(0, nEmptyCells);
+        if (bitTest(checkedCells, cellIdx))
+        {
+            continue;
+        }
+        bitSet(checkedCells, cellIdx);
+        attempts++;
+        DEBUG_LOGF("attempts: %d", attempts);
+
         b2Vec2 *pos;
         cc_deque_get_at(e->emptyCells, cellIdx, (void **)&pos);
 
-        if (type == DRONE_SHAPE)
+        if (type == WEAPON_PICKUP_SHAPE)
+        {
+            if (isOverlapping(e, *pos, PICKUP_THICKNESS / 2.0f, WEAPON_PICKUP_SHAPE, WALL_SHAPE))
+            {
+                continue;
+            }
+        }
+        else if (type == DRONE_SHAPE)
         {
             if (isOverlapping(e, *pos, DRONE_WALL_SPAWN_DISTANCE, DRONE_SHAPE, WALL_SHAPE))
             {
@@ -160,11 +180,10 @@ b2Vec2 findOpenPos(env *e, const enum shapeCategory type)
 
         if (!isOverlapping(e, *pos, MIN_SPAWN_DISTANCE, type, FLOATING_WALL_SHAPE | WEAPON_PICKUP_SHAPE | DRONE_SHAPE))
         {
-            return *pos;
+            *emptyPos = *pos;
+            return true;
         }
     }
-
-    ERRORF("couldn't find empty position for entity %d", type);
 }
 
 void createWeaponPickup(env *e, const enum weaponType type)
@@ -172,7 +191,10 @@ void createWeaponPickup(env *e, const enum weaponType type)
     assert(type != STANDARD_WEAPON);
 
     b2BodyDef pickupBodyDef = b2DefaultBodyDef();
-    pickupBodyDef.position = findOpenPos(e, WEAPON_PICKUP_SHAPE);
+    if (!findOpenPos(e, WEAPON_PICKUP_SHAPE, &pickupBodyDef.position))
+    {
+        ERROR("no open position for weapon pickup");
+    }
     b2BodyId pickupBodyID = b2CreateBody(e->worldID, &pickupBodyDef);
     b2ShapeDef pickupShapeDef = b2DefaultShapeDef();
     pickupShapeDef.filter.categoryBits = WEAPON_PICKUP_SHAPE;
@@ -210,7 +232,10 @@ void createDrone(env *e)
 {
     b2BodyDef droneBodyDef = b2DefaultBodyDef();
     droneBodyDef.type = b2_dynamicBody;
-    droneBodyDef.position = findOpenPos(e, DRONE_SHAPE);
+    if (!findOpenPos(e, DRONE_SHAPE, &droneBodyDef.position))
+    {
+        ERROR("no open position for drone");
+    }
     droneBodyDef.linearDamping = DRONE_LINEAR_DAMPING;
     b2BodyId droneBodyID = b2CreateBody(e->worldID, &droneBodyDef);
     b2ShapeDef droneShapeDef = b2DefaultShapeDef();
@@ -399,7 +424,7 @@ void handleSuddenDeath(env *e)
         cc_deque_get_at(e->pickups, i, (void **)&pickup);
 
         const b2Vec2 pos = b2Body_GetPosition(pickup->bodyID);
-        if (isOverlapping(e, pos, PICKUP_THICKNESS, WEAPON_PICKUP_SHAPE, WALL_SHAPE))
+        if (isOverlapping(e, pos, PICKUP_THICKNESS / 2.0f, WEAPON_PICKUP_SHAPE, WALL_SHAPE))
         {
             pickup->respawnWait = PICKUP_RESPAWN_WAIT;
         }
@@ -416,7 +441,7 @@ void handleSuddenDeath(env *e)
         wallEntity *wall = (wallEntity *)ent->entity;
 
         const b2Vec2 pos = b2Body_GetPosition(wall->bodyID);
-        if (isOverlapping(e, pos, FLOATING_WALL_THICKNESS, FLOATING_WALL_SHAPE, WALL_SHAPE))
+        if (isOverlapping(e, pos, FLOATING_WALL_THICKNESS / 2.0f, FLOATING_WALL_SHAPE, WALL_SHAPE))
         {
             // TODO: destroy wall?
             b2Body_Disable(wall->bodyID);
@@ -528,7 +553,13 @@ void weaponPickupStep(env *e, weaponPickupEntity *pickup, const float frameTime)
         pickup->respawnWait = fmaxf(pickup->respawnWait - frameTime, 0.0f);
         if (pickup->respawnWait == 0.0f)
         {
-            b2Vec2 pos = findOpenPos(e, WEAPON_PICKUP_SHAPE);
+            b2Vec2 pos;
+            if (!findOpenPos(e, WEAPON_PICKUP_SHAPE, &pos))
+            {
+                // TODO: destroy weapon pickup
+                pickup->respawnWait = FLT_MAX;
+                return;
+            }
             b2Body_SetTransform(pickup->bodyID, pos, b2MakeRot(0.0f));
         }
     }
