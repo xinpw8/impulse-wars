@@ -32,6 +32,13 @@ typedef struct entity
     void *entity;
 } entity;
 
+typedef struct mapCell
+{
+    entity *ent;
+    // should only be set if the entity is NULL
+    b2Vec2 pos;
+} mapCell;
+
 typedef struct mapBounds
 {
     b2Vec2 min;
@@ -98,9 +105,9 @@ typedef struct env
     uint8_t columns;
     uint8_t rows;
     mapBounds bounds;
-    CC_Deque *entities;
+    CC_Deque *cells;
     CC_Deque *walls;
-    CC_Deque *emptyCells;
+    CC_Deque *entities;
     CC_Deque *drones;
     CC_Deque *pickups;
     CC_SList *projectiles;

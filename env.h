@@ -10,20 +10,15 @@ env *createEnv(void)
     return e;
 }
 
-void destroyEnv(env *e)
-{
-    free(e);
-}
-
 void setupEnv(env *e)
 {
     b2WorldDef worldDef = b2DefaultWorldDef();
     worldDef.gravity = (b2Vec2){.x = 0.0f, .y = 0.0f};
     e->worldID = b2CreateWorld(&worldDef);
 
-    cc_deque_new(&e->entities);
+    cc_deque_new(&e->cells);
     cc_deque_new(&e->walls);
-    cc_deque_new(&e->emptyCells);
+    cc_deque_new(&e->entities);
     cc_deque_new(&e->drones);
     cc_deque_new(&e->pickups);
     cc_slist_new(&e->projectiles);
@@ -46,7 +41,7 @@ void setupEnv(env *e)
     }
     e->bounds = bounds;
 
-    for (int i = 0; i < 2; i++)
+    for (int i = 0; i < NUM_DRONES; i++)
     {
         createDrone(e);
     }
@@ -85,20 +80,27 @@ void clearEnv(env *e)
         destroyWall(wall);
     }
 
-    for (size_t i = 0; i < cc_deque_size(e->emptyCells); i++)
+    for (size_t i = 0; i < cc_deque_size(e->cells); i++)
     {
-        b2Vec2 *pos;
-        cc_deque_get_at(e->emptyCells, i, (void **)&pos);
-        free(pos);
+        mapCell *cell;
+        cc_deque_get_at(e->cells, i, (void **)&cell);
+        free(cell);
     }
 
-    cc_slist_destroy(e->projectiles);
-    cc_deque_destroy(e->entities);
+    cc_deque_destroy(e->cells);
     cc_deque_destroy(e->walls);
-    cc_deque_destroy(e->emptyCells);
+    cc_deque_destroy(e->entities);
+    cc_deque_destroy(e->drones);
     cc_deque_destroy(e->pickups);
+    cc_slist_destroy(e->projectiles);
 
     b2DestroyWorld(e->worldID);
+}
+
+void destroyEnv(env *e)
+{
+    clearEnv(e);
+    free(e);
 }
 
 void resetEnv(env *e)

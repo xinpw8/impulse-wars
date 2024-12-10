@@ -6,7 +6,7 @@
 #define FRAME_RATE 60.0f
 #define DELTA_TIME 1.0f / FRAME_RATE
 
-#define MAX_EMPTY_CELLS 300
+#define MAX_CELLS 450
 
 #define MIN_SPAWN_DISTANCE 7.5f
 
@@ -27,6 +27,7 @@
 #define PICKUP_RESPAWN_WAIT 1.0f
 
 // drone settings
+#define NUM_DRONES 2
 #define DRONE_WALL_SPAWN_DISTANCE 5.0f
 #define DRONE_RADIUS 1.0f
 #define DRONE_DENSITY 1.25f

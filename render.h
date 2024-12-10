@@ -16,22 +16,22 @@ const Color barolo = {.r = 165, .b = 8, .g = 37, .a = 255};
 const float halfDroneRadius = DRONE_RADIUS / 2.0f;
 const float aimGuideHeight = 0.3f * DRONE_RADIUS;
 
-float b2XToRayX(const float x)
+static inline float b2XToRayX(const float x)
 {
-    return halfWidth + x * scale;
+    return halfWidth + (x * scale);
 }
 
-float b2YToRayY(const float y)
+static inline float b2YToRayY(const float y)
 {
-    return (halfHeight + y * scale) + (8 * scale);
+    return (halfHeight + (y * scale)) + (2 * scale);
 }
 
-Vector2 b2VecToRayVec(const b2Vec2 v)
+static inline Vector2 b2VecToRayVec(const b2Vec2 v)
 {
     return (Vector2){.x = b2XToRayX(v.x), .y = b2YToRayY(v.y)};
 }
 
-b2Vec2 rayVecToB2Vec(const Vector2 v)
+static inline b2Vec2 rayVecToB2Vec(const Vector2 v)
 {
     return (b2Vec2){.x = (v.x - halfWidth) / scale, .y = (v.y - halfHeight) / scale};
 }
@@ -57,7 +57,7 @@ void renderUI(const env *e)
     DrawText(timerStr, (width / 2) - scale, scale, 2 * scale, WHITE);
 }
 
-void renderEmptyCell(const b2Vec2 emptyCell)
+void renderEmptyCell(const b2Vec2 emptyCell, const size_t idx)
 {
     Rectangle rec = {
         .x = b2XToRayX(emptyCell.x - (WALL_THICKNESS / 2.0f)),
@@ -66,6 +66,11 @@ void renderEmptyCell(const b2Vec2 emptyCell)
         .height = WALL_THICKNESS * scale,
     };
     DrawRectangleLinesEx(rec, scale / 20.0f, RAYWHITE);
+
+    const int bufferSize = 4;
+    char idxStr[bufferSize];
+    snprintf(idxStr, bufferSize, "%zu", idx);
+    DrawText(idxStr, rec.x, rec.y, 1.5f * scale, WHITE);
 }
 
 void renderWall(const wallEntity *wall)
@@ -321,13 +326,6 @@ void renderEnv(env *e, const CC_Deque *inputs)
 
     renderUI(e);
 
-    // for (size_t i = 0; i < cc_deque_size(emptyCells); i++)
-    // {
-    //     b2Vec2 *emptyCell;
-    //     cc_deque_get_at(emptyCells, i, (void **)&emptyCell);
-    //     renderEmptyCell(*emptyCell);
-    // }
-
     for (size_t i = 0; i < cc_deque_size(e->drones); i++)
     {
         droneEntity *drone;
@@ -366,6 +364,16 @@ void renderEnv(env *e, const CC_Deque *inputs)
         cc_deque_get_at(e->drones, i, (void **)&drone);
         renderDroneLabels(drone);
     }
+
+    // for (size_t i = 0; i < cc_deque_size(e->cells); i++)
+    // {
+    //     mapCell *cell;
+    //     cc_deque_get_at(e->cells, i, (void **)&cell);
+    //     if (cell->ent == NULL)
+    //     {
+    //         renderEmptyCell(cell->pos, i);
+    //     }
+    // }
 
     EndDrawing();
 }

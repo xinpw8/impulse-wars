@@ -14,14 +14,28 @@
 #include <time.h>
 #include <stdio.h>
 
-void createWall(env *e, const float posX, const float posY, const float width, const float height, const enum entityType type, bool floating)
+static inline bool entityIsWall(const entity *ent)
+{
+    return ent->type == STANDARD_WALL_ENTITY || ent->type == BOUNCY_WALL_ENTITY || ent->type == DEATH_WALL_ENTITY;
+}
+
+static inline uint16_t posToCellIdx(const env *e, const b2Vec2 pos)
+{
+    const uint16_t col = ((pos.x / 2.0f) + (float)e->columns - 1.0f) / 2.0f;
+    const uint16_t row = (pos.y + ((float)e->rows * 2.0f) - 2.0f) / 4.0f;
+    return col + (row * e->columns);
+}
+
+entity *createWall(env *e, const float posX, const float posY, const float width, const float height, const enum entityType type, bool floating)
 {
     assert(type != WEAPON_PICKUP_ENTITY);
     assert(type != PROJECTILE_ENTITY);
     assert(type != DRONE_ENTITY);
 
+    const b2Vec2 pos = (b2Vec2){.x = posX, .y = posY};
+
     b2BodyDef wallBodyDef = b2DefaultBodyDef();
-    wallBodyDef.position = (b2Vec2){.x = posX, .y = posY};
+    wallBodyDef.position = pos;
     if (floating)
     {
         wallBodyDef.type = b2_dynamicBody;
@@ -55,7 +69,7 @@ void createWall(env *e, const float posX, const float posY, const float width, c
     wall->bodyID = wallBodyID;
     if (!floating)
     {
-        wall->position = wallBodyDef.position;
+        wall->position = pos;
     }
     wall->extent = extent;
     wall->isFloating = floating;
@@ -74,6 +88,8 @@ void createWall(env *e, const float posX, const float posY, const float width, c
     wall->shapeID = b2CreatePolygonShape(wallBodyID, &wallShapeDef, &wallPolygon);
 
     cc_deque_add(e->walls, wall);
+
+    return ent;
 }
 
 void destroyWall(wallEntity *wall)
@@ -83,6 +99,44 @@ void destroyWall(wallEntity *wall)
 
     b2DestroyBody(wall->bodyID);
     free(wall);
+}
+
+void updateCellsWithWall(env *e, entity *wallEnt)
+{
+    assert(entityIsWall(wallEnt));
+
+    wallEntity *wall = (wallEntity *)wallEnt->entity;
+    assert(!wall->isFloating);
+    assert(wall->extent.x == WALL_THICKNESS / 2.0f || wall->extent.y == WALL_THICKNESS / 2.0f);
+    b2Vec2 pos = wall->position;
+
+    if (wall->extent.y == WALL_THICKNESS / 2.0f)
+    {
+        const float originalXPos = pos.x;
+        pos.x -= wall->extent.x;
+        const uint16_t startIdx = posToCellIdx(e, pos);
+        pos.x = originalXPos + (originalXPos - pos.x);
+        const uint16_t endIdx = posToCellIdx(e, pos);
+        for (uint16_t i = startIdx; i <= endIdx; i++)
+        {
+            mapCell *cell;
+            cc_deque_get_at(e->cells, i, (void **)&cell);
+            cell->ent = wallEnt;
+        }
+    }
+    else
+    {
+        pos.y -= wall->extent.y;
+        uint16_t idx = posToCellIdx(e, pos);
+        const uint16_t cellRows = (wall->extent.y * 2.0f) / WALL_THICKNESS;
+        for (uint16_t i = 0; i < cellRows; i++)
+        {
+            mapCell *cell;
+            cc_deque_get_at(e->cells, idx, (void **)&cell);
+            cell->ent = wallEnt;
+            idx += e->rows;
+        }
+    }
 }
 
 b2DistanceProxy makeDistanceProxy(const enum entityType type, bool *isCircle)
@@ -141,8 +195,8 @@ bool isOverlapping(env *e, const b2Vec2 pos, const float distance, const enum sh
 
 bool findOpenPos(env *e, const enum shapeCategory type, b2Vec2 *emptyPos)
 {
-    uint8_t checkedCells[BITNSLOTS(MAX_EMPTY_CELLS)] = {0};
-    const size_t nEmptyCells = cc_deque_size(e->emptyCells) - 1;
+    uint8_t checkedCells[BITNSLOTS(MAX_CELLS)] = {0};
+    const size_t nEmptyCells = cc_deque_size(e->cells);
     uint16_t attempts = 0;
 
     while (true)
@@ -151,7 +205,7 @@ bool findOpenPos(env *e, const enum shapeCategory type, b2Vec2 *emptyPos)
         {
             return false;
         }
-        const int cellIdx = randInt(0, nEmptyCells);
+        const int cellIdx = randInt(0, nEmptyCells - 1);
         if (bitTest(checkedCells, cellIdx))
         {
             continue;
@@ -160,27 +214,31 @@ bool findOpenPos(env *e, const enum shapeCategory type, b2Vec2 *emptyPos)
         attempts++;
         DEBUG_LOGF("attempts: %d", attempts);
 
-        b2Vec2 *pos;
-        cc_deque_get_at(e->emptyCells, cellIdx, (void **)&pos);
+        mapCell *cell;
+        cc_deque_get_at(e->cells, cellIdx, (void **)&cell);
+        if (cell->ent != NULL)
+        {
+            continue;
+        }
 
         if (type == WEAPON_PICKUP_SHAPE)
         {
-            if (isOverlapping(e, *pos, PICKUP_THICKNESS / 2.0f, WEAPON_PICKUP_SHAPE, WALL_SHAPE))
+            if (isOverlapping(e, cell->pos, PICKUP_THICKNESS / 2.0f, WEAPON_PICKUP_SHAPE, WALL_SHAPE))
             {
                 continue;
             }
         }
         else if (type == DRONE_SHAPE)
         {
-            if (isOverlapping(e, *pos, DRONE_WALL_SPAWN_DISTANCE, DRONE_SHAPE, WALL_SHAPE))
+            if (isOverlapping(e, cell->pos, DRONE_WALL_SPAWN_DISTANCE, DRONE_SHAPE, WALL_SHAPE))
             {
                 continue;
             }
         }
 
-        if (!isOverlapping(e, *pos, MIN_SPAWN_DISTANCE, type, FLOATING_WALL_SHAPE | WEAPON_PICKUP_SHAPE | DRONE_SHAPE))
+        if (!isOverlapping(e, cell->pos, MIN_SPAWN_DISTANCE, type, FLOATING_WALL_SHAPE | WEAPON_PICKUP_SHAPE | DRONE_SHAPE))
         {
-            *emptyPos = *pos;
+            *emptyPos = cell->pos;
             return true;
         }
     }
@@ -365,40 +423,44 @@ void handleSuddenDeath(env *e)
     assert(e->suddenDeathSteps == 0);
 
     e->suddenDeathWallCounter++;
-    createWall(
+    entity *topWall = createWall(
         e,
-        e->bounds.min.x + ((e->columns / 2) * WALL_THICKNESS),
+        e->bounds.min.x + (((e->columns / 2) - 1) * WALL_THICKNESS),
         e->bounds.min.y + ((WALL_THICKNESS * (e->suddenDeathWallCounter - 1)) + (WALL_THICKNESS / 2)),
-        WALL_THICKNESS * (e->columns - e->suddenDeathWallCounter),
+        WALL_THICKNESS * (e->columns - (e->suddenDeathWallCounter * 2)),
         WALL_THICKNESS,
         DEATH_WALL_ENTITY,
         false);
-    createWall(
+    entity *bottomWall = createWall(
         e,
-        e->bounds.max.x - ((e->columns / 2) * WALL_THICKNESS),
+        e->bounds.max.x - (((e->columns / 2) - 1) * WALL_THICKNESS),
         e->bounds.max.y - ((WALL_THICKNESS * (e->suddenDeathWallCounter - 1)) + (WALL_THICKNESS / 2)),
-        WALL_THICKNESS * (e->columns - e->suddenDeathWallCounter),
+        WALL_THICKNESS * (e->columns - (e->suddenDeathWallCounter * 2)),
         WALL_THICKNESS,
-        DEATH_WALL_ENTITY,
-        false);
-    createWall(
-        e,
-        e->bounds.min.x + ((WALL_THICKNESS * (e->suddenDeathWallCounter - 1)) + (WALL_THICKNESS / 2)),
-        e->bounds.max.y - ((e->columns / 2) * WALL_THICKNESS),
-        WALL_THICKNESS,
-        WALL_THICKNESS * (e->columns - e->suddenDeathWallCounter),
-        DEATH_WALL_ENTITY,
-        false);
-    createWall(
-        e,
-        e->bounds.max.x - ((WALL_THICKNESS * (e->suddenDeathWallCounter - 1)) + (WALL_THICKNESS / 2)),
-        e->bounds.min.y + ((e->columns / 2) * WALL_THICKNESS),
-        WALL_THICKNESS,
-        WALL_THICKNESS * (e->columns - e->suddenDeathWallCounter),
         DEATH_WALL_ENTITY,
         false);
 
-    // TODO: remove now non empty cells
+    entity *leftWall = createWall(
+        e,
+        e->bounds.max.x - ((WALL_THICKNESS * (e->suddenDeathWallCounter - 1)) + (WALL_THICKNESS / 2)),
+        e->bounds.min.y + (((e->rows / 2) - 1) * WALL_THICKNESS),
+        WALL_THICKNESS,
+        WALL_THICKNESS * (e->rows - (e->suddenDeathWallCounter * 2)),
+        DEATH_WALL_ENTITY,
+        false);
+    entity *rightWall = createWall(
+        e,
+        e->bounds.min.x + ((WALL_THICKNESS * (e->suddenDeathWallCounter - 1)) + (WALL_THICKNESS / 2)),
+        e->bounds.max.y - (((e->rows / 2) - 1) * WALL_THICKNESS),
+        WALL_THICKNESS,
+        WALL_THICKNESS * (e->rows - (e->suddenDeathWallCounter * 2)),
+        DEATH_WALL_ENTITY,
+        false);
+
+    updateCellsWithWall(e, topWall);
+    updateCellsWithWall(e, bottomWall);
+    updateCellsWithWall(e, leftWall);
+    updateCellsWithWall(e, rightWall);
 
     bool droneDead = false;
     for (size_t i = 0; i < cc_deque_size(e->drones); i++)

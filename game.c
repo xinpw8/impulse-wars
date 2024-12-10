@@ -108,23 +108,30 @@ int main(void)
     CC_Deque *inputs;
     CC_DequeConf inputsConf;
     cc_deque_conf_init(&inputsConf);
-    inputsConf.capacity = 2;
+    inputsConf.capacity = NUM_DRONES;
     cc_deque_new_conf(&inputsConf, &inputs);
-    for (int i = 0; i < 2; i++)
+    for (int i = 0; i < NUM_DRONES; i++)
     {
         droneInputs *input = malloc(sizeof(droneInputs));
         cc_deque_add(inputs, input);
     }
 
-    bool shouldExit = false;
-    while (!shouldExit)
+    while (true)
     {
         while (true)
         {
             if (WindowShouldClose())
             {
-                shouldExit = true;
-                break;
+                for (int i = 0; i < NUM_DRONES; i++)
+                {
+                    droneInputs *input;
+                    cc_deque_get_at(inputs, i, (void **)&input);
+                    free(input);
+                }
+                cc_deque_destroy(inputs);
+                destroyEnv(e);
+                CloseWindow();
+                return 0;
             }
 
             for (size_t i = 0; i < cc_deque_size(e->drones); i++)
@@ -149,8 +156,4 @@ int main(void)
 
         resetEnv(e);
     }
-
-    CloseWindow();
-
-    return 0;
 }

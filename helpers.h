@@ -1,11 +1,11 @@
 #pragma once
 
-#include "box2d/box2d.h"
-#include "raylib.h"
-
 #include <assert.h>
 #include <stdio.h>
 #include <time.h>
+
+#include "box2d/box2d.h"
+#include "raylib.h"
 
 #define ERRORF(fmt, args...)                                                    \
     fprintf(stderr, " %s:%s:%d\n" fmt, __FILE__, __FUNCTION__, __LINE__, args); \

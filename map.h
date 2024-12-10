@@ -24,12 +24,15 @@ void createMap(env *e, const char *layoutPath)
     {
         if (width == 0)
         {
-            width = strlen(line) - 1;
+            width = strlen(line);
         }
         height++;
     }
     width /= 2;
     rewind(file);
+
+    e->columns = width;
+    e->rows = height;
 
     int row = 0;
     while (fgets(line, sizeof(line), file))
@@ -38,28 +41,26 @@ void createMap(env *e, const char *layoutPath)
         if (line[len - 1] == '\n')
         {
             line[len - 1] = '\0';
-            len--;
+            len -= 2;
         }
 
-        for (int col = 0; col < len; col++)
+        for (int col = 0; col <= len; col++)
         {
-            char cell = line[col];
+            char cellType = line[col];
             enum entityType wallType;
+            bool empty = false;
             bool floating = false;
-            float x = ((col / 2) - (width / 2.0f)) * WALL_THICKNESS;
-            float y = ((height / 2.0f) - (height - row) - 1) * WALL_THICKNESS;
+            float x = ((col / 2) - (width / 2.0f) + 0.5) * WALL_THICKNESS;
+            float y = ((height / 2.0f) - (height - row) + 0.5f) * WALL_THICKNESS;
 
             float thickness = WALL_THICKNESS;
-            switch (cell)
+            switch (cellType)
             {
             case ' ':
                 continue;
             case 'O':
-                b2Vec2 *pos = malloc(sizeof(b2Vec2));
-                pos->x = x;
-                pos->y = y;
-                cc_deque_add(e->emptyCells, pos);
-                continue;
+                empty = true;
+                break;
             case 'w':
                 thickness = FLOATING_WALL_THICKNESS;
                 floating = true;
@@ -79,22 +80,31 @@ void createMap(env *e, const char *layoutPath)
                 wallType = DEATH_WALL_ENTITY;
                 break;
             default:
-                ERRORF("unknown map layout cell %c", cell);
+                ERRORF("unknown map layout cell %c", cellType);
             }
 
-            // DEBUG_LOGF("creating wall at: (%f %f)", x, y);
+            b2Vec2 pos = {.x = x, .y = y};
+            if (empty || floating)
+            {
+                if (empty)
+                {
+                    mapCell *cell = (mapCell *)calloc(1, sizeof(mapCell));
+                    cell->ent = NULL;
+                    cell->pos = pos;
+                    cc_deque_add(e->cells, cell);
+                    continue;
+                }
+            }
 
-            createWall(e, x, y, thickness, thickness, wallType, floating);
+            DEBUG_LOGF("creating wall at: (%f %f) cell index: %d", x, y, posToCellIdx(e, pos));
+
+            entity *ent = createWall(e, x, y, thickness, thickness, wallType, floating);
+            mapCell *cell = (mapCell *)calloc(1, sizeof(mapCell));
+            cell->ent = ent;
+            cc_deque_add(e->cells, cell);
         }
         row++;
     }
 
     fclose(file);
-
-    e->columns = width;
-    e->rows = height;
-
-    DEBUG_LOGF("empty cells: %zu", cc_deque_size(e->emptyCells));
-    assert(cc_deque_size(e->emptyCells) > 0);
-    assert(cc_deque_size(e->emptyCells) < MAX_EMPTY_CELLS);
 }
