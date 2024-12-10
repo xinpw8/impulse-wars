@@ -10,7 +10,7 @@ set (CMAKE_LINKER_FLAGS_DEBUG "${CMAKE_LINKER_FLAGS_DEBUG} -fno-omit-frame-point
 
 project(env
 	VERSION 1.0.0
-	DESCRIPTION "Force Arena Env"
+	DESCRIPTION "Impulse Wars Env"
 	LANGUAGES C
 )
 
