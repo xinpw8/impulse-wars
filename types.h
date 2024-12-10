@@ -116,6 +116,9 @@ typedef struct env
     CC_Deque *pickups;
     CC_SList *projectiles;
 
+    uint8_t explosionSteps;
+    b2ExplosionDef explosion;
+
     // steps left until sudden death
     uint16_t stepsLeft;
     // steps left until the next set of sudden death walls are spawned

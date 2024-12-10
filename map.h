@@ -41,6 +41,7 @@ void createMap(env *e, const char *layoutPath)
         if (line[len - 1] == '\n')
         {
             line[len - 1] = '\0';
+            // don't include trailing newline and NULL byte in length
             len -= 2;
         }
 

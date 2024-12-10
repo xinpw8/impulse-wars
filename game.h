@@ -410,6 +410,9 @@ void destroyProjectile(env *e, projectileEntity *projectile, const bool full)
         explosion.position = b2Body_GetPosition(projectile->bodyID);
         explosion.maskBits = FLOATING_WALL_SHAPE | DRONE_SHAPE;
         b2World_Explode(e->worldID, &explosion);
+        e->explosion = explosion;
+        e->explosionSteps = EXPLOSION_STEPS;
+        DEBUG_LOGF("explosion at %f, %f", explosion.position.x, explosion.position.y);
     }
 
     entity *ent = (entity *)b2Shape_GetUserData(projectile->shapeID);

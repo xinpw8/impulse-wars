@@ -307,8 +307,15 @@ void renderDroneLabels(const droneEntity *drone)
     DrawRectanglePro(fillRec, origin, 0.0f, RAYWHITE);
 }
 
-void renderProjectiles(const env *e)
+void renderProjectiles(env *e)
 {
+    if (e->explosionSteps != 0)
+    {
+        DrawCircleV(b2VecToRayVec(e->explosion.position), e->explosion.falloff * 2.0f * scale, GRAY);
+        DrawCircleV(b2VecToRayVec(e->explosion.position), e->explosion.radius * scale, RAYWHITE);
+        e->explosionSteps = fmaxf(e->explosionSteps - 1, 0);
+    }
+
     for (SNode *cur = e->projectiles->head; cur != NULL; cur = cur->next)
     {
         projectileEntity *projectile = (projectileEntity *)cur->data;
