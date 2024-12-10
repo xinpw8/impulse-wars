@@ -17,6 +17,8 @@ enum entityType
     DRONE_ENTITY,
 };
 
+// the category bit that will be set on each entity's shape; this is
+// used to control what entities can collide with each other
 enum shapeCategory
 {
     WALL_SHAPE = 1,
@@ -26,12 +28,14 @@ enum shapeCategory
     DRONE_SHAPE = 16,
 };
 
+// general purpose entity object
 typedef struct entity
 {
     enum entityType type;
     void *entity;
 } entity;
 
+// a cell in the map; ent will be NULL if the cell is empty
 typedef struct mapCell
 {
     entity *ent;
@@ -112,8 +116,11 @@ typedef struct env
     CC_Deque *pickups;
     CC_SList *projectiles;
 
+    // steps left until sudden death
     uint16_t stepsLeft;
+    // steps left until the next set of sudden death walls are spawned
     uint16_t suddenDeathSteps;
+    // the amount of sudden death walls that have been spawned
     uint8_t suddenDeathWallCounter;
 } env;
 

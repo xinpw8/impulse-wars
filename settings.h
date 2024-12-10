@@ -123,6 +123,7 @@ int8_t weaponAmmo(const enum weaponType type)
     }
 }
 
+// the amount of projectiles fired by this weapon
 uint8_t weaponProjectiles(const enum weaponType type)
 {
     switch (type)
@@ -186,6 +187,7 @@ float weaponFire(const enum weaponType type)
     }
 }
 
+// how many steps the weapon needs to be charged for before it can be fired
 uint16_t weaponCharge(const enum weaponType type)
 {
     float charge = 0.0f;
@@ -309,7 +311,7 @@ b2Vec2 weaponAdjustAim(const enum weaponType type, const uint16_t heat, const b2
     case SNIPER_WEAPON:
         return normAim;
     case SHOTGUN_WEAPON:
-        const float maxOffset = 0.20f;
+        const float maxOffset = 0.15f;
         const float offsetX = randFloat(-maxOffset, maxOffset);
         const float offsetY = randFloat(-maxOffset, maxOffset);
         b2Vec2 shotgunAim = {.x = normAim.x + offsetX, .y = normAim.y + offsetY};

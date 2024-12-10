@@ -29,11 +29,11 @@
 
 #define INV_MASS(density, radius) (1.0f / (density * PI * radius * radius))
 
-#define ASSERT_VEC(vec, min, max) \
-    assert(vec.x <= max);         \
-    assert(vec.x >= min);         \
-    assert(vec.y <= max);         \
-    assert(vec.y >= min);
+#define ASSERT_VEC_NORMALIZED(vec) \
+    assert(vec.x <= 1.0f);         \
+    assert(vec.x >= -1.0f);        \
+    assert(vec.y <= 1.0f);         \
+    assert(vec.y >= -1.0f);
 
 static inline bool b2VecEqual(const b2Vec2 v1, const b2Vec2 v2)
 {

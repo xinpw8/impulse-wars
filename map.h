@@ -96,7 +96,7 @@ void createMap(env *e, const char *layoutPath)
                 }
             }
 
-            DEBUG_LOGF("creating wall at: (%f %f) cell index: %d", x, y, posToCellIdx(e, pos));
+            // DEBUG_LOGF("creating wall at: (%f %f) cell index: %d", x, y, posToCellIdx(e, pos));
 
             entity *ent = createWall(e, x, y, thickness, thickness, wallType, floating);
             mapCell *cell = (mapCell *)calloc(1, sizeof(mapCell));

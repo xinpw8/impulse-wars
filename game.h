@@ -121,6 +121,11 @@ void updateCellsWithWall(env *e, entity *wallEnt)
         {
             mapCell *cell;
             cc_deque_get_at(e->cells, i, (void **)&cell);
+            if (cell->ent != NULL && cell->ent->type == WEAPON_PICKUP_ENTITY)
+            {
+                weaponPickupEntity *pickup = (weaponPickupEntity *)cell->ent->entity;
+                pickup->respawnWait = PICKUP_RESPAWN_WAIT;
+            }
             cell->ent = wallEnt;
         }
     }
@@ -133,6 +138,11 @@ void updateCellsWithWall(env *e, entity *wallEnt)
         {
             mapCell *cell;
             cc_deque_get_at(e->cells, idx, (void **)&cell);
+            if (cell->ent != NULL && cell->ent->type == WEAPON_PICKUP_ENTITY)
+            {
+                weaponPickupEntity *pickup = (weaponPickupEntity *)cell->ent->entity;
+                pickup->respawnWait = PICKUP_RESPAWN_WAIT;
+            }
             cell->ent = wallEnt;
             idx += e->rows;
         }
@@ -212,7 +222,7 @@ bool findOpenPos(env *e, const enum shapeCategory type, b2Vec2 *emptyPos)
         }
         bitSet(checkedCells, cellIdx);
         attempts++;
-        DEBUG_LOGF("attempts: %d", attempts);
+        // DEBUG_LOGF("attempts: %d", attempts);
 
         mapCell *cell;
         cc_deque_get_at(e->cells, cellIdx, (void **)&cell);
@@ -269,6 +279,11 @@ void createWeaponPickup(env *e, const enum weaponType type)
     ent->type = WEAPON_PICKUP_ENTITY;
     ent->entity = pickup;
     cc_deque_add(e->entities, ent);
+
+    const uint16_t cellIdx = posToCellIdx(e, pickupBodyDef.position);
+    mapCell *cell;
+    cc_deque_get_at(e->cells, cellIdx, (void **)&cell);
+    cell->ent = ent;
 
     pickupShapeDef.userData = ent;
     const b2Polygon pickupPolygon = b2MakeBox(PICKUP_THICKNESS / 2.0f, PICKUP_THICKNESS / 2.0f);
@@ -335,7 +350,7 @@ void destroyDrone(droneEntity *drone)
 
 void droneMove(const droneEntity *drone, const b2Vec2 direction)
 {
-    ASSERT_VEC(direction, -1.0f, 1.0f);
+    ASSERT_VEC_NORMALIZED(direction);
 
     b2Vec2 force = b2MulSV(DRONE_MOVE_MAGNITUDE, direction);
     b2Body_ApplyForceToCenter(drone->bodyID, force, true);
@@ -343,7 +358,7 @@ void droneMove(const droneEntity *drone, const b2Vec2 direction)
 
 void createProjectile(env *e, droneEntity *drone, const b2Vec2 normAim)
 {
-    ASSERT_VEC(normAim, -1.0f, 1.0f);
+    ASSERT_VEC_NORMALIZED(normAim);
 
     b2BodyDef projectileBodyDef = b2DefaultBodyDef();
     projectileBodyDef.type = b2_dynamicBody;
@@ -480,23 +495,11 @@ void handleSuddenDeath(env *e)
         return;
     }
 
-    for (size_t i = 0; i < cc_deque_size(e->pickups); i++)
-    {
-        weaponPickupEntity *pickup;
-        cc_deque_get_at(e->pickups, i, (void **)&pickup);
-
-        const b2Vec2 pos = b2Body_GetPosition(pickup->bodyID);
-        if (isOverlapping(e, pos, PICKUP_THICKNESS / 2.0f, WEAPON_PICKUP_SHAPE, WALL_SHAPE))
-        {
-            pickup->respawnWait = PICKUP_RESPAWN_WAIT;
-        }
-    }
-
     for (size_t i = 0; i < cc_deque_size(e->entities); i++)
     {
         entity *ent;
         cc_deque_get_at(e->entities, i, (void **)&ent);
-        if (ent->type != STANDARD_WALL_ENTITY && ent->type != BOUNCY_WALL_ENTITY && ent->type != DEATH_WALL_ENTITY)
+        if (!entityIsWall(ent))
         {
             continue;
         }
@@ -513,11 +516,15 @@ void handleSuddenDeath(env *e)
 
 void droneChangeWeapon(droneEntity *drone, const enum weaponType weapon)
 {
+    // only top up ammo if the weapon is the same
+    if (drone->weapon != weapon)
+    {
+        drone->weaponCooldown = 0.0f;
+        drone->charge = 0;
+        drone->heat = 0;
+    }
     drone->weapon = weapon;
     drone->ammo = weaponAmmo(weapon);
-    drone->weaponCooldown = 0.0f;
-    drone->charge = 0;
-    drone->heat = 0;
 }
 
 void droneShoot(env *e, droneEntity *drone, const b2Vec2 aim)
@@ -525,6 +532,8 @@ void droneShoot(env *e, droneEntity *drone, const b2Vec2 aim)
     assert(drone->ammo != 0);
 
     drone->shotThisStep = true;
+    // TODO: rework heat to only increase when projectiles are fired,
+    // and only cool down after the next shot was skipped
     drone->heat++;
     if (drone->weaponCooldown != 0.0f)
     {
@@ -622,7 +631,13 @@ void weaponPickupStep(env *e, weaponPickupEntity *pickup, const float frameTime)
                 pickup->respawnWait = FLT_MAX;
                 return;
             }
-            b2Body_SetTransform(pickup->bodyID, pos, b2MakeRot(0.0f));
+            b2Body_SetTransform(pickup->bodyID, pos, b2Rot_identity);
+
+            const uint16_t cellIdx = posToCellIdx(e, pos);
+            mapCell *cell;
+            cc_deque_get_at(e->cells, cellIdx, (void **)&cell);
+            entity *ent = (entity *)b2Shape_GetUserData(pickup->shapeID);
+            cell->ent = ent;
         }
     }
 }
