@@ -30,13 +30,13 @@
 
 // drone settings
 #define NUM_DRONES 2
-#define DRONE_WALL_SPAWN_DISTANCE 5.0f
+#define DRONE_WALL_SPAWN_DISTANCE 7.5f
+#define DRONE_DRONE_SPAWN_DISTANCE 30.0f
 #define DRONE_RADIUS 1.0f
 #define DRONE_DENSITY 1.25f
 #define DRONE_MOVE_MAGNITUDE 25.0f
 #define DRONE_LINEAR_DAMPING 1.0f
 #define DRONE_MOVE_AIM_DIVISOR 10.0f
-#define DRONE_DEFAULT_WEAPON STANDARD_WEAPON
 
 // weapon projectile settings
 #define NUM_WEAPONS 5
@@ -174,9 +174,9 @@ void initWeapons()
 }
 
 // max ammo of weapon
-int8_t weaponAmmo(const enum weaponType type)
+int8_t weaponAmmo(const enum weaponType defaultWep, const enum weaponType type)
 {
-    if (type == DRONE_DEFAULT_WEAPON)
+    if (type == defaultWep)
     {
         return INFINITE;
     }

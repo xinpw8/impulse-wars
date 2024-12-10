@@ -26,6 +26,83 @@ static inline uint16_t posToCellIdx(const env *e, const b2Vec2 pos)
     return col + (row * e->columns);
 }
 
+bool overlapCallback(b2ShapeId shapeId, void *context)
+{
+    bool *overlaps = (bool *)context;
+    *overlaps = true;
+    return false;
+}
+
+bool isOverlapping(env *e, const b2Vec2 pos, const float distance, const enum shapeCategory type, const uint64_t maskBits)
+{
+    b2AABB bounds = {
+        .lowerBound = {.x = pos.x - distance, .y = pos.y - distance},
+        .upperBound = {.x = pos.x + distance, .y = pos.y + distance},
+    };
+    b2QueryFilter filter = {
+        .categoryBits = type,
+        .maskBits = maskBits,
+    };
+    bool overlaps = false;
+    b2World_OverlapAABB(e->worldID, bounds, filter, overlapCallback, &overlaps);
+    return overlaps;
+}
+
+bool findOpenPos(env *e, const enum shapeCategory type, b2Vec2 *emptyPos)
+{
+    uint8_t checkedCells[BITNSLOTS(MAX_CELLS)] = {0};
+    const size_t nCells = cc_deque_size(e->cells);
+    uint16_t attempts = 0;
+
+    while (true)
+    {
+        if (attempts == nCells)
+        {
+            return false;
+        }
+        const int cellIdx = randInt(0, nCells - 1);
+        if (bitTest(checkedCells, cellIdx))
+        {
+            continue;
+        }
+        bitSet(checkedCells, cellIdx);
+        attempts++;
+        // DEBUG_LOGF("attempts: %d", attempts);
+
+        mapCell *cell;
+        cc_deque_get_at(e->cells, cellIdx, (void **)&cell);
+        if (cell->ent != NULL)
+        {
+            continue;
+        }
+
+        if (type == WEAPON_PICKUP_SHAPE)
+        {
+            if (isOverlapping(e, cell->pos, PICKUP_THICKNESS / 2.0f, WEAPON_PICKUP_SHAPE, WALL_SHAPE))
+            {
+                continue;
+            }
+        }
+        else if (type == DRONE_SHAPE)
+        {
+            if (isOverlapping(e, cell->pos, DRONE_WALL_SPAWN_DISTANCE, DRONE_SHAPE, WALL_SHAPE | DRONE_SHAPE))
+            {
+                continue;
+            }
+            if (isOverlapping(e, cell->pos, DRONE_DRONE_SPAWN_DISTANCE, DRONE_SHAPE, DRONE_SHAPE))
+            {
+                continue;
+            }
+        }
+
+        if (!isOverlapping(e, cell->pos, MIN_SPAWN_DISTANCE, type, FLOATING_WALL_SHAPE | WEAPON_PICKUP_SHAPE | DRONE_SHAPE))
+        {
+            *emptyPos = cell->pos;
+            return true;
+        }
+    }
+}
+
 entity *createWall(env *e, const float posX, const float posY, const float width, const float height, const enum entityType type, bool floating)
 {
     assert(type != WEAPON_PICKUP_ENTITY);
@@ -181,79 +258,6 @@ b2DistanceProxy makeDistanceProxy(const enum entityType type, bool *isCircle)
     return proxy;
 }
 
-bool overlapCallback(b2ShapeId shapeId, void *context)
-{
-    bool *overlaps = (bool *)context;
-    *overlaps = true;
-    return false;
-}
-
-bool isOverlapping(env *e, const b2Vec2 pos, const float distance, const enum shapeCategory type, const uint64_t maskBits)
-{
-    b2AABB bounds = {
-        .lowerBound = {.x = pos.x - distance, .y = pos.y - distance},
-        .upperBound = {.x = pos.x + distance, .y = pos.y + distance},
-    };
-    b2QueryFilter filter = {
-        .categoryBits = type,
-        .maskBits = maskBits,
-    };
-    bool overlaps = false;
-    b2World_OverlapAABB(e->worldID, bounds, filter, overlapCallback, &overlaps);
-    return overlaps;
-}
-
-bool findOpenPos(env *e, const enum shapeCategory type, b2Vec2 *emptyPos)
-{
-    uint8_t checkedCells[BITNSLOTS(MAX_CELLS)] = {0};
-    const size_t nEmptyCells = cc_deque_size(e->cells);
-    uint16_t attempts = 0;
-
-    while (true)
-    {
-        if (attempts == nEmptyCells)
-        {
-            return false;
-        }
-        const int cellIdx = randInt(0, nEmptyCells - 1);
-        if (bitTest(checkedCells, cellIdx))
-        {
-            continue;
-        }
-        bitSet(checkedCells, cellIdx);
-        attempts++;
-        // DEBUG_LOGF("attempts: %d", attempts);
-
-        mapCell *cell;
-        cc_deque_get_at(e->cells, cellIdx, (void **)&cell);
-        if (cell->ent != NULL)
-        {
-            continue;
-        }
-
-        if (type == WEAPON_PICKUP_SHAPE)
-        {
-            if (isOverlapping(e, cell->pos, PICKUP_THICKNESS / 2.0f, WEAPON_PICKUP_SHAPE, WALL_SHAPE))
-            {
-                continue;
-            }
-        }
-        else if (type == DRONE_SHAPE)
-        {
-            if (isOverlapping(e, cell->pos, DRONE_WALL_SPAWN_DISTANCE, DRONE_SHAPE, WALL_SHAPE))
-            {
-                continue;
-            }
-        }
-
-        if (!isOverlapping(e, cell->pos, MIN_SPAWN_DISTANCE, type, FLOATING_WALL_SHAPE | WEAPON_PICKUP_SHAPE | DRONE_SHAPE))
-        {
-            *emptyPos = cell->pos;
-            return true;
-        }
-    }
-}
-
 void createWeaponPickup(env *e, const enum weaponType type)
 {
     assert(type != STANDARD_WEAPON);
@@ -323,8 +327,8 @@ void createDrone(env *e)
 
     droneEntity *drone = (droneEntity *)calloc(1, sizeof(droneEntity));
     drone->bodyID = droneBodyID;
-    drone->weaponInfo = &weaponInfos[DRONE_DEFAULT_WEAPON];
-    drone->ammo = weaponAmmo(drone->weaponInfo->type);
+    drone->weaponInfo = e->defaultWeapon;
+    drone->ammo = weaponAmmo(e->defaultWeapon->type, drone->weaponInfo->type);
     drone->shotThisStep = false;
     drone->lastAim = (b2Vec2){.x = 0.0f, .y = -1.0f};
 
@@ -517,7 +521,7 @@ void handleSuddenDeath(env *e)
     }
 }
 
-void droneChangeWeapon(droneEntity *drone, const enum weaponType newWeapon)
+void droneChangeWeapon(const env *e, droneEntity *drone, const enum weaponType newWeapon)
 {
     // only top up ammo if the weapon is the same
     if (drone->weaponInfo->type != newWeapon)
@@ -527,7 +531,7 @@ void droneChangeWeapon(droneEntity *drone, const enum weaponType newWeapon)
         drone->heat = 0;
     }
     drone->weaponInfo = &weaponInfos[newWeapon];
-    drone->ammo = weaponAmmo(drone->weaponInfo->type);
+    drone->ammo = weaponAmmo(e->defaultWeapon->type, drone->weaponInfo->type);
 }
 
 void droneShoot(env *e, droneEntity *drone, const b2Vec2 aim)
@@ -570,7 +574,7 @@ void droneShoot(env *e, droneEntity *drone, const b2Vec2 aim)
 
     if (drone->ammo == 0)
     {
-        droneChangeWeapon(drone, DRONE_DEFAULT_WEAPON);
+        droneChangeWeapon(e, drone, e->defaultWeapon->type);
         drone->weaponCooldown = drone->weaponInfo->coolDown;
     }
 }
@@ -772,7 +776,7 @@ void handleWeaponPickupBeginTouch(env *e, const entity *sensor, entity *visitor)
     case DRONE_ENTITY:
         pickup->respawnWait = PICKUP_RESPAWN_WAIT;
         droneEntity *drone = (droneEntity *)visitor->entity;
-        droneChangeWeapon(drone, pickup->weapon);
+        droneChangeWeapon(e, drone, pickup->weapon);
         break;
     case STANDARD_WALL_ENTITY:
     case BOUNCY_WALL_ENTITY:

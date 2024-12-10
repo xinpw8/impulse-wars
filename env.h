@@ -4,6 +4,8 @@
 #include "map.h"
 #include "types.h"
 
+const mapEntry *map = &prototypeArenaMap;
+
 env *createEnv(void)
 {
     env *e = calloc(1, sizeof(env));
@@ -28,7 +30,7 @@ void setupEnv(env *e)
     e->suddenDeathSteps = SUDDEN_DEATH_STEPS;
     e->suddenDeathWallCounter = 0;
 
-    createMap(e, "prototype_arena.txt");
+    createMap(e, map);
 
     mapBounds bounds = {.min = {.x = FLT_MAX, .y = FLT_MAX}, .max = {.x = FLT_MIN, .y = FLT_MIN}};
     for (size_t i = 0; i < cc_deque_size(e->walls); i++)
@@ -46,6 +48,8 @@ void setupEnv(env *e)
     {
         createDrone(e);
     }
+
+    placeFloatingWalls(e, map);
 
     for (int i = 0; i < 2; i++)
     {

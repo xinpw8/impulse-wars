@@ -122,6 +122,7 @@ typedef struct env
     uint8_t columns;
     uint8_t rows;
     mapBounds bounds;
+    weaponInformation *defaultWeapon;
     CC_Deque *cells;
     CC_Deque *walls;
     CC_Deque *entities;

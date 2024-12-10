@@ -9,74 +9,116 @@
 #include "env.h"
 #include "settings.h"
 
-void createMap(env *e, const char *layoutPath)
+typedef struct mapEntry
 {
-    FILE *file = fopen(layoutPath, "r");
-    if (!file)
+    const char *layout;
+    const uint8_t columns;
+    const uint8_t rows;
+    const uint8_t floatingStandardWalls;
+    const uint8_t floatingBouncyWalls;
+    const uint8_t floatingDeathWalls;
+    const enum weaponType defaultWeapon;
+} mapEntry;
+
+// clang-format off
+
+const char prototypeArenaLayout[] = {
+    'D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D',
+    'D','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','D',
+    'D','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','D',
+    'D','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','D',
+    'D','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','D',
+    'D','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','D',
+    'D','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','D',
+    'D','O','O','O','O','O','O','O','O','W','W','O','O','O','O','O','O','O','O','D',
+    'D','O','O','O','O','O','O','D','D','D','D','D','O','O','O','O','O','O','O','D',
+    'D','O','O','O','O','O','O','D','D','D','D','D','O','O','O','O','O','O','O','D',
+    'D','O','O','O','O','O','O','D','D','D','D','D','O','O','O','O','O','O','O','D',
+    'D','O','O','O','O','O','O','D','D','D','D','D','O','O','O','O','O','O','O','D',
+    'D','O','O','O','O','O','O','O','W','W','O','O','O','O','O','O','O','O','O','D',
+    'D','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','D',
+    'D','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','D',
+    'D','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','D',
+    'D','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','D',
+    'D','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','D',
+    'D','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','D',
+    'D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D',
+};
+
+const mapEntry prototypeArenaMap = {
+    .layout = prototypeArenaLayout,
+    .columns = 20,
+    .rows = 20,
+    .floatingStandardWalls = 6,
+    .floatingBouncyWalls = 0,
+    .floatingDeathWalls = 6,
+    .defaultWeapon = STANDARD_WEAPON,
+};
+
+const char snipersLayout[] = {
+    'B','B','B','B','B','B','B','B','B','B','B','B','B','B','B','B','B','B','B','B','B',
+    'B','D','D','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','D','D','B',
+    'B','D','D','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','D','D','B',
+    'B','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','B',
+    'B','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','B',
+    'B','O','O','O','O','O','O','D','D','B','O','B','D','D','O','O','O','O','O','O','B',
+    'B','O','O','O','O','O','D','D','D','B','O','B','D','D','D','O','O','O','O','O','B',
+    'B','O','O','O','O','O','D','D','D','B','O','B','D','D','D','O','O','O','O','O','B',
+    'B','O','O','O','O','O','B','B','B','B','O','B','B','B','B','O','O','O','O','O','B',
+    'B','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','B',
+    'B','O','O','O','O','O','B','B','B','B','O','B','B','B','B','O','O','O','O','O','B',
+    'B','O','O','O','O','O','D','D','D','B','O','B','D','D','D','O','O','O','O','O','B',
+    'B','O','O','O','O','O','D','D','D','B','O','B','D','D','D','O','O','O','O','O','B',
+    'B','O','O','O','O','O','O','D','D','B','O','B','D','D','O','O','O','O','O','O','B',
+    'B','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','B',
+    'B','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','B',
+    'B','D','D','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','D','D','B',
+    'B','D','D','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','D','D','B',
+    'B','B','B','B','B','B','B','B','B','B','B','B','B','B','B','B','B','B','B','B','B',
+};
+
+const mapEntry snipersMap = {
+    .layout = snipersLayout,
+    .columns = 21,
+    .rows = 19,
+    .floatingStandardWalls = 0,
+    .floatingBouncyWalls = 0,
+    .floatingDeathWalls = 0,
+    .defaultWeapon = SNIPER_WEAPON,
+};
+
+// clang-format on
+
+void createMap(env *e, const mapEntry *map)
+{
+    e->columns = map->columns;
+    e->rows = map->rows;
+    e->defaultWeapon = &weaponInfos[map->defaultWeapon];
+
+    for (int row = 0; row < map->rows; row++)
     {
-        ERRORF("failed to open map file %s: %s", layoutPath, strerror(errno));
-    }
-
-    int width = 0;
-    int height = 0;
-    char line[50];
-    while (fgets(line, sizeof(line), file))
-    {
-        if (width == 0)
+        for (int col = 0; col < map->columns; col++)
         {
-            width = strlen(line);
-        }
-        height++;
-    }
-    width /= 2;
-    rewind(file);
-
-    e->columns = width;
-    e->rows = height;
-
-    int row = 0;
-    while (fgets(line, sizeof(line), file))
-    {
-        size_t len = strlen(line);
-        if (line[len - 1] == '\n')
-        {
-            line[len - 1] = '\0';
-            // don't include trailing newline and NULL byte in length
-            len -= 2;
-        }
-
-        for (int col = 0; col <= len; col++)
-        {
-            char cellType = line[col];
+            char cellType = map->layout[col + (row * map->columns)];
             enum entityType wallType;
-            bool empty = false;
-            bool floating = false;
-            float x = ((col / 2) - (width / 2.0f) + 0.5) * WALL_THICKNESS;
-            float y = ((height / 2.0f) - (height - row) + 0.5f) * WALL_THICKNESS;
+            float x = (col - (map->columns / 2.0f) + 0.5) * WALL_THICKNESS;
+            float y = ((map->rows / 2.0f) - (map->rows - row) + 0.5f) * WALL_THICKNESS;
 
-            float thickness = WALL_THICKNESS;
+            mapCell *cell = (mapCell *)calloc(1, sizeof(mapCell));
+            cc_deque_add(e->cells, cell);
+
+            b2Vec2 pos = {.x = x, .y = y};
             switch (cellType)
             {
-            case ' ':
-                continue;
             case 'O':
-                empty = true;
-                break;
-            case 'w':
-                thickness = FLOATING_WALL_THICKNESS;
-                floating = true;
+                cell->pos = pos;
+                continue;
             case 'W':
                 wallType = STANDARD_WALL_ENTITY;
                 break;
-            case 'b':
-                thickness = FLOATING_WALL_THICKNESS;
-                floating = true;
             case 'B':
                 wallType = BOUNCY_WALL_ENTITY;
                 break;
-            case 'd':
-                thickness = FLOATING_WALL_THICKNESS;
-                floating = true;
             case 'D':
                 wallType = DEATH_WALL_ENTITY;
                 break;
@@ -84,28 +126,39 @@ void createMap(env *e, const char *layoutPath)
                 ERRORF("unknown map layout cell %c", cellType);
             }
 
-            b2Vec2 pos = {.x = x, .y = y};
-            if (empty || floating)
-            {
-                if (empty)
-                {
-                    mapCell *cell = (mapCell *)calloc(1, sizeof(mapCell));
-                    cell->ent = NULL;
-                    cell->pos = pos;
-                    cc_deque_add(e->cells, cell);
-                    continue;
-                }
-            }
+            DEBUG_LOGF("creating wall at: (%f %f) cell index: %d", x, y, posToCellIdx(e, pos));
 
-            // DEBUG_LOGF("creating wall at: (%f %f) cell index: %d", x, y, posToCellIdx(e, pos));
-
-            entity *ent = createWall(e, x, y, thickness, thickness, wallType, floating);
-            mapCell *cell = (mapCell *)calloc(1, sizeof(mapCell));
+            entity *ent = createWall(e, x, y, WALL_THICKNESS, WALL_THICKNESS, wallType, false);
             cell->ent = ent;
-            cc_deque_add(e->cells, cell);
         }
-        row++;
     }
+}
 
-    fclose(file);
+void placeFloatingWall(env *e, const enum entityType wallType)
+{
+    b2Vec2 pos;
+    if (!findOpenPos(e, FLOATING_WALL_SHAPE, &pos))
+    {
+        ERROR("failed to find open position for floating wall");
+    }
+    entity *ent = createWall(e, pos.x, pos.y, FLOATING_WALL_THICKNESS, FLOATING_WALL_THICKNESS, wallType, true);
+    mapCell *cell;
+    cc_deque_get_at(e->cells, posToCellIdx(e, pos), (void **)&cell);
+    cell->ent = ent;
+}
+
+void placeFloatingWalls(env *e, const mapEntry *map)
+{
+    for (int i = 0; i < map->floatingStandardWalls; i++)
+    {
+        placeFloatingWall(e, STANDARD_WALL_ENTITY);
+    }
+    for (int i = 0; i < map->floatingBouncyWalls; i++)
+    {
+        placeFloatingWall(e, BOUNCY_WALL_ENTITY);
+    }
+    for (int i = 0; i < map->floatingDeathWalls; i++)
+    {
+        placeFloatingWall(e, DEATH_WALL_ENTITY);
+    }
 }
