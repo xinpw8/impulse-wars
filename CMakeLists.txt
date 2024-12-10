@@ -1,8 +1,8 @@
 ﻿cmake_minimum_required(VERSION 3.22)
 include(FetchContent)
 
-set(CMAKE_C_COMPILER "clang-18")
-set(CMAKE_CXX_COMPILER "clang++-18")
+set(CMAKE_C_COMPILER "clang")
+set(CMAKE_CXX_COMPILER "clang++")
 set(CMAKE_C_FLAGS_INIT " -std=c23")
 
 set (CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -fno-omit-frame-pointer -fsanitize=address,undefined,bounds,pointer-overflow,leak")
@@ -38,4 +38,4 @@ add_executable(env game.c)
 target_include_directories(env PRIVATE include)
 target_link_libraries(env PRIVATE box2d raylib)
 
-target_compile_options(env PRIVATE "-Wall" "-Werror")
+target_compile_options(env PRIVATE "-Wall" "-Werror" "-Wpedantic" "-Wno-variadic-macros")

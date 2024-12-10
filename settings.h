@@ -36,7 +36,7 @@
 #define DRONE_MOVE_MAGNITUDE 25.0f
 #define DRONE_LINEAR_DAMPING 1.0f
 #define DRONE_MOVE_AIM_DIVISOR 10.0f
-#define DRONE_DEFAULT_WEAPON IMPLODER_WEAPON
+#define DRONE_DEFAULT_WEAPON STANDARD_WEAPON
 
 // weapon projectile settings
 #define NUM_WEAPONS 5
@@ -105,7 +105,7 @@ weaponInformation *weaponInfos;
 
 void initWeapons()
 {
-    weaponInfos = calloc(1, sizeof(weaponInformation) * NUM_WEAPONS);
+    weaponInfos = (weaponInformation *)calloc(1, sizeof(weaponInformation) * NUM_WEAPONS);
 
     weaponInformation standard = {
         .type = STANDARD_WEAPON,
