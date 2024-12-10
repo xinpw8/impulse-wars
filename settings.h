@@ -39,6 +39,8 @@
 #define DRONE_DEFAULT_WEAPON IMPLODER_WEAPON
 
 // weapon projectile settings
+#define NUM_WEAPONS 5
+
 #define STANDARD_AMMO INFINITE
 #define STANDARD_PROJECTILES 1
 #define STANDARD_RECOIL_MAGNITUDE 12.5f
@@ -99,6 +101,78 @@
 #define IMPLODER_INV_MASS INV_MASS(IMPLODER_DENSITY, IMPLODER_RADIUS)
 #define IMPLODER_BOUNCE 0
 
+weaponInformation *weaponInfos;
+
+void initWeapons()
+{
+    weaponInfos = calloc(1, sizeof(weaponInformation) * NUM_WEAPONS);
+
+    weaponInformation standard = {
+        .type = STANDARD_WEAPON,
+        .numProjectiles = STANDARD_PROJECTILES,
+        .recoilMagnitude = STANDARD_RECOIL_MAGNITUDE,
+        .coolDown = STANDARD_COOL_DOWN,
+        .maxDistance = STANDARD_MAX_DISTANCE,
+        .radius = STANDARD_RADIUS,
+        .density = STANDARD_DENSITY,
+        .invMass = STANDARD_INV_MASS,
+        .maxBounces = STANDARD_BOUNCE + 1,
+    };
+    weaponInfos[STANDARD_WEAPON] = standard;
+
+    weaponInformation machineGun = {
+        .type = MACHINEGUN_WEAPON,
+        .numProjectiles = MACHINEGUN_PROJECTILES,
+        .recoilMagnitude = MACHINEGUN_RECOIL_MAGNITUDE,
+        .coolDown = MACHINEGUN_COOL_DOWN,
+        .maxDistance = MACHINEGUN_MAX_DISTANCE,
+        .radius = MACHINEGUN_RADIUS,
+        .density = MACHINEGUN_DENSITY,
+        .invMass = MACHINEGUN_INV_MASS,
+        .maxBounces = MACHINEGUN_BOUNCE + 1,
+    };
+    weaponInfos[MACHINEGUN_WEAPON] = machineGun;
+
+    weaponInformation sniper = {
+        .type = SNIPER_WEAPON,
+        .numProjectiles = SNIPER_PROJECTILES,
+        .recoilMagnitude = SNIPER_RECOIL_MAGNITUDE,
+        .coolDown = SNIPER_COOL_DOWN,
+        .maxDistance = SNIPER_MAX_DISTANCE,
+        .radius = SNIPER_RADIUS,
+        .density = SNIPER_DENSITY,
+        .invMass = SNIPER_INV_MASS,
+        .maxBounces = SNIPER_BOUNCE + 1,
+    };
+    weaponInfos[SNIPER_WEAPON] = sniper;
+
+    weaponInformation shotgun = {
+        .type = SHOTGUN_WEAPON,
+        .numProjectiles = SHOTGUN_PROJECTILES,
+        .recoilMagnitude = SHOTGUN_RECOIL_MAGNITUDE,
+        .coolDown = SHOTGUN_COOL_DOWN,
+        .maxDistance = SHOTGUN_MAX_DISTANCE,
+        .radius = SHOTGUN_RADIUS,
+        .density = SHOTGUN_DENSITY,
+        .invMass = SHOTGUN_INV_MASS,
+        .maxBounces = SHOTGUN_BOUNCE + 1,
+    };
+    weaponInfos[SHOTGUN_WEAPON] = shotgun;
+
+    weaponInformation imploder = {
+        .type = IMPLODER_WEAPON,
+        .numProjectiles = IMPLODER_PROJECTILES,
+        .recoilMagnitude = IMPLODER_RECOIL_MAGNITUDE,
+        .coolDown = IMPLODER_COOL_DOWN,
+        .maxDistance = IMPLODER_MAX_DISTANCE,
+        .radius = IMPLODER_RADIUS,
+        .density = IMPLODER_DENSITY,
+        .invMass = IMPLODER_INV_MASS,
+        .maxBounces = IMPLODER_BOUNCE + 1,
+    };
+    weaponInfos[IMPLODER_WEAPON] = imploder;
+}
+
 // max ammo of weapon
 int8_t weaponAmmo(const enum weaponType type)
 {
@@ -106,7 +180,6 @@ int8_t weaponAmmo(const enum weaponType type)
     {
         return INFINITE;
     }
-
     switch (type)
     {
     case STANDARD_WEAPON:
@@ -119,49 +192,6 @@ int8_t weaponAmmo(const enum weaponType type)
         return SHOTGUN_AMMO;
     case IMPLODER_WEAPON:
         return IMPLODER_AMMO;
-
-    default:
-        ERRORF("unknown weapon type %d", type);
-    }
-}
-
-// the amount of projectiles fired by this weapon
-uint8_t weaponProjectiles(const enum weaponType type)
-{
-    switch (type)
-    {
-    case STANDARD_WEAPON:
-        return STANDARD_PROJECTILES;
-    case MACHINEGUN_WEAPON:
-        return MACHINEGUN_PROJECTILES;
-    case SNIPER_WEAPON:
-        return SNIPER_PROJECTILES;
-    case SHOTGUN_WEAPON:
-        return SHOTGUN_PROJECTILES;
-    case IMPLODER_WEAPON:
-        return IMPLODER_PROJECTILES;
-
-    default:
-        ERRORF("unknown weapon type %d", type);
-    }
-}
-
-// amount of recoil to apply to drone
-float weaponRecoil(const enum weaponType type)
-{
-    switch (type)
-    {
-    case STANDARD_WEAPON:
-        return STANDARD_RECOIL_MAGNITUDE;
-    case MACHINEGUN_WEAPON:
-        return MACHINEGUN_RECOIL_MAGNITUDE;
-    case SNIPER_WEAPON:
-        return SNIPER_RECOIL_MAGNITUDE;
-    case SHOTGUN_WEAPON:
-        return SHOTGUN_RECOIL_MAGNITUDE;
-    case IMPLODER_WEAPON:
-        return IMPLODER_RECOIL_MAGNITUDE;
-
     default:
         ERRORF("unknown weapon type %d", type);
     }
@@ -217,86 +247,6 @@ uint16_t weaponCharge(const enum weaponType type)
     return (uint16_t)(charge * FRAME_RATE);
 }
 
-// time in seconds of cooldown between shots
-float weaponCoolDown(const enum weaponType type)
-{
-    switch (type)
-    {
-    case STANDARD_WEAPON:
-        return STANDARD_COOL_DOWN;
-    case MACHINEGUN_WEAPON:
-        return MACHINEGUN_COOL_DOWN;
-    case SNIPER_WEAPON:
-        return SNIPER_COOL_DOWN;
-    case SHOTGUN_WEAPON:
-        return SHOTGUN_COOL_DOWN;
-    case IMPLODER_WEAPON:
-        return IMPLODER_COOL_DOWN;
-    default:
-        ERRORF("unknown weapon type %d", type);
-    }
-}
-
-// max distance of projectile before it is destroyed
-float weaponMaxDistance(const enum weaponType type)
-{
-    switch (type)
-    {
-    case STANDARD_WEAPON:
-        return STANDARD_MAX_DISTANCE;
-    case MACHINEGUN_WEAPON:
-        return MACHINEGUN_MAX_DISTANCE;
-    case SNIPER_WEAPON:
-        return SNIPER_MAX_DISTANCE;
-    case SHOTGUN_WEAPON:
-        return SHOTGUN_MAX_DISTANCE;
-    case IMPLODER_WEAPON:
-        return IMPLODER_MAX_DISTANCE;
-    default:
-        ERRORF("unknown weapon type %d", type);
-    }
-}
-
-// radius of projectile shape, affects size and mass
-float weaponRadius(const enum weaponType type)
-{
-    switch (type)
-    {
-    case STANDARD_WEAPON:
-        return STANDARD_RADIUS;
-    case MACHINEGUN_WEAPON:
-        return MACHINEGUN_RADIUS;
-    case SNIPER_WEAPON:
-        return SNIPER_RADIUS;
-    case SHOTGUN_WEAPON:
-        return SHOTGUN_RADIUS;
-    case IMPLODER_WEAPON:
-        return IMPLODER_RADIUS;
-    default:
-        ERRORF("unknown weapon type %d", type);
-    }
-}
-
-// density of projectile, affects mass
-float weaponDensity(const enum weaponType type)
-{
-    switch (type)
-    {
-    case STANDARD_WEAPON:
-        return STANDARD_DENSITY;
-    case MACHINEGUN_WEAPON:
-        return MACHINEGUN_DENSITY;
-    case SNIPER_WEAPON:
-        return SNIPER_DENSITY;
-    case SHOTGUN_WEAPON:
-        return SHOTGUN_DENSITY;
-    case IMPLODER_WEAPON:
-        return IMPLODER_DENSITY;
-    default:
-        ERRORF("unknown weapon type %d", type);
-    }
-}
-
 b2Vec2 weaponAdjustAim(const enum weaponType type, const uint16_t heat, const b2Vec2 normAim)
 {
     switch (type)
@@ -325,74 +275,18 @@ b2Vec2 weaponAdjustAim(const enum weaponType type, const uint16_t heat, const b2
     }
 }
 
-// projectile inverse mass, used to keep projectile velocity constant
-// when bouncing off other bodies
-float weaponInvMass(const enum weaponType type)
-{
-    switch (type)
-    {
-    case STANDARD_WEAPON:
-        return STANDARD_INV_MASS;
-    case MACHINEGUN_WEAPON:
-        return MACHINEGUN_INV_MASS;
-    case SNIPER_WEAPON:
-        return SNIPER_INV_MASS;
-    case SHOTGUN_WEAPON:
-        return SHOTGUN_INV_MASS;
-    case IMPLODER_WEAPON:
-        return IMPLODER_INV_MASS;
-    default:
-        ERRORF("unknown weapon type %d", type);
-    }
-}
-
-// amount of times projectile can bounce before being destroyed
-uint8_t weaponBounce(const enum weaponType type)
-{
-    uint8_t bounce = 0;
-    switch (type)
-    {
-    case STANDARD_WEAPON:
-        bounce = STANDARD_BOUNCE;
-        break;
-    case MACHINEGUN_WEAPON:
-        bounce = MACHINEGUN_BOUNCE;
-        break;
-    case SNIPER_WEAPON:
-        bounce = SNIPER_BOUNCE;
-        break;
-    case SHOTGUN_WEAPON:
-        bounce = SHOTGUN_BOUNCE;
-        break;
-    case IMPLODER_WEAPON:
-        bounce = IMPLODER_BOUNCE;
-        break;
-    default:
-        ERRORF("unknown weapon type %d", type);
-    }
-    return bounce + 1;
-}
-
 // sets explosion parameters and returns true if an explosion should be created
 // when a projectile is destroyed
 bool weaponExplosion(const enum weaponType type, b2ExplosionDef *explosionDef)
 {
     switch (type)
     {
-    case STANDARD_WEAPON:
-        return false;
-    case MACHINEGUN_WEAPON:
-        return false;
-    case SNIPER_WEAPON:
-        return false;
-    case SHOTGUN_WEAPON:
-        return false;
     case IMPLODER_WEAPON:
         explosionDef->radius = 5.0f;
         explosionDef->falloff = 5.0f;
         explosionDef->impulsePerLength = -100.0f;
         return true;
     default:
-        ERRORF("unknown weapon type %d", type);
+        return false;
     }
 }

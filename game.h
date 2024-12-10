@@ -323,8 +323,8 @@ void createDrone(env *e)
 
     droneEntity *drone = (droneEntity *)calloc(1, sizeof(droneEntity));
     drone->bodyID = droneBodyID;
-    drone->weapon = DRONE_DEFAULT_WEAPON;
-    drone->ammo = weaponAmmo(drone->weapon);
+    drone->weaponInfo = &weaponInfos[DRONE_DEFAULT_WEAPON];
+    drone->ammo = weaponAmmo(drone->weaponInfo->type);
     drone->shotThisStep = false;
     drone->lastAim = (b2Vec2){.x = 0.0f, .y = -1.0f};
 
@@ -365,12 +365,12 @@ void createProjectile(env *e, droneEntity *drone, const b2Vec2 normAim)
     projectileBodyDef.fixedRotation = true;
     projectileBodyDef.isBullet = true;
     b2Vec2 dronePos = b2Body_GetPosition(drone->bodyID);
-    float radius = weaponRadius(drone->weapon);
+    float radius = drone->weaponInfo->radius;
     projectileBodyDef.position = b2MulAdd(dronePos, 1.0f + (radius * 1.5f), normAim);
     b2BodyId projectileBodyID = b2CreateBody(e->worldID, &projectileBodyDef);
     b2ShapeDef projectileShapeDef = b2DefaultShapeDef();
     projectileShapeDef.enableContactEvents = true;
-    projectileShapeDef.density = weaponDensity(drone->weapon);
+    projectileShapeDef.density = drone->weaponInfo->density;
     projectileShapeDef.friction = 0.0f;
     projectileShapeDef.restitution = 1.0f;
     projectileShapeDef.filter.categoryBits = PROJECTILE_SHAPE;
@@ -384,14 +384,14 @@ void createProjectile(env *e, droneEntity *drone, const b2Vec2 normAim)
     b2Vec2 forwardVel = b2MulSV(b2Dot(droneVel, normAim), normAim);
     b2Vec2 lateralVel = b2Sub(droneVel, forwardVel);
     lateralVel = b2MulSV(projectileShapeDef.density / DRONE_MOVE_AIM_DIVISOR, lateralVel);
-    b2Vec2 aim = weaponAdjustAim(drone->weapon, drone->heat, normAim);
-    b2Vec2 fire = b2MulAdd(lateralVel, weaponFire(drone->weapon), aim);
+    b2Vec2 aim = weaponAdjustAim(drone->weaponInfo->type, drone->heat, normAim);
+    b2Vec2 fire = b2MulAdd(lateralVel, weaponFire(drone->weaponInfo->type), aim);
     b2Body_ApplyLinearImpulseToCenter(projectileBodyID, fire, true);
 
     projectileEntity *projectile = (projectileEntity *)calloc(1, sizeof(projectileEntity));
     projectile->bodyID = projectileBodyID;
     projectile->shapeID = projectileShapeID;
-    projectile->type = drone->weapon;
+    projectile->weaponInfo = drone->weaponInfo;
     projectile->lastPos = projectileBodyDef.position;
     cc_slist_add(e->projectiles, projectile);
 
@@ -405,7 +405,7 @@ void createProjectile(env *e, droneEntity *drone, const b2Vec2 normAim)
 void destroyProjectile(env *e, projectileEntity *projectile, const bool full)
 {
     b2ExplosionDef explosion;
-    if (weaponExplosion(projectile->type, &explosion))
+    if (weaponExplosion(projectile->weaponInfo->type, &explosion))
     {
         explosion.position = b2Body_GetPosition(projectile->bodyID);
         explosion.maskBits = FLOATING_WALL_SHAPE | DRONE_SHAPE;
@@ -517,17 +517,17 @@ void handleSuddenDeath(env *e)
     }
 }
 
-void droneChangeWeapon(droneEntity *drone, const enum weaponType weapon)
+void droneChangeWeapon(droneEntity *drone, const enum weaponType newWeapon)
 {
     // only top up ammo if the weapon is the same
-    if (drone->weapon != weapon)
+    if (drone->weaponInfo->type != newWeapon)
     {
         drone->weaponCooldown = 0.0f;
         drone->charge = 0;
         drone->heat = 0;
     }
-    drone->weapon = weapon;
-    drone->ammo = weaponAmmo(weapon);
+    drone->weaponInfo = &weaponInfos[newWeapon];
+    drone->ammo = weaponAmmo(drone->weaponInfo->type);
 }
 
 void droneShoot(env *e, droneEntity *drone, const b2Vec2 aim)
@@ -543,16 +543,16 @@ void droneShoot(env *e, droneEntity *drone, const b2Vec2 aim)
         return;
     }
     drone->charge++;
-    if (drone->charge < weaponCharge(drone->weapon))
+    if (drone->charge < weaponCharge(drone->weaponInfo->type))
     {
         return;
     }
 
-    if (drone->weapon != STANDARD_WEAPON && drone->ammo != INFINITE)
+    if (drone->ammo != INFINITE)
     {
         drone->ammo--;
     }
-    drone->weaponCooldown = weaponCoolDown(drone->weapon);
+    drone->weaponCooldown = drone->weaponInfo->coolDown;
     drone->charge = 0.0f;
 
     b2Vec2 normAim = drone->lastAim;
@@ -560,10 +560,10 @@ void droneShoot(env *e, droneEntity *drone, const b2Vec2 aim)
     {
         normAim = b2Normalize(aim);
     }
-    b2Vec2 recoil = b2MulSV(-weaponRecoil(drone->weapon), normAim);
+    b2Vec2 recoil = b2MulSV(-drone->weaponInfo->recoilMagnitude, normAim);
     b2Body_ApplyLinearImpulseToCenter(drone->bodyID, recoil, true);
 
-    for (int i = 0; i < weaponProjectiles(drone->weapon); i++)
+    for (int i = 0; i < drone->weaponInfo->numProjectiles; i++)
     {
         createProjectile(e, drone, normAim);
     }
@@ -571,7 +571,7 @@ void droneShoot(env *e, droneEntity *drone, const b2Vec2 aim)
     if (drone->ammo == 0)
     {
         droneChangeWeapon(drone, DRONE_DEFAULT_WEAPON);
-        drone->weaponCooldown = weaponCoolDown(DRONE_DEFAULT_WEAPON);
+        drone->weaponCooldown = drone->weaponInfo->coolDown;
     }
 }
 
@@ -599,7 +599,7 @@ void projectilesStep(env *e)
     projectileEntity *projectile;
     while (cc_slist_iter_next(&iter, (void **)&projectile) != CC_ITER_END)
     {
-        const float maxDistance = weaponMaxDistance(projectile->type);
+        const float maxDistance = projectile->weaponInfo->maxDistance;
         if (maxDistance == INFINITE)
         {
             continue;
@@ -664,7 +664,7 @@ bool handleProjectileBeginContact(env *e, const entity *proj, const entity *ent)
     {
         projectile->bounces++;
     }
-    const uint8_t maxBounces = weaponBounce(projectile->type);
+    const uint8_t maxBounces = projectile->weaponInfo->maxBounces;
     if (projectile->bounces == maxBounces)
     {
         destroyProjectile(e, projectile, true);
@@ -678,7 +678,7 @@ void handleProjectileEndContact(const entity *p)
 {
     projectileEntity *projectile = (projectileEntity *)p->entity;
     b2Vec2 velocity = b2Body_GetLinearVelocity(projectile->bodyID);
-    b2Vec2 newVel = b2MulSV(weaponFire(projectile->type) * weaponInvMass(projectile->type), b2Normalize(velocity));
+    b2Vec2 newVel = b2MulSV(weaponFire(projectile->weaponInfo->type) * projectile->weaponInfo->invMass, b2Normalize(velocity));
     b2Body_SetLinearVelocity(projectile->bodyID, newVel);
 }
 

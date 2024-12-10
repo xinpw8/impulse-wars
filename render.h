@@ -225,7 +225,7 @@ void renderDroneGuides(const env *e, const droneEntity *drone, const b2Vec2 move
     const b2DistanceOutput output = b2ShapeDistance(&cache, &input, NULL, 0);
 
     float aimGuideWidth = 0.0f;
-    switch (drone->weapon)
+    switch (drone->weaponInfo->type)
     {
     case STANDARD_WEAPON:
         aimGuideWidth = 5.0f;
@@ -243,7 +243,7 @@ void renderDroneGuides(const env *e, const droneEntity *drone, const b2Vec2 move
         aimGuideWidth = 5.0f;
         break;
     default:
-        ERRORF("unknown weapon when getting aim guide width %d", drone->weapon);
+        ERRORF("unknown weapon when getting aim guide width %d", drone->weaponInfo->type);
     }
     aimGuideWidth = fminf(aimGuideWidth, output.distance) + (DRONE_RADIUS * 2.0f);
 
@@ -280,7 +280,7 @@ void renderDroneLabels(const droneEntity *drone)
     }
     DrawText(ammoStr, b2XToRayX(posX), b2YToRayY(pos.y + 1.5f), scale, WHITE);
 
-    const float maxCharge = weaponCharge(drone->weapon);
+    const float maxCharge = weaponCharge(drone->weaponInfo->type);
     if (maxCharge == 0.0f)
     {
         return;
@@ -320,7 +320,7 @@ void renderProjectiles(env *e)
     {
         projectileEntity *projectile = (projectileEntity *)cur->data;
         b2Vec2 pos = b2Body_GetPosition(projectile->bodyID);
-        DrawCircleV(b2VecToRayVec(pos), scale * weaponRadius(projectile->type), PURPLE);
+        DrawCircleV(b2VecToRayVec(pos), scale * projectile->weaponInfo->radius, PURPLE);
     }
 }
 

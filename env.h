@@ -7,6 +7,7 @@
 env *createEnv(void)
 {
     env *e = calloc(1, sizeof(env));
+    initWeapons();
     return e;
 }
 
@@ -99,6 +100,7 @@ void clearEnv(env *e)
 
 void destroyEnv(env *e)
 {
+    free(weaponInfos);
     clearEnv(e);
     free(e);
 }

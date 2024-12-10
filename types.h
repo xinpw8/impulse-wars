@@ -68,6 +68,19 @@ enum weaponType
     IMPLODER_WEAPON,
 };
 
+typedef struct weaponInformation
+{
+    enum weaponType type;
+    uint8_t numProjectiles;
+    float recoilMagnitude;
+    float coolDown;
+    float maxDistance;
+    float radius;
+    float density;
+    float invMass;
+    uint8_t maxBounces;
+} weaponInformation;
+
 typedef struct weaponPickupEntity
 {
     b2BodyId bodyID;
@@ -83,7 +96,7 @@ typedef struct projectileEntity
 {
     b2BodyId bodyID;
     b2ShapeId shapeID;
-    enum weaponType type;
+    weaponInformation *weaponInfo;
     b2Vec2 lastPos;
     float distance;
     uint8_t bounces;
@@ -93,7 +106,7 @@ typedef struct droneEntity
 {
     b2BodyId bodyID;
     b2ShapeId shapeID;
-    enum weaponType weapon;
+    weaponInformation *weaponInfo;
     int8_t ammo;
     float weaponCooldown;
     bool shotThisStep;
