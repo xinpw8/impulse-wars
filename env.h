@@ -15,7 +15,7 @@ env *createEnv(void)
 
     cc_deque_new(&e->cells);
     cc_deque_new(&e->walls);
-    cc_deque_new(&e->entities);
+    cc_deque_new(&e->floatingWalls);
     cc_deque_new(&e->drones);
     cc_deque_new(&e->pickups);
     cc_slist_new(&e->projectiles);
@@ -54,12 +54,9 @@ void setupEnv(env *e)
 
     placeFloatingWalls(e, map);
 
-    for (int i = 0; i < 2; i++)
+    for (int i = 0; i < map->weaponPickups; i++)
     {
-        createWeaponPickup(e, MACHINEGUN_WEAPON);
-        createWeaponPickup(e, SNIPER_WEAPON);
-        createWeaponPickup(e, SHOTGUN_WEAPON);
-        createWeaponPickup(e, IMPLODER_WEAPON);
+        createWeaponPickup(e);
     }
 }
 
@@ -88,6 +85,13 @@ void clearEnv(env *e)
         destroyWall(wall);
     }
 
+    for (size_t i = 0; i < cc_deque_size(e->floatingWalls); i++)
+    {
+        wallEntity *wall;
+        cc_deque_get_at(e->floatingWalls, i, (void **)&wall);
+        destroyWall(wall);
+    }
+
     for (size_t i = 0; i < cc_deque_size(e->cells); i++)
     {
         mapCell *cell;
@@ -97,7 +101,7 @@ void clearEnv(env *e)
 
     cc_deque_remove_all(e->cells);
     cc_deque_remove_all(e->walls);
-    cc_deque_remove_all(e->entities);
+    cc_deque_remove_all(e->floatingWalls);
     cc_deque_remove_all(e->drones);
     cc_deque_remove_all(e->pickups);
     cc_slist_remove_all(e->projectiles);
@@ -113,7 +117,7 @@ void destroyEnv(env *e)
 
     cc_deque_destroy(e->cells);
     cc_deque_destroy(e->walls);
-    cc_deque_destroy(e->entities);
+    cc_deque_destroy(e->floatingWalls);
     cc_deque_destroy(e->drones);
     cc_deque_destroy(e->pickups);
     cc_slist_destroy(e->projectiles);

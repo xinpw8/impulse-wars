@@ -10,7 +10,7 @@
 
 #define MAX_CELLS 450
 
-#define MIN_SPAWN_DISTANCE 5.5f
+#define MIN_SPAWN_DISTANCE 6.0f
 
 #define ROUND_STEPS 91.0f * FRAME_RATE
 #define SUDDEN_DEATH_STEPS 10.0f * FRAME_RATE
@@ -57,7 +57,7 @@
 
 #define MACHINEGUN_AMMO 35
 #define MACHINEGUN_PROJECTILES 1
-#define MACHINEGUN_RECOIL_MAGNITUDE 7.5f
+#define MACHINEGUN_RECOIL_MAGNITUDE 8.0f
 #define MACHINEGUN_FIRE_MAGNITUDE 20.0f
 #define MACHINEGUN_CHARGE 0.0f
 #define MACHINEGUN_COOL_DOWN 0.07f
@@ -94,12 +94,12 @@
 #define IMPLODER_AMMO 1
 #define IMPLODER_PROJECTILES 1
 #define IMPLODER_RECOIL_MAGNITUDE 35.0f
-#define IMPLODER_FIRE_MAGNITUDE 75.0f
+#define IMPLODER_FIRE_MAGNITUDE 30.0f
 #define IMPLODER_CHARGE 2.0f
 #define IMPLODER_COOL_DOWN 0.0f
 #define IMPLODER_MAX_DISTANCE INFINITE
 #define IMPLODER_RADIUS 0.8f
-#define IMPLODER_DENSITY 5.0f
+#define IMPLODER_DENSITY 1.0f
 #define IMPLODER_INV_MASS INV_MASS(IMPLODER_DENSITY, IMPLODER_RADIUS)
 #define IMPLODER_BOUNCE 0
 
@@ -111,7 +111,7 @@ void initWeapons()
 
     weaponInformation standard = {
         .type = STANDARD_WEAPON,
-        .isPhysicsBullet = false,
+        .isPhysicsBullet = true,
         .numProjectiles = STANDARD_PROJECTILES,
         .recoilMagnitude = STANDARD_RECOIL_MAGNITUDE,
         .coolDown = STANDARD_COOL_DOWN,
@@ -289,7 +289,7 @@ bool weaponExplosion(const enum weaponType type, b2ExplosionDef *explosionDef)
     switch (type)
     {
     case IMPLODER_WEAPON:
-        explosionDef->radius = 5.0f;
+        explosionDef->radius = 10.0f;
         explosionDef->falloff = 5.0f;
         explosionDef->impulsePerLength = -100.0f;
         return true;

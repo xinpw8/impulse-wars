@@ -125,11 +125,12 @@ typedef struct env
     weaponInformation *defaultWeapon;
     CC_Deque *cells;
     CC_Deque *walls;
-    CC_Deque *entities;
+    CC_Deque *floatingWalls;
     CC_Deque *drones;
     CC_Deque *pickups;
     CC_SList *projectiles;
 
+    // used for rendering explosions
     uint8_t explosionSteps;
     b2ExplosionDef explosion;
 

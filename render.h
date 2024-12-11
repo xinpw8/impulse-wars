@@ -358,6 +358,13 @@ void renderEnv(env *e, const CC_Deque *inputs)
         renderWall(wall);
     }
 
+    for (size_t i = 0; i < cc_deque_size(e->floatingWalls); i++)
+    {
+        wallEntity *wall;
+        cc_deque_get_at(e->floatingWalls, i, (void **)&wall);
+        renderWall(wall);
+    }
+
     for (size_t i = 0; i < cc_deque_size(e->pickups); i++)
     {
         weaponPickupEntity *pickup;

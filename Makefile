@@ -2,7 +2,7 @@ DEBUG_DIR := debug
 RELEASE_DIR := release
 
 DEBUG_BUILD_TYPE := Debug
-RELEASE_BUILD_TYPE := Release
+RELEASE_BUILD_TYPE := RelWithDebInfo
 
 .PHONY: all
 all: debug release

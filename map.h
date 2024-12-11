@@ -17,6 +17,7 @@ typedef struct mapEntry
     const uint8_t floatingStandardWalls;
     const uint8_t floatingBouncyWalls;
     const uint8_t floatingDeathWalls;
+    const uint16_t weaponPickups;
     const enum weaponType defaultWeapon;
 } mapEntry;
 
@@ -52,6 +53,7 @@ const mapEntry prototypeArenaMap = {
     .floatingStandardWalls = 6,
     .floatingBouncyWalls = 0,
     .floatingDeathWalls = 6,
+    .weaponPickups = 12,
     .defaultWeapon = STANDARD_WEAPON,
 };
 
@@ -84,7 +86,43 @@ const mapEntry snipersMap = {
     .floatingStandardWalls = 0,
     .floatingBouncyWalls = 0,
     .floatingDeathWalls = 0,
+    .weaponPickups = 6,
     .defaultWeapon = SNIPER_WEAPON,
+};
+
+const char roomsLayout[] = {
+    'D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D',
+    'D','O','O','O','O','O','O','O','O','O','D','O','O','O','O','O','O','O','O','O','D',
+    'D','O','O','O','O','O','O','O','O','O','D','O','O','O','O','O','O','O','O','O','D',
+    'D','O','O','O','O','O','O','O','O','O','W','O','O','O','O','O','O','O','O','O','D',
+    'D','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','D',
+    'D','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','D',
+    'D','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','D',
+    'D','O','O','O','O','O','O','O','O','O','W','O','O','O','O','O','O','O','O','O','D',
+    'D','O','O','O','O','O','O','O','O','O','D','O','O','O','O','O','O','O','O','O','D',
+    'D','O','O','O','O','O','O','O','O','O','D','O','O','O','O','O','O','O','O','O','D',
+    'D','D','D','W','O','O','O','W','D','D','D','D','D','W','O','O','O','W','D','D','D',
+    'D','O','O','O','O','O','O','O','O','O','D','O','O','O','O','O','O','O','O','O','D',
+    'D','O','O','O','O','O','O','O','O','O','D','O','O','O','O','O','O','O','O','O','D',
+    'D','O','O','O','O','O','O','O','O','O','W','O','O','O','O','O','O','O','O','O','D',
+    'D','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','D',
+    'D','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','D',
+    'D','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','D',
+    'D','O','O','O','O','O','O','O','O','O','W','O','O','O','O','O','O','O','O','O','D',
+    'D','O','O','O','O','O','O','O','O','O','D','O','O','O','O','O','O','O','O','O','D',
+    'D','O','O','O','O','O','O','O','O','O','D','O','O','O','O','O','O','O','O','O','D',
+    'D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D',
+};
+
+const mapEntry roomsMap = {
+    .layout = roomsLayout,
+    .columns = 21,
+    .rows = 21,
+    .floatingStandardWalls = 3,
+    .floatingBouncyWalls = 0,
+    .floatingDeathWalls = 3,
+    .weaponPickups = 8,
+    .defaultWeapon = SHOTGUN_WEAPON,
 };
 
 // clang-format on

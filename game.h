@@ -153,16 +153,19 @@ entity *createWall(env *e, const float posX, const float posY, const float width
     entity *ent = (entity *)fastMalloc(sizeof(entity));
     ent->type = type;
     ent->entity = wall;
-    if (floating)
-    {
-        cc_deque_add(e->entities, ent);
-    }
 
     wallShapeDef.userData = ent;
     const b2Polygon wallPolygon = b2MakeBox(extent.x, extent.y);
     wall->shapeID = b2CreatePolygonShape(wallBodyID, &wallShapeDef, &wallPolygon);
 
-    cc_deque_add(e->walls, wall);
+    if (floating)
+    {
+        cc_deque_add(e->floatingWalls, wall);
+    }
+    else
+    {
+        cc_deque_add(e->walls, wall);
+    }
 
     return ent;
 }
@@ -256,10 +259,20 @@ b2DistanceProxy makeDistanceProxy(const enum entityType type, bool *isCircle)
     return proxy;
 }
 
-void createWeaponPickup(env *e, const enum weaponType type)
+enum weaponType randWeaponPickupType(const env *e)
 {
-    assert(type != STANDARD_WEAPON);
+    while (true)
+    {
+        const enum weaponType type = (enum weaponType)randInt(STANDARD_WEAPON + 1, NUM_WEAPONS - 1);
+        if (type != e->defaultWeapon->type)
+        {
+            return type;
+        }
+    }
+}
 
+void createWeaponPickup(env *e)
+{
     b2BodyDef pickupBodyDef = b2DefaultBodyDef();
     if (!findOpenPos(e, WEAPON_PICKUP_SHAPE, &pickupBodyDef.position))
     {
@@ -273,14 +286,13 @@ void createWeaponPickup(env *e, const enum weaponType type)
 
     weaponPickupEntity *pickup = (weaponPickupEntity *)fastMalloc(sizeof(weaponPickupEntity));
     pickup->bodyID = pickupBodyID;
-    pickup->weapon = type;
+    pickup->weapon = randWeaponPickupType(e);
     pickup->respawnWait = 0.0f;
     pickup->floatingWallsTouching = 0;
 
     entity *ent = (entity *)fastMalloc(sizeof(entity));
     ent->type = WEAPON_PICKUP_ENTITY;
     ent->entity = pickup;
-    cc_deque_add(e->entities, ent);
 
     const uint16_t cellIdx = posToCellIdx(e, pickupBodyDef.position);
     mapCell *cell;
@@ -338,7 +350,6 @@ void createDrone(env *e)
     entity *ent = (entity *)fastMalloc(sizeof(entity));
     ent->type = DRONE_ENTITY;
     ent->entity = drone;
-    cc_deque_add(e->entities, ent);
 
     droneShapeDef.userData = ent;
     drone->shapeID = b2CreateCircleShape(droneBodyID, &droneShapeDef, &droneCircle);
@@ -508,20 +519,15 @@ void handleSuddenDeath(env *e)
         return;
     }
 
-    for (size_t i = 0; i < cc_deque_size(e->entities); i++)
+    for (size_t i = 0; i < cc_deque_size(e->floatingWalls); i++)
     {
-        entity *ent;
-        cc_deque_get_at(e->entities, i, (void **)&ent);
-        if (!entityIsWall(ent))
-        {
-            continue;
-        }
-        wallEntity *wall = (wallEntity *)ent->entity;
+        wallEntity *wall;
+        cc_deque_get_at(e->floatingWalls, i, (void **)&wall);
 
         const b2Vec2 pos = b2Body_GetPosition(wall->bodyID);
         if (isOverlapping(e, pos, FLOATING_WALL_THICKNESS / 2.0f, FLOATING_WALL_SHAPE, WALL_SHAPE))
         {
-            // TODO: destroy wall?
+            // TODO: destroy floating wall?
             b2Body_Disable(wall->bodyID);
         }
     }
@@ -645,6 +651,7 @@ void weaponPickupStep(env *e, weaponPickupEntity *pickup, const float frameTime)
                 return;
             }
             b2Body_SetTransform(pickup->bodyID, pos, b2Rot_identity);
+            pickup->weapon = randWeaponPickupType(e);
 
             const uint16_t cellIdx = posToCellIdx(e, pos);
             mapCell *cell;
