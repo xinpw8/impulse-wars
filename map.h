@@ -104,14 +104,15 @@ void createMap(env *e, const mapEntry *map)
             float x = (col - (map->columns / 2.0f) + 0.5) * WALL_THICKNESS;
             float y = ((map->rows / 2.0f) - (map->rows - row) + 0.5f) * WALL_THICKNESS;
 
-            mapCell *cell = (mapCell *)calloc(1, sizeof(mapCell));
+            b2Vec2 pos = {.x = x, .y = y};
+            mapCell *cell = (mapCell *)fastMalloc(sizeof(mapCell));
+            cell->pos = pos;
             cc_deque_add(e->cells, cell);
 
-            b2Vec2 pos = {.x = x, .y = y};
             switch (cellType)
             {
             case 'O':
-                cell->pos = pos;
+                cell->ent = NULL;
                 continue;
             case 'W':
                 wallType = STANDARD_WALL_ENTITY;

@@ -93,8 +93,42 @@ void handlePlayerDroneInputs(env *e, droneEntity *drone, const droneInputs input
     }
 }
 
+void perfTest(const int steps)
+{
+    srand(0);
+
+    env *e = createEnv();
+    setupEnv(e);
+
+    for (int i = 0; i < steps; i++)
+    {
+        for (size_t i = 0; i < cc_deque_size(e->drones); i++)
+        {
+            droneEntity *drone;
+            cc_deque_get_at(e->drones, i, (void **)&drone);
+            droneInputs input = {
+                .aim = (b2Vec2){.x = randFloat(-1.0f, 1.0f), .y = randFloat(-1.0f, 1.0f)},
+                .move = (b2Vec2){.x = randFloat(-1.0f, 1.0f), .y = randFloat(-1.0f, 1.0f)},
+                .shoot = randInt(0, 1),
+            };
+            handlePlayerDroneInputs(e, drone, input);
+        }
+
+        stepEnv(e, DELTA_TIME);
+        if (envTerminated(e))
+        {
+            resetEnv(e);
+        }
+    }
+
+    destroyEnv(e);
+}
+
 int main(void)
 {
+    // perfTest(3000000);
+    // return 0;
+
     srand(time(NULL));
 
     SetConfigFlags(FLAG_MSAA_4X_HINT);

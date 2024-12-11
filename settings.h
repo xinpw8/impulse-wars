@@ -6,9 +6,11 @@
 #define FRAME_RATE 60.0f
 #define DELTA_TIME 1.0f / FRAME_RATE
 
+#define BOX2D_SUBSTEPS 4
+
 #define MAX_CELLS 450
 
-#define MIN_SPAWN_DISTANCE 7.5f
+#define MIN_SPAWN_DISTANCE 5.5f
 
 #define ROUND_STEPS 91.0f * FRAME_RATE
 #define SUDDEN_DEATH_STEPS 10.0f * FRAME_RATE
@@ -105,10 +107,11 @@ weaponInformation *weaponInfos;
 
 void initWeapons()
 {
-    weaponInfos = (weaponInformation *)calloc(1, sizeof(weaponInformation) * NUM_WEAPONS);
+    weaponInfos = (weaponInformation *)fastCalloc(1, sizeof(weaponInformation) * NUM_WEAPONS);
 
     weaponInformation standard = {
         .type = STANDARD_WEAPON,
+        .isPhysicsBullet = false,
         .numProjectiles = STANDARD_PROJECTILES,
         .recoilMagnitude = STANDARD_RECOIL_MAGNITUDE,
         .coolDown = STANDARD_COOL_DOWN,
@@ -122,6 +125,7 @@ void initWeapons()
 
     weaponInformation machineGun = {
         .type = MACHINEGUN_WEAPON,
+        .isPhysicsBullet = true,
         .numProjectiles = MACHINEGUN_PROJECTILES,
         .recoilMagnitude = MACHINEGUN_RECOIL_MAGNITUDE,
         .coolDown = MACHINEGUN_COOL_DOWN,
@@ -135,6 +139,7 @@ void initWeapons()
 
     weaponInformation sniper = {
         .type = SNIPER_WEAPON,
+        .isPhysicsBullet = true,
         .numProjectiles = SNIPER_PROJECTILES,
         .recoilMagnitude = SNIPER_RECOIL_MAGNITUDE,
         .coolDown = SNIPER_COOL_DOWN,
@@ -148,6 +153,7 @@ void initWeapons()
 
     weaponInformation shotgun = {
         .type = SHOTGUN_WEAPON,
+        .isPhysicsBullet = true,
         .numProjectiles = SHOTGUN_PROJECTILES,
         .recoilMagnitude = SHOTGUN_RECOIL_MAGNITUDE,
         .coolDown = SHOTGUN_COOL_DOWN,
@@ -161,6 +167,7 @@ void initWeapons()
 
     weaponInformation imploder = {
         .type = IMPLODER_WEAPON,
+        .isPhysicsBullet = false,
         .numProjectiles = IMPLODER_PROJECTILES,
         .recoilMagnitude = IMPLODER_RECOIL_MAGNITUDE,
         .coolDown = IMPLODER_COOL_DOWN,

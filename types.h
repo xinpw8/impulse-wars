@@ -39,7 +39,6 @@ typedef struct entity
 typedef struct mapCell
 {
     entity *ent;
-    // should only be set if the entity is NULL
     b2Vec2 pos;
 } mapCell;
 
@@ -71,6 +70,7 @@ enum weaponType
 typedef struct weaponInformation
 {
     enum weaponType type;
+    bool isPhysicsBullet;
     uint8_t numProjectiles;
     float recoilMagnitude;
     float coolDown;
@@ -109,9 +109,9 @@ typedef struct droneEntity
     weaponInformation *weaponInfo;
     int8_t ammo;
     float weaponCooldown;
-    bool shotThisStep;
     uint16_t heat;
     uint16_t charge;
+    bool shotThisStep;
     b2Vec2 lastAim;
     bool dead;
 } droneEntity;

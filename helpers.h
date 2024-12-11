@@ -5,7 +5,8 @@
 #include <time.h>
 
 #include "box2d/box2d.h"
-#include "raylib.h"
+
+#include "include/dlmalloc.h"
 
 #define ERRORF(fmt, args...)                                                    \
     fprintf(stderr, " %s:%s:%d\n" fmt, __FILE__, __FUNCTION__, __LINE__, args); \
@@ -27,6 +28,10 @@
 #define DEBUG_LOG(msg)
 #endif
 
+#ifndef PI
+#define PI 3.14159265358979323846
+#endif
+
 #define INV_MASS(density, radius) (1.0f / (density * PI * radius * radius))
 
 #define ASSERT_VEC_NORMALIZED(vec) \
@@ -34,6 +39,22 @@
     assert(vec.x >= -1.0f);        \
     assert(vec.y <= 1.0f);         \
     assert(vec.y >= -1.0f);
+
+// these are defined in this way so switching out the allocator is easy
+static inline void *fastMalloc(size_t size)
+{
+    return dlmalloc(size);
+}
+
+static inline void *fastCalloc(size_t nmemb, size_t size)
+{
+    return dlcalloc(nmemb, size);
+}
+
+static inline void fastFree(void *ptr)
+{
+    dlfree(ptr);
+}
 
 static inline bool b2VecEqual(const b2Vec2 v1, const b2Vec2 v2)
 {

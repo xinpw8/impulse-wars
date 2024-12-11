@@ -1,12 +1,17 @@
 ﻿cmake_minimum_required(VERSION 3.22)
 include(FetchContent)
 
-set(CMAKE_C_COMPILER "clang")
-set(CMAKE_CXX_COMPILER "clang++")
+find_program(CLANG_EXECUTABLE "clang")
+if(CLANG_EXECUTABLE)
+	set(CMAKE_C_COMPILER "clang")
+	set(CMAKE_CXX_COMPILER "clang++")
+endif()
 set(CMAKE_C_FLAGS_INIT " -std=c23")
 
 set (CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -fno-omit-frame-pointer -fsanitize=address,undefined,bounds,pointer-overflow,leak")
 set (CMAKE_LINKER_FLAGS_DEBUG "${CMAKE_LINKER_FLAGS_DEBUG} -fno-omit-frame-pointer -fsanitize=address,undefined,bounds,pointer-overflow,leak")
+
+set (CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O3 -flto -march=native -fno-math-errno")
 
 project(env
 	VERSION 1.0.0
@@ -39,3 +44,8 @@ target_include_directories(env PRIVATE include)
 target_link_libraries(env PRIVATE box2d raylib)
 
 target_compile_options(env PRIVATE "-Wall" "-Werror" "-Wpedantic" "-Wno-variadic-macros")
+
+find_program(MOLD_EXECUTABLE "mold")
+if(MOLD_EXECUTABLE)
+	target_link_options(env PUBLIC "-fuse-ld=mold")
+endif()

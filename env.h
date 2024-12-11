@@ -2,14 +2,24 @@
 
 #include "game.h"
 #include "map.h"
+#include "settings.h"
 #include "types.h"
 
 const mapEntry *map = &prototypeArenaMap;
 
 env *createEnv(void)
 {
-    env *e = calloc(1, sizeof(env));
+    env *e = fastCalloc(1, sizeof(env));
+
     initWeapons();
+
+    cc_deque_new(&e->cells);
+    cc_deque_new(&e->walls);
+    cc_deque_new(&e->entities);
+    cc_deque_new(&e->drones);
+    cc_deque_new(&e->pickups);
+    cc_slist_new(&e->projectiles);
+
     return e;
 }
 
@@ -18,13 +28,6 @@ void setupEnv(env *e)
     b2WorldDef worldDef = b2DefaultWorldDef();
     worldDef.gravity = (b2Vec2){.x = 0.0f, .y = 0.0f};
     e->worldID = b2CreateWorld(&worldDef);
-
-    cc_deque_new(&e->cells);
-    cc_deque_new(&e->walls);
-    cc_deque_new(&e->entities);
-    cc_deque_new(&e->drones);
-    cc_deque_new(&e->pickups);
-    cc_slist_new(&e->projectiles);
 
     e->stepsLeft = ROUND_STEPS;
     e->suddenDeathSteps = SUDDEN_DEATH_STEPS;
@@ -89,8 +92,24 @@ void clearEnv(env *e)
     {
         mapCell *cell;
         cc_deque_get_at(e->cells, i, (void **)&cell);
-        free(cell);
+        fastFree(cell);
     }
+
+    cc_deque_remove_all(e->cells);
+    cc_deque_remove_all(e->walls);
+    cc_deque_remove_all(e->entities);
+    cc_deque_remove_all(e->drones);
+    cc_deque_remove_all(e->pickups);
+    cc_slist_remove_all(e->projectiles);
+
+    b2DestroyWorld(e->worldID);
+}
+
+void destroyEnv(env *e)
+{
+    fastFree(weaponInfos);
+
+    clearEnv(e);
 
     cc_deque_destroy(e->cells);
     cc_deque_destroy(e->walls);
@@ -99,14 +118,7 @@ void clearEnv(env *e)
     cc_deque_destroy(e->pickups);
     cc_slist_destroy(e->projectiles);
 
-    b2DestroyWorld(e->worldID);
-}
-
-void destroyEnv(env *e)
-{
-    free(weaponInfos);
-    clearEnv(e);
-    free(e);
+    fastFree(e);
 }
 
 void resetEnv(env *e)
@@ -144,7 +156,7 @@ void stepEnv(env *e, float deltaTime)
         weaponPickupStep(e, pickup, deltaTime);
     }
 
-    b2World_Step(e->worldID, deltaTime, 8);
+    b2World_Step(e->worldID, deltaTime, BOX2D_SUBSTEPS);
 
     handleContactEvents(e);
     handleSensorEvents(e);

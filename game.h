@@ -10,10 +10,6 @@
 #include "settings.h"
 #include "types.h"
 
-#include <assert.h>
-#include <time.h>
-#include <stdio.h>
-
 static inline bool entityIsWall(const entity *ent)
 {
     return ent->type == STANDARD_WALL_ENTITY || ent->type == BOUNCY_WALL_ENTITY || ent->type == DEATH_WALL_ENTITY;
@@ -118,6 +114,7 @@ entity *createWall(env *e, const float posX, const float posY, const float width
         wallBodyDef.type = b2_dynamicBody;
         wallBodyDef.linearDamping = FLOATING_WALL_DAMPING;
         wallBodyDef.angularDamping = FLOATING_WALL_DAMPING;
+        wallBodyDef.isAwake = false;
     }
     b2BodyId wallBodyID = b2CreateBody(e->worldID, &wallBodyDef);
     b2Vec2 extent = {.x = width / 2.0f, .y = height / 2.0f};
@@ -142,8 +139,9 @@ entity *createWall(env *e, const float posX, const float posY, const float width
         wallShapeDef.enableContactEvents = true;
     }
 
-    wallEntity *wall = (wallEntity *)calloc(1, sizeof(wallEntity));
+    wallEntity *wall = (wallEntity *)fastMalloc(sizeof(wallEntity));
     wall->bodyID = wallBodyID;
+    wall->position = b2Vec2_zero;
     if (!floating)
     {
         wall->position = pos;
@@ -152,7 +150,7 @@ entity *createWall(env *e, const float posX, const float posY, const float width
     wall->isFloating = floating;
     wall->type = type;
 
-    entity *ent = (entity *)calloc(1, sizeof(entity));
+    entity *ent = (entity *)fastMalloc(sizeof(entity));
     ent->type = type;
     ent->entity = wall;
     if (floating)
@@ -172,10 +170,10 @@ entity *createWall(env *e, const float posX, const float posY, const float width
 void destroyWall(wallEntity *wall)
 {
     entity *ent = (entity *)b2Shape_GetUserData(wall->shapeID);
-    free(ent);
+    fastFree(ent);
 
     b2DestroyBody(wall->bodyID);
-    free(wall);
+    fastFree(wall);
 }
 
 void updateCellsWithWall(env *e, entity *wallEnt)
@@ -273,13 +271,13 @@ void createWeaponPickup(env *e, const enum weaponType type)
     pickupShapeDef.filter.maskBits = WALL_SHAPE | FLOATING_WALL_SHAPE | WEAPON_PICKUP_SHAPE | DRONE_SHAPE;
     pickupShapeDef.isSensor = true;
 
-    weaponPickupEntity *pickup = (weaponPickupEntity *)calloc(1, sizeof(weaponPickupEntity));
+    weaponPickupEntity *pickup = (weaponPickupEntity *)fastMalloc(sizeof(weaponPickupEntity));
     pickup->bodyID = pickupBodyID;
     pickup->weapon = type;
     pickup->respawnWait = 0.0f;
     pickup->floatingWallsTouching = 0;
 
-    entity *ent = (entity *)calloc(1, sizeof(entity));
+    entity *ent = (entity *)fastMalloc(sizeof(entity));
     ent->type = WEAPON_PICKUP_ENTITY;
     ent->entity = pickup;
     cc_deque_add(e->entities, ent);
@@ -299,10 +297,10 @@ void createWeaponPickup(env *e, const enum weaponType type)
 void destroyWeaponPickup(weaponPickupEntity *pickup)
 {
     entity *ent = (entity *)b2Shape_GetUserData(pickup->shapeID);
-    free(ent);
+    fastFree(ent);
 
     b2DestroyBody(pickup->bodyID);
-    free(pickup);
+    fastFree(pickup);
 }
 
 void createDrone(env *e)
@@ -313,6 +311,7 @@ void createDrone(env *e)
     {
         ERROR("no open position for drone");
     }
+    droneBodyDef.fixedRotation = true;
     droneBodyDef.linearDamping = DRONE_LINEAR_DAMPING;
     b2BodyId droneBodyID = b2CreateBody(e->worldID, &droneBodyDef);
     b2ShapeDef droneShapeDef = b2DefaultShapeDef();
@@ -325,14 +324,18 @@ void createDrone(env *e)
     droneShapeDef.enableSensorEvents = true;
     const b2Circle droneCircle = {.center = b2Vec2_zero, .radius = DRONE_RADIUS};
 
-    droneEntity *drone = (droneEntity *)calloc(1, sizeof(droneEntity));
+    droneEntity *drone = (droneEntity *)fastMalloc(sizeof(droneEntity));
     drone->bodyID = droneBodyID;
     drone->weaponInfo = e->defaultWeapon;
     drone->ammo = weaponAmmo(e->defaultWeapon->type, drone->weaponInfo->type);
+    drone->weaponCooldown = 0.0f;
+    drone->heat = 0;
+    drone->charge = 0;
     drone->shotThisStep = false;
     drone->lastAim = (b2Vec2){.x = 0.0f, .y = -1.0f};
+    drone->dead = false;
 
-    entity *ent = (entity *)calloc(1, sizeof(entity));
+    entity *ent = (entity *)fastMalloc(sizeof(entity));
     ent->type = DRONE_ENTITY;
     ent->entity = drone;
     cc_deque_add(e->entities, ent);
@@ -346,10 +349,10 @@ void createDrone(env *e)
 void destroyDrone(droneEntity *drone)
 {
     entity *ent = (entity *)b2Shape_GetUserData(drone->shapeID);
-    free(ent);
+    fastFree(ent);
 
     b2DestroyBody(drone->bodyID);
-    free(drone);
+    fastFree(drone);
 }
 
 void droneMove(const droneEntity *drone, const b2Vec2 direction)
@@ -367,7 +370,8 @@ void createProjectile(env *e, droneEntity *drone, const b2Vec2 normAim)
     b2BodyDef projectileBodyDef = b2DefaultBodyDef();
     projectileBodyDef.type = b2_dynamicBody;
     projectileBodyDef.fixedRotation = true;
-    projectileBodyDef.isBullet = true;
+    projectileBodyDef.isBullet = drone->weaponInfo->isPhysicsBullet;
+    projectileBodyDef.enableSleep = false;
     b2Vec2 dronePos = b2Body_GetPosition(drone->bodyID);
     float radius = drone->weaponInfo->radius;
     projectileBodyDef.position = b2MulAdd(dronePos, 1.0f + (radius * 1.5f), normAim);
@@ -392,14 +396,16 @@ void createProjectile(env *e, droneEntity *drone, const b2Vec2 normAim)
     b2Vec2 fire = b2MulAdd(lateralVel, weaponFire(drone->weaponInfo->type), aim);
     b2Body_ApplyLinearImpulseToCenter(projectileBodyID, fire, true);
 
-    projectileEntity *projectile = (projectileEntity *)calloc(1, sizeof(projectileEntity));
+    projectileEntity *projectile = (projectileEntity *)fastMalloc(sizeof(projectileEntity));
     projectile->bodyID = projectileBodyID;
     projectile->shapeID = projectileShapeID;
     projectile->weaponInfo = drone->weaponInfo;
     projectile->lastPos = projectileBodyDef.position;
+    projectile->distance = 0.0f;
+    projectile->bounces = 0;
     cc_slist_add(e->projectiles, projectile);
 
-    entity *ent = (entity *)calloc(1, sizeof(entity));
+    entity *ent = (entity *)fastMalloc(sizeof(entity));
     ent->type = PROJECTILE_ENTITY;
     ent->entity = projectile;
 
@@ -420,7 +426,7 @@ void destroyProjectile(env *e, projectileEntity *projectile, const bool full)
     }
 
     entity *ent = (entity *)b2Shape_GetUserData(projectile->shapeID);
-    free(ent);
+    fastFree(ent);
 
     if (full)
     {
@@ -428,7 +434,7 @@ void destroyProjectile(env *e, projectileEntity *projectile, const bool full)
         b2DestroyBody(projectile->bodyID);
     }
 
-    free(projectile);
+    fastFree(projectile);
 }
 
 void destroyAllProjectiles(env *e)
