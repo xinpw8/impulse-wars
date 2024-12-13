@@ -11,6 +11,8 @@
 
 #define BOX2D_SUBSTEPS 4
 
+#define FRAMESKIP 1
+
 #define MAX_CELLS 450
 
 #define MIN_SPAWN_DISTANCE 6.0f
@@ -30,11 +32,11 @@
 #define FLOATING_WALL_OBS_SIZE 6
 #define MAX_MAP_COLUMNS 21
 #define MAX_MAP_ROWS 21
-#define OBS_SIZE                                           \
-    (NUM_DRONES * DRONE_OBS_SIZE) +                        \
-        (NUM_PROJECTILE_OBS * PROJECTILE_OBS_SIZE) +       \
-        (NUM_FLOATING_WALL_OBS * FLOATING_WALL_OBS_SIZE) + \
-        (MAX_MAP_COLUMNS * MAX_MAP_ROWS)
+#define OBS_SIZE                                        \
+    ((NUM_DRONES * DRONE_OBS_SIZE) +                    \
+     (NUM_PROJECTILE_OBS * PROJECTILE_OBS_SIZE) +       \
+     (NUM_FLOATING_WALL_OBS * FLOATING_WALL_OBS_SIZE) + \
+     (MAX_MAP_COLUMNS * MAX_MAP_ROWS))
 
 #define MAX_X_POS 40.0f
 #define MAX_Y_POS 40.0f

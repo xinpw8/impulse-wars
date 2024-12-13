@@ -10,9 +10,9 @@ const mapEntry *map = &prototypeArenaMap;
 env *createEnv()
 {
     env *e = (env *)fastCalloc(1, sizeof(env));
-    e->obs = (float *)fastCalloc(NUM_DRONES, OBS_SIZE * sizeof(float));
+    e->obs = (float *)fastCalloc(NUM_DRONES * OBS_SIZE, sizeof(float));
     e->rewards = (float *)fastCalloc(NUM_DRONES, sizeof(float));
-    e->actions = (float *)fastCalloc(NUM_DRONES, ACTION_SIZE * sizeof(float));
+    e->actions = (float *)fastCalloc(NUM_DRONES * ACTION_SIZE, sizeof(float));
 
     weaponInfos = createWeaponInfos();
 
@@ -261,67 +261,88 @@ void computeObs(env *e)
         offset += mapCellObsUnset;
     }
     ASSERT(offset == OBS_SIZE);
+
+    // copy observations for other drone
+    // TODO: handle more than 2 drones
+
+    // reorder drone observation so that the second drone is first
+    memcpy(
+        e->obs + OBS_SIZE,
+        e->obs + DRONE_OBS_SIZE,
+        DRONE_OBS_SIZE * sizeof(float));
+    memcpy(
+        e->obs + OBS_SIZE + DRONE_OBS_SIZE,
+        e->obs,
+        DRONE_OBS_SIZE * sizeof(float));
+    // copy the rest of the observations over unmodified
+    memcpy(
+        e->obs + (OBS_SIZE + (NUM_DRONES * DRONE_OBS_SIZE)),
+        e->obs + (NUM_DRONES * DRONE_OBS_SIZE),
+        (OBS_SIZE - (NUM_DRONES * DRONE_OBS_SIZE)) * sizeof(float));
 }
 
 void stepEnv(env *e, float deltaTime)
 {
-    // handle actions
-    for (size_t i = 0; i < cc_deque_size(e->drones); i++)
+    for (int i = 0; i < FRAMESKIP; i++)
     {
-        const uint8_t offset = i * ACTION_SIZE;
-        const b2Vec2 move = {.x = e->actions[offset + 0], .y = e->actions[offset + 1]};
-        const b2Vec2 aim = {.x = e->actions[offset + 2], .y = e->actions[offset + 3]};
-        const bool shoot = e->actions[offset + 4] > 0.5f;
-        ASSERT_VEC_NORMALIZED(move);
-        ASSERT_VEC_NORMALIZED(aim);
-
-        droneEntity *drone = safe_deque_get_at(e->drones, i);
-        if (!b2VecEqual(move, b2Vec2_zero))
+        // handle actions
+        for (size_t i = 0; i < cc_deque_size(e->drones); i++)
         {
-            droneMove(drone, move);
+            const uint8_t offset = i * ACTION_SIZE;
+            const b2Vec2 move = {.x = e->actions[offset + 0], .y = e->actions[offset + 1]};
+            const b2Vec2 aim = {.x = e->actions[offset + 2], .y = e->actions[offset + 3]};
+            const bool shoot = e->actions[offset + 4] > 0.5f;
+            ASSERT_VEC_NORMALIZED(move);
+            ASSERT_VEC_NORMALIZED(aim);
+
+            droneEntity *drone = safe_deque_get_at(e->drones, i);
+            if (!b2VecEqual(move, b2Vec2_zero))
+            {
+                droneMove(drone, move);
+            }
+            if (shoot)
+            {
+                droneShoot(e, drone, aim);
+            }
+            if (!b2VecEqual(aim, b2Vec2_zero))
+            {
+                drone->lastAim = b2Normalize(aim);
+            }
         }
-        if (shoot)
+
+        // update entity info, step physics, and handle events
+        for (size_t i = 0; i < cc_deque_size(e->drones); i++)
         {
-            droneShoot(e, drone, aim);
+
+            droneEntity *drone = safe_deque_get_at(e->drones, i);
+            droneStep(drone, deltaTime);
         }
-        if (!b2VecEqual(aim, b2Vec2_zero))
+
+        // handle sudden death
+        e->stepsLeft = fmaxf(e->stepsLeft - 1, 0.0f);
+        if (e->stepsLeft == 0)
         {
-            drone->lastAim = b2Normalize(aim);
+            e->suddenDeathSteps = fmaxf(e->suddenDeathSteps - 1, 0.0f);
+            if (e->suddenDeathSteps == 0)
+            {
+                handleSuddenDeath(e);
+                e->suddenDeathSteps = SUDDEN_DEATH_STEPS;
+            }
         }
-    }
 
-    // update entity info, step physics, and handle events
-    for (size_t i = 0; i < cc_deque_size(e->drones); i++)
-    {
+        projectilesStep(e);
 
-        droneEntity *drone = safe_deque_get_at(e->drones, i);
-        droneStep(drone, deltaTime);
-    }
-
-    // handle sudden death
-    e->stepsLeft = fmaxf(e->stepsLeft - 1, 0.0f);
-    if (e->stepsLeft == 0)
-    {
-        e->suddenDeathSteps = fmaxf(e->suddenDeathSteps - 1, 0.0f);
-        if (e->suddenDeathSteps == 0)
+        for (size_t i = 0; i < cc_deque_size(e->pickups); i++)
         {
-            handleSuddenDeath(e);
-            e->suddenDeathSteps = SUDDEN_DEATH_STEPS;
+            weaponPickupEntity *pickup = safe_deque_get_at(e->pickups, i);
+            weaponPickupStep(e, pickup, deltaTime);
         }
+
+        b2World_Step(e->worldID, deltaTime, BOX2D_SUBSTEPS);
+
+        handleContactEvents(e);
+        handleSensorEvents(e);
     }
-
-    projectilesStep(e);
-
-    for (size_t i = 0; i < cc_deque_size(e->pickups); i++)
-    {
-        weaponPickupEntity *pickup = safe_deque_get_at(e->pickups, i);
-        weaponPickupStep(e, pickup, deltaTime);
-    }
-
-    b2World_Step(e->worldID, deltaTime, BOX2D_SUBSTEPS);
-
-    handleContactEvents(e);
-    handleSensorEvents(e);
 
     computeObs(e);
 }

@@ -6,9 +6,8 @@ const float lStickDeadzoneY = 0.1f;
 const float rStickDeadzoneX = 0.1f;
 const float rStickDeadzoneY = 0.1f;
 
-droneInputs getPlayerInputs(const droneEntity *drone, const int gamepadIdx)
+void getPlayerInputs(const env *e, const droneEntity *drone, const int gamepadIdx)
 {
-    droneInputs inputs = {0};
     if (IsGamepadAvailable(gamepadIdx))
     {
         float lStickX = GetGamepadAxisMovement(gamepadIdx, GAMEPAD_AXIS_LEFT_X);
@@ -32,65 +31,61 @@ droneInputs getPlayerInputs(const droneEntity *drone, const int gamepadIdx)
         {
             rStickY = 0.0f;
         }
-        inputs.move = (b2Vec2){.x = lStickX, .y = lStickY};
-        inputs.aim = b2Normalize((b2Vec2){.x = rStickX, .y = rStickY});
+        const b2Vec2 aim = b2Normalize((b2Vec2){.x = rStickX, .y = rStickY});
 
-        inputs.shoot = IsGamepadButtonDown(gamepadIdx, GAMEPAD_BUTTON_RIGHT_TRIGGER_2);
-        if (!inputs.shoot)
+        bool shoot = IsGamepadButtonDown(gamepadIdx, GAMEPAD_BUTTON_RIGHT_TRIGGER_2);
+        if (!shoot)
         {
-            inputs.shoot = IsGamepadButtonDown(gamepadIdx, GAMEPAD_BUTTON_RIGHT_TRIGGER_1);
+            shoot = IsGamepadButtonDown(gamepadIdx, GAMEPAD_BUTTON_RIGHT_TRIGGER_1);
         }
-        return inputs;
+
+        e->actions[0] = lStickX;
+        e->actions[1] = lStickY;
+        e->actions[2] = aim.x;
+        e->actions[3] = aim.y;
+        e->actions[4] = shoot;
+
+        return;
     }
     if (gamepadIdx != 0)
     {
-        return inputs;
+        return;
     }
 
+    b2Vec2 move = b2Vec2_zero;
     if (IsKeyDown(KEY_W))
     {
-        inputs.move.y += -1.0f;
+        move.y += -1.0f;
     }
     if (IsKeyDown(KEY_S))
     {
-        inputs.move.y += 1.0f;
+        move.y += 1.0f;
     }
     if (IsKeyDown(KEY_A))
     {
-        inputs.move.x += -1.0f;
+        move.x += -1.0f;
     }
     if (IsKeyDown(KEY_D))
     {
-        inputs.move.x += 1.0f;
+        move.x += 1.0f;
     }
-    inputs.move = b2Normalize(inputs.move);
+    move = b2Normalize(move);
 
     Vector2 mousePos = (Vector2){.x = (float)GetMouseX(), .y = (float)GetMouseY()};
     b2Vec2 dronePos = b2Body_GetPosition(drone->bodyID);
-    inputs.aim = b2Sub(rayVecToB2Vec(mousePos), dronePos);
+    const b2Vec2 aim = b2Normalize(b2Sub(rayVecToB2Vec(mousePos), dronePos));
 
+    bool shoot = false;
     if (IsMouseButtonDown(MOUSE_BUTTON_LEFT))
     {
-        inputs.shoot = true;
+        shoot = true;
     }
 
-    return inputs;
-}
-
-void handlePlayerDroneInputs(env *e, droneEntity *drone, const droneInputs inputs)
-{
-    if (!b2VecEqual(inputs.move, b2Vec2_zero))
-    {
-        droneMove(drone, inputs.move);
-    }
-    if (inputs.shoot)
-    {
-        droneShoot(e, drone, inputs.aim);
-    }
-    if (!b2VecEqual(inputs.aim, b2Vec2_zero))
-    {
-        drone->lastAim = b2Normalize(inputs.aim);
-    }
+    e->actions[0] = move.x;
+    e->actions[1] = move.y;
+    e->actions[2] = aim.x;
+    e->actions[3] = aim.y;
+    e->actions[4] = shoot;
 }
 
 void perfTest(const int steps)
@@ -139,30 +134,12 @@ int main(void)
     env *e = createEnv();
     setupEnv(e);
 
-    CC_Deque *inputs;
-    CC_DequeConf inputsConf;
-    cc_deque_conf_init(&inputsConf);
-    inputsConf.capacity = NUM_DRONES;
-    cc_deque_new_conf(&inputsConf, &inputs);
-    for (int i = 0; i < NUM_DRONES; i++)
-    {
-        droneInputs *input = malloc(sizeof(droneInputs));
-        cc_deque_add(inputs, input);
-    }
-
     while (true)
     {
         while (true)
         {
             if (WindowShouldClose())
             {
-                for (int i = 0; i < NUM_DRONES; i++)
-                {
-                    droneInputs *input;
-                    cc_deque_get_at(inputs, i, (void **)&input);
-                    free(input);
-                }
-                cc_deque_destroy(inputs);
                 destroyEnv(e);
                 CloseWindow();
                 return 0;
@@ -172,11 +149,7 @@ int main(void)
             {
                 droneEntity *drone;
                 cc_deque_get_at(e->drones, i, (void **)&drone);
-                droneInputs *input;
-                cc_deque_get_at(inputs, i, (void **)&input);
-                *input = getPlayerInputs(drone, i);
-
-                handlePlayerDroneInputs(e, drone, *input);
+                getPlayerInputs(e, drone, i);
             }
 
             stepEnv(e, DELTA_TIME);

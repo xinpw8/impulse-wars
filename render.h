@@ -35,7 +35,7 @@ static inline Vector2 b2VecToRayVec(const b2Vec2 v)
 
 static inline b2Vec2 rayVecToB2Vec(const Vector2 v)
 {
-    return (b2Vec2){.x = (v.x - halfWidth) / scale, .y = (v.y - halfHeight) / scale};
+    return (b2Vec2){.x = (v.x - halfWidth) / scale, .y = ((v.y - halfHeight - (2 * scale)) / scale)};
 }
 
 void renderUI(const env *e)
