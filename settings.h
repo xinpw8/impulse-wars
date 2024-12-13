@@ -127,11 +127,12 @@
 #define IMPLODER_INV_MASS INV_MASS(IMPLODER_DENSITY, IMPLODER_RADIUS)
 #define IMPLODER_BOUNCE 0
 
+// TODO: make entries const
 weaponInformation *weaponInfos;
 
 weaponInformation *createWeaponInfos()
 {
-    weaponInformation *weaponInfos = (weaponInformation *)fastCalloc(NUM_WEAPONS, sizeof(weaponInformation));
+    weaponInformation *_weaponInfos = (weaponInformation *)fastCalloc(NUM_WEAPONS, sizeof(weaponInformation));
 
     weaponInformation standard = {
         .type = STANDARD_WEAPON,
@@ -145,7 +146,7 @@ weaponInformation *createWeaponInfos()
         .invMass = STANDARD_INV_MASS,
         .maxBounces = STANDARD_BOUNCE + 1,
     };
-    weaponInfos[STANDARD_WEAPON] = standard;
+    _weaponInfos[STANDARD_WEAPON] = standard;
 
     weaponInformation machineGun = {
         .type = MACHINEGUN_WEAPON,
@@ -159,7 +160,7 @@ weaponInformation *createWeaponInfos()
         .invMass = MACHINEGUN_INV_MASS,
         .maxBounces = MACHINEGUN_BOUNCE + 1,
     };
-    weaponInfos[MACHINEGUN_WEAPON] = machineGun;
+    _weaponInfos[MACHINEGUN_WEAPON] = machineGun;
 
     weaponInformation sniper = {
         .type = SNIPER_WEAPON,
@@ -173,7 +174,7 @@ weaponInformation *createWeaponInfos()
         .invMass = SNIPER_INV_MASS,
         .maxBounces = SNIPER_BOUNCE + 1,
     };
-    weaponInfos[SNIPER_WEAPON] = sniper;
+    _weaponInfos[SNIPER_WEAPON] = sniper;
 
     weaponInformation shotgun = {
         .type = SHOTGUN_WEAPON,
@@ -187,7 +188,7 @@ weaponInformation *createWeaponInfos()
         .invMass = SHOTGUN_INV_MASS,
         .maxBounces = SHOTGUN_BOUNCE + 1,
     };
-    weaponInfos[SHOTGUN_WEAPON] = shotgun;
+    _weaponInfos[SHOTGUN_WEAPON] = shotgun;
 
     weaponInformation imploder = {
         .type = IMPLODER_WEAPON,
@@ -201,9 +202,9 @@ weaponInformation *createWeaponInfos()
         .invMass = IMPLODER_INV_MASS,
         .maxBounces = IMPLODER_BOUNCE + 1,
     };
-    weaponInfos[IMPLODER_WEAPON] = imploder;
+    _weaponInfos[IMPLODER_WEAPON] = imploder;
 
-    return weaponInfos;
+    return _weaponInfos;
 }
 
 // max ammo of weapon

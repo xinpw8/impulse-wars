@@ -46,7 +46,7 @@ const char prototypeArenaLayout[] = {
     'D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D',
 };
 
-const mapEntry prototypeArenaMap = {
+mapEntry prototypeArenaMap = {
     .layout = prototypeArenaLayout,
     .columns = 20,
     .rows = 20,
@@ -81,7 +81,7 @@ const char snipersLayout[] = {
     'B','B','B','B','B','B','B','B','B','B','B','B','B','B','B','B','B','B','B','B','B',
 };
 
-const mapEntry snipersMap = {
+mapEntry snipersMap = {
     .layout = snipersLayout,
     .columns = 21,
     .rows = 21,
@@ -116,7 +116,7 @@ const char roomsLayout[] = {
     'D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D',
 };
 
-const mapEntry roomsMap = {
+mapEntry roomsMap = {
     .layout = roomsLayout,
     .columns = 21,
     .rows = 21,
@@ -129,20 +129,39 @@ const mapEntry roomsMap = {
 
 // clang-format on
 
-void createMap(env *e, const mapEntry *map)
-{
-    e->columns = map->columns;
-    e->rows = map->rows;
-    e->defaultWeapon = &weaponInfos[map->defaultWeapon];
+#define NUM_MAPS 3
 
-    for (int row = 0; row < map->rows; row++)
+// TODO: find way to make this const
+mapEntry **maps;
+
+mapEntry **createMaps()
+{
+    mapEntry **_maps = (mapEntry **)fastCalloc(NUM_MAPS, sizeof(mapEntry *));
+    _maps[0] = &prototypeArenaMap;
+    _maps[1] = &snipersMap;
+    _maps[2] = &roomsMap;
+
+    return _maps;
+}
+
+void createMap(env *e, const int mapIdx)
+{
+    const uint8_t columns = maps[mapIdx]->columns;
+    const uint8_t rows = maps[mapIdx]->rows;
+    const char *layout = maps[mapIdx]->layout;
+
+    e->columns = columns;
+    e->rows = rows;
+    e->defaultWeapon = &weaponInfos[maps[mapIdx]->defaultWeapon];
+
+    for (int row = 0; row < rows; row++)
     {
-        for (int col = 0; col < map->columns; col++)
+        for (int col = 0; col < columns; col++)
         {
-            char cellType = map->layout[col + (row * map->columns)];
+            char cellType = layout[col + (row * columns)];
             enum entityType wallType;
-            float x = (col - (map->columns / 2.0f) + 0.5) * WALL_THICKNESS;
-            float y = ((map->rows / 2.0f) - (map->rows - row) + 0.5f) * WALL_THICKNESS;
+            float x = (col - (columns / 2.0f) + 0.5) * WALL_THICKNESS;
+            float y = ((rows / 2.0f) - (rows - row) + 0.5f) * WALL_THICKNESS;
 
             b2Vec2 pos = {.x = x, .y = y};
             mapCell *cell = (mapCell *)fastMalloc(sizeof(mapCell));
@@ -186,17 +205,17 @@ void placeFloatingWall(env *e, const enum entityType wallType)
     cell->ent = ent;
 }
 
-void placeFloatingWalls(env *e, const mapEntry *map)
+void placeFloatingWalls(env *e, const int mapIdx)
 {
-    for (int i = 0; i < map->floatingStandardWalls; i++)
+    for (int i = 0; i < maps[mapIdx]->floatingStandardWalls; i++)
     {
         placeFloatingWall(e, STANDARD_WALL_ENTITY);
     }
-    for (int i = 0; i < map->floatingBouncyWalls; i++)
+    for (int i = 0; i < maps[mapIdx]->floatingBouncyWalls; i++)
     {
         placeFloatingWall(e, BOUNCY_WALL_ENTITY);
     }
-    for (int i = 0; i < map->floatingDeathWalls; i++)
+    for (int i = 0; i < maps[mapIdx]->floatingDeathWalls; i++)
     {
         placeFloatingWall(e, DEATH_WALL_ENTITY);
     }

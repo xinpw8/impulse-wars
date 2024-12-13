@@ -5,8 +5,6 @@
 #include "settings.h"
 #include "types.h"
 
-const mapEntry *map = &prototypeArenaMap;
-
 env *createEnv()
 {
     env *e = (env *)fastCalloc(1, sizeof(env));
@@ -14,6 +12,7 @@ env *createEnv()
     e->rewards = (float *)fastCalloc(NUM_DRONES, sizeof(float));
     e->actions = (float *)fastCalloc(NUM_DRONES * ACTION_SIZE, sizeof(float));
 
+    maps = createMaps();
     weaponInfos = createWeaponInfos();
 
     cc_deque_new(&e->cells);
@@ -36,7 +35,8 @@ void setupEnv(env *e)
     e->suddenDeathSteps = SUDDEN_DEATH_STEPS;
     e->suddenDeathWallCounter = 0;
 
-    createMap(e, map);
+    const int mapIdx = randInt(0, NUM_MAPS - 1);
+    createMap(e, mapIdx);
 
     mapBounds bounds = {.min = {.x = FLT_MAX, .y = FLT_MAX}, .max = {.x = FLT_MIN, .y = FLT_MIN}};
     for (size_t i = 0; i < cc_deque_size(e->walls); i++)
@@ -54,9 +54,9 @@ void setupEnv(env *e)
         createDrone(e);
     }
 
-    placeFloatingWalls(e, map);
+    placeFloatingWalls(e, mapIdx);
 
-    for (int i = 0; i < map->weaponPickups; i++)
+    for (int i = 0; i < maps[mapIdx]->weaponPickups; i++)
     {
         createWeaponPickup(e);
     }
@@ -110,6 +110,7 @@ void destroyEnv(env *e)
 {
     clearEnv(e);
 
+    fastFree(maps);
     fastFree(weaponInfos);
 
     cc_deque_destroy(e->cells);
