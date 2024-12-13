@@ -49,7 +49,7 @@
 #define FLOATING_WALL_THICKNESS 3.0f
 #define FLOATING_WALL_DAMPING 0.5f
 #define BOUNCY_WALL_RESTITUTION 1.0f
-#define WALL_DENSITY 2.5f
+#define WALL_DENSITY 4.0f
 
 // weapon pickup settings
 #define PICKUP_THICKNESS 3.0f
@@ -94,12 +94,12 @@
 #define SNIPER_AMMO 3
 #define SNIPER_PROJECTILES 1
 #define SNIPER_RECOIL_MAGNITUDE 60.0f
-#define SNIPER_FIRE_MAGNITUDE 120.0f
+#define SNIPER_FIRE_MAGNITUDE 200.0f
 #define SNIPER_CHARGE 1.0f
 #define SNIPER_COOL_DOWN 1.5f
 #define SNIPER_MAX_DISTANCE INFINITE
 #define SNIPER_RADIUS 0.5f
-#define SNIPER_DENSITY 1.0f
+#define SNIPER_DENSITY 1.5f
 #define SNIPER_INV_MASS INV_MASS(SNIPER_DENSITY, SNIPER_RADIUS)
 #define SNIPER_BOUNCE 0
 
@@ -118,7 +118,7 @@
 #define IMPLODER_AMMO 1
 #define IMPLODER_PROJECTILES 1
 #define IMPLODER_RECOIL_MAGNITUDE 35.0f
-#define IMPLODER_FIRE_MAGNITUDE 30.0f
+#define IMPLODER_FIRE_MAGNITUDE 25.0f
 #define IMPLODER_CHARGE 2.0f
 #define IMPLODER_COOL_DOWN 0.0f
 #define IMPLODER_MAX_DISTANCE INFINITE
@@ -127,12 +127,11 @@
 #define IMPLODER_INV_MASS INV_MASS(IMPLODER_DENSITY, IMPLODER_RADIUS)
 #define IMPLODER_BOUNCE 0
 
-// TODO: make entries const
-weaponInformation *weaponInfos;
+weaponInformation **weaponInfos;
 
-weaponInformation *createWeaponInfos()
+void initWeapons()
 {
-    weaponInformation *_weaponInfos = (weaponInformation *)fastCalloc(NUM_WEAPONS, sizeof(weaponInformation));
+    weaponInfos = (weaponInformation **)fastCalloc(NUM_WEAPONS, sizeof(weaponInformation *));
 
     weaponInformation standard = {
         .type = STANDARD_WEAPON,
@@ -146,7 +145,7 @@ weaponInformation *createWeaponInfos()
         .invMass = STANDARD_INV_MASS,
         .maxBounces = STANDARD_BOUNCE + 1,
     };
-    _weaponInfos[STANDARD_WEAPON] = standard;
+    weaponInfos[STANDARD_WEAPON] = (weaponInformation *)createConstStruct(&standard, sizeof(weaponInformation));
 
     weaponInformation machineGun = {
         .type = MACHINEGUN_WEAPON,
@@ -160,7 +159,7 @@ weaponInformation *createWeaponInfos()
         .invMass = MACHINEGUN_INV_MASS,
         .maxBounces = MACHINEGUN_BOUNCE + 1,
     };
-    _weaponInfos[MACHINEGUN_WEAPON] = machineGun;
+    weaponInfos[MACHINEGUN_WEAPON] = (weaponInformation *)createConstStruct(&machineGun, sizeof(weaponInformation));
 
     weaponInformation sniper = {
         .type = SNIPER_WEAPON,
@@ -174,7 +173,7 @@ weaponInformation *createWeaponInfos()
         .invMass = SNIPER_INV_MASS,
         .maxBounces = SNIPER_BOUNCE + 1,
     };
-    _weaponInfos[SNIPER_WEAPON] = sniper;
+    weaponInfos[SNIPER_WEAPON] = (weaponInformation *)createConstStruct(&sniper, sizeof(weaponInformation));
 
     weaponInformation shotgun = {
         .type = SHOTGUN_WEAPON,
@@ -188,7 +187,7 @@ weaponInformation *createWeaponInfos()
         .invMass = SHOTGUN_INV_MASS,
         .maxBounces = SHOTGUN_BOUNCE + 1,
     };
-    _weaponInfos[SHOTGUN_WEAPON] = shotgun;
+    weaponInfos[SHOTGUN_WEAPON] = (weaponInformation *)createConstStruct(&shotgun, sizeof(weaponInformation));
 
     weaponInformation imploder = {
         .type = IMPLODER_WEAPON,
@@ -202,9 +201,16 @@ weaponInformation *createWeaponInfos()
         .invMass = IMPLODER_INV_MASS,
         .maxBounces = IMPLODER_BOUNCE + 1,
     };
-    _weaponInfos[IMPLODER_WEAPON] = imploder;
+    weaponInfos[IMPLODER_WEAPON] = (weaponInformation *)createConstStruct(&imploder, sizeof(weaponInformation));
+}
 
-    return _weaponInfos;
+void destroyWeapons()
+{
+    for (int i = 0; i < NUM_WEAPONS; i++)
+    {
+        fastFree(weaponInfos[i]);
+    }
+    free(weaponInfos);
 }
 
 // max ammo of weapon
@@ -244,8 +250,8 @@ float weaponFire(const enum weaponType type)
         return SNIPER_FIRE_MAGNITUDE;
     case SHOTGUN_WEAPON:
     {
-        const int maxOffset = 3;  // Declare maxOffset as int
-        const int fireOffset = randInt(-maxOffset, maxOffset);  // Use randInt directly with ints
+        const int maxOffset = 3;
+        const int fireOffset = randInt(-maxOffset, maxOffset);
         return SHOTGUN_FIRE_MAGNITUDE + fireOffset;
     }
     case IMPLODER_WEAPON:
@@ -290,7 +296,8 @@ b2Vec2 weaponAdjustAim(const enum weaponType type, const uint16_t heat, const b2
     {
     case STANDARD_WEAPON:
         return normAim;
-    case MACHINEGUN_WEAPON: {
+    case MACHINEGUN_WEAPON:
+    {
         const float swayCoef = logBasef((heat / 5.0f) + 1, 180);
         const float maxSway = 0.15f;
         const float swayX = randFloat(maxSway * -swayCoef, maxSway * swayCoef);
@@ -300,7 +307,8 @@ b2Vec2 weaponAdjustAim(const enum weaponType type, const uint16_t heat, const b2
     }
     case SNIPER_WEAPON:
         return normAim;
-    case SHOTGUN_WEAPON: {
+    case SHOTGUN_WEAPON:
+    {
         const float maxOffset = 0.15f;
         const float offsetX = randFloat(-maxOffset, maxOffset);
         const float offsetY = randFloat(-maxOffset, maxOffset);

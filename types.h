@@ -39,6 +39,27 @@ typedef struct entity
     void *entity;
 } entity;
 
+enum weaponType
+{
+    STANDARD_WEAPON,
+    MACHINEGUN_WEAPON,
+    SNIPER_WEAPON,
+    SHOTGUN_WEAPON,
+    IMPLODER_WEAPON,
+};
+
+typedef struct mapEntry
+{
+    const char *layout;
+    const uint8_t columns;
+    const uint8_t rows;
+    const uint8_t floatingStandardWalls;
+    const uint8_t floatingBouncyWalls;
+    const uint8_t floatingDeathWalls;
+    const uint16_t weaponPickups;
+    const enum weaponType defaultWeapon;
+} mapEntry;
+
 // a cell in the map; ent will be NULL if the cell is empty
 typedef struct mapCell
 {
@@ -62,27 +83,18 @@ typedef struct wallEntity
     enum entityType type;
 } wallEntity;
 
-enum weaponType
-{
-    STANDARD_WEAPON,
-    MACHINEGUN_WEAPON,
-    SNIPER_WEAPON,
-    SHOTGUN_WEAPON,
-    IMPLODER_WEAPON,
-};
-
 typedef struct weaponInformation
 {
-    enum weaponType type;
-    bool isPhysicsBullet;
-    uint8_t numProjectiles;
-    float recoilMagnitude;
-    float coolDown;
-    float maxDistance;
-    float radius;
-    float density;
-    float invMass;
-    uint8_t maxBounces;
+    const enum weaponType type;
+    const bool isPhysicsBullet;
+    const uint8_t numProjectiles;
+    const float recoilMagnitude;
+    const float coolDown;
+    const float maxDistance;
+    const float radius;
+    const float density;
+    const float invMass;
+    const uint8_t maxBounces;
 } weaponInformation;
 
 typedef struct weaponPickupEntity

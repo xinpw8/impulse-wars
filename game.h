@@ -10,6 +10,7 @@ static inline bool entityTypeIsWall(const enum entityType type)
     return type == STANDARD_WALL_ENTITY || type == BOUNCY_WALL_ENTITY || type == DEATH_WALL_ENTITY;
 }
 
+// returns the index of a map cell that contains the given world position
 static inline uint16_t posToCellIdx(const env *e, const b2Vec2 pos)
 {
     const uint16_t col = ((pos.x / 2.0f) + (float)e->columns - 1.0f) / 2.0f;
@@ -24,6 +25,8 @@ bool overlapCallback(b2ShapeId shapeId, void *context)
     return false;
 }
 
+// returns true if the given position overlaps with a bounding box with
+// a height and width of distance with shape categories specified in maskBits
 bool isOverlapping(env *e, const b2Vec2 pos, const float distance, const enum shapeCategory type, const uint64_t maskBits)
 {
     b2AABB bounds = {
@@ -39,6 +42,8 @@ bool isOverlapping(env *e, const b2Vec2 pos, const float distance, const enum sh
     return overlaps;
 }
 
+// returns true and sets emptyPos to the position of an empty cell
+// that is an appropriate distance away from other entities if one exists
 bool findOpenPos(env *e, const enum shapeCategory type, b2Vec2 *emptyPos)
 {
     uint8_t checkedCells[BITNSLOTS(MAX_CELLS)] = {0};
@@ -65,14 +70,8 @@ bool findOpenPos(env *e, const enum shapeCategory type, b2Vec2 *emptyPos)
             continue;
         }
 
-        if (type == WEAPON_PICKUP_SHAPE)
-        {
-            if (isOverlapping(e, cell->pos, PICKUP_THICKNESS / 2.0f, WEAPON_PICKUP_SHAPE, WALL_SHAPE))
-            {
-                continue;
-            }
-        }
-        else if (type == DRONE_SHAPE)
+        // ensure drones don't spawn too close to walls or other drones
+        if (type == DRONE_SHAPE)
         {
             if (isOverlapping(e, cell->pos, DRONE_WALL_SPAWN_DISTANCE, DRONE_SHAPE, WALL_SHAPE | DRONE_SHAPE))
             {
@@ -111,7 +110,7 @@ entity *createWall(env *e, const float posX, const float posY, const float width
     b2Vec2 extent = {.x = width / 2.0f, .y = height / 2.0f};
     b2ShapeDef wallShapeDef = b2DefaultShapeDef();
     wallShapeDef.density = WALL_DENSITY;
-    wallShapeDef.restitution = 0.0f;
+    wallShapeDef.restitution = 0.1f;
     wallShapeDef.filter.categoryBits = WALL_SHAPE;
     wallShapeDef.filter.maskBits = FLOATING_WALL_SHAPE | PROJECTILE_SHAPE | WEAPON_PICKUP_SHAPE | DRONE_SHAPE;
     if (floating)
@@ -170,49 +169,33 @@ void destroyWall(wallEntity *wall)
     fastFree(wall);
 }
 
-void updateCellsWithWall(env *e, entity *wallEnt)
+void createSuddenDeathWalls(env *e, const b2Vec2 startPos, const b2Vec2 size)
 {
-    ASSERT(entityTypeIsWall(wallEnt->type));
-
-    wallEntity *wall = (wallEntity *)wallEnt->entity;
-    ASSERT(!wall->isFloating);
-    ASSERT(wall->extent.x == WALL_THICKNESS / 2.0f || wall->extent.y == WALL_THICKNESS / 2.0f);
-    b2Vec2 pos = wall->position;
-
-    if (wall->extent.y == WALL_THICKNESS / 2.0f)
+    uint16_t endIdx;
+    uint8_t indexIncrement;
+    if (size.y == WALL_THICKNESS)
     {
-        const float originalXPos = pos.x;
-        pos.x -= wall->extent.x;
-        const uint16_t startIdx = posToCellIdx(e, pos);
-        pos.x = originalXPos + (originalXPos - pos.x);
-        const uint16_t endIdx = posToCellIdx(e, pos);
-        for (uint16_t i = startIdx; i <= endIdx; i++)
-        {
-            mapCell *cell = safe_deque_get_at(e->cells, i);
-            if (cell->ent != NULL && cell->ent->type == WEAPON_PICKUP_ENTITY)
-            {
-                weaponPickupEntity *pickup = (weaponPickupEntity *)cell->ent->entity;
-                pickup->respawnWait = PICKUP_RESPAWN_WAIT;
-            }
-            cell->ent = wallEnt;
-        }
+        const b2Vec2 endPos = (b2Vec2){.x = startPos.x + size.x, .y = startPos.y};
+        endIdx = posToCellIdx(e, endPos);
+        indexIncrement = 1;
     }
     else
     {
-        pos.y -= wall->extent.y;
-        uint16_t idx = posToCellIdx(e, pos);
-        const uint16_t cellRows = (wall->extent.y * 2.0f) / WALL_THICKNESS;
-        for (uint16_t i = 0; i < cellRows; i++)
+        const b2Vec2 endPos = (b2Vec2){.x = startPos.x, .y = startPos.y + size.y};
+        endIdx = posToCellIdx(e, endPos);
+        indexIncrement = e->rows;
+    }
+    const uint16_t startIdx = posToCellIdx(e, startPos);
+    for (uint16_t i = startIdx; i <= endIdx; i += indexIncrement)
+    {
+        mapCell *cell = safe_deque_get_at(e->cells, i);
+        if (cell->ent != NULL && cell->ent->type == WEAPON_PICKUP_ENTITY)
         {
-            mapCell *cell = safe_deque_get_at(e->cells, idx);
-            if (cell->ent != NULL && cell->ent->type == WEAPON_PICKUP_ENTITY)
-            {
-                weaponPickupEntity *pickup = (weaponPickupEntity *)cell->ent->entity;
-                pickup->respawnWait = PICKUP_RESPAWN_WAIT;
-            }
-            cell->ent = wallEnt;
-            idx += e->rows;
+            weaponPickupEntity *pickup = (weaponPickupEntity *)cell->ent->entity;
+            pickup->respawnWait = PICKUP_RESPAWN_WAIT;
         }
+        entity *ent = createWall(e, cell->pos.x, cell->pos.y, WALL_THICKNESS, WALL_THICKNESS, DEATH_WALL_ENTITY, false);
+        cell->ent = ent;
     }
 }
 
@@ -317,7 +300,7 @@ void createDrone(env *e)
     b2ShapeDef droneShapeDef = b2DefaultShapeDef();
     droneShapeDef.density = DRONE_DENSITY;
     droneShapeDef.friction = 0.0f;
-    droneShapeDef.restitution = 0.2f;
+    droneShapeDef.restitution = 0.3f;
     droneShapeDef.filter.categoryBits = DRONE_SHAPE;
     droneShapeDef.filter.maskBits = WALL_SHAPE | FLOATING_WALL_SHAPE | WEAPON_PICKUP_SHAPE | PROJECTILE_SHAPE | DRONE_SHAPE;
     droneShapeDef.enableContactEvents = true;
@@ -450,46 +433,51 @@ void handleSuddenDeath(env *e)
 {
     ASSERT(e->suddenDeathSteps == 0);
 
+    // create new walls that will close in on the arena
     e->suddenDeathWallCounter++;
-    entity *topWall = createWall(
-        e,
-        e->bounds.min.x + (((e->columns / 2) - 1) * WALL_THICKNESS),
-        e->bounds.min.y + ((WALL_THICKNESS * (e->suddenDeathWallCounter - 1)) + (WALL_THICKNESS / 2)),
-        WALL_THICKNESS * (e->columns - (e->suddenDeathWallCounter * 2)),
-        WALL_THICKNESS,
-        DEATH_WALL_ENTITY,
-        false);
-    entity *bottomWall = createWall(
-        e,
-        e->bounds.max.x - (((e->columns / 2) - 1) * WALL_THICKNESS),
-        e->bounds.max.y - ((WALL_THICKNESS * (e->suddenDeathWallCounter - 1)) + (WALL_THICKNESS / 2)),
-        WALL_THICKNESS * (e->columns - (e->suddenDeathWallCounter * 2)),
-        WALL_THICKNESS,
-        DEATH_WALL_ENTITY,
-        false);
 
-    entity *leftWall = createWall(
+    createSuddenDeathWalls(
         e,
-        e->bounds.max.x - ((WALL_THICKNESS * (e->suddenDeathWallCounter - 1)) + (WALL_THICKNESS / 2)),
-        e->bounds.min.y + (((e->rows / 2) - 1) * WALL_THICKNESS),
-        WALL_THICKNESS,
-        WALL_THICKNESS * (e->rows - (e->suddenDeathWallCounter * 2)),
-        DEATH_WALL_ENTITY,
-        false);
-    entity *rightWall = createWall(
+        (b2Vec2){
+            .x = e->bounds.min.x + ((e->suddenDeathWallCounter + 1) * WALL_THICKNESS),
+            .y = e->bounds.min.y + ((WALL_THICKNESS * (e->suddenDeathWallCounter - 1)) + (WALL_THICKNESS / 2)),
+        },
+        (b2Vec2){
+            .x = WALL_THICKNESS * (e->columns - (e->suddenDeathWallCounter * 2) - 3),
+            .y = WALL_THICKNESS,
+        });
+    createSuddenDeathWalls(
         e,
-        e->bounds.min.x + ((WALL_THICKNESS * (e->suddenDeathWallCounter - 1)) + (WALL_THICKNESS / 2)),
-        e->bounds.max.y - (((e->rows / 2) - 1) * WALL_THICKNESS),
-        WALL_THICKNESS,
-        WALL_THICKNESS * (e->rows - (e->suddenDeathWallCounter * 2)),
-        DEATH_WALL_ENTITY,
-        false);
+        (b2Vec2){
+            .x = e->bounds.min.x + ((e->suddenDeathWallCounter + 1) * WALL_THICKNESS),
+            .y = e->bounds.max.y - ((WALL_THICKNESS * (e->suddenDeathWallCounter - 1)) + (WALL_THICKNESS / 2)),
+        },
+        (b2Vec2){
+            .x = WALL_THICKNESS * (e->columns - (e->suddenDeathWallCounter * 2) - 3),
+            .y = WALL_THICKNESS,
+        });
+    createSuddenDeathWalls(
+        e,
+        (b2Vec2){
+            .x = e->bounds.min.x + (e->suddenDeathWallCounter * WALL_THICKNESS),
+            .y = e->bounds.min.y + (e->suddenDeathWallCounter * WALL_THICKNESS),
+        },
+        (b2Vec2){
+            .x = WALL_THICKNESS,
+            .y = WALL_THICKNESS * (e->rows - (e->suddenDeathWallCounter * 2) - 1),
+        });
+    createSuddenDeathWalls(
+        e,
+        (b2Vec2){
+            .x = e->bounds.min.x + ((e->columns - e->suddenDeathWallCounter - 1) * WALL_THICKNESS),
+            .y = e->bounds.min.y + (e->suddenDeathWallCounter * WALL_THICKNESS),
+        },
+        (b2Vec2){
+            .x = WALL_THICKNESS,
+            .y = WALL_THICKNESS * (e->rows - (e->suddenDeathWallCounter * 2) - 1),
+        });
 
-    updateCellsWithWall(e, topWall);
-    updateCellsWithWall(e, bottomWall);
-    updateCellsWithWall(e, leftWall);
-    updateCellsWithWall(e, rightWall);
-
+    // mark drones as dead if they touch a newly placed wall
     bool droneDead = false;
     for (size_t i = 0; i < cc_deque_size(e->drones); i++)
     {
@@ -506,14 +494,35 @@ void handleSuddenDeath(env *e)
         return;
     }
 
-    for (size_t i = 0; i < cc_deque_size(e->floatingWalls); i++)
+    // TODO: not all floating walls are destroyed correctly
+    // make floating walls static bodies if they are now overlapping with
+    // a newly placed wall, but destroy them if they are fully inside a wall
+    CC_DequeIter iter;
+    cc_deque_iter_init(&iter, e->floatingWalls);
+    wallEntity *wall;
+    while (cc_deque_iter_next(&iter, (void **)&wall) != CC_ITER_END)
     {
-        const wallEntity *wall = safe_deque_get_at(e->floatingWalls, i);
+        const b2BodyType type = b2Body_GetType(wall->bodyID);
+        if (type == b2_staticBody)
+        {
+            const b2Vec2 pos = b2Body_GetPosition(wall->bodyID);
+
+            // floating wall was previously partially overlapping with a wall,
+            // now it is fully inside a wall, destroy it
+            const enum cc_stat res = cc_deque_iter_remove(&iter, NULL);
+            MAYBE_UNUSED(res);
+            ASSERT(res == CC_OK);
+            destroyWall(wall);
+            DEBUG_LOGF("destroyed floating wall at %f, %f", pos.x, pos.y);
+            continue;
+        }
+
         const b2Vec2 pos = b2Body_GetPosition(wall->bodyID);
         if (isOverlapping(e, pos, FLOATING_WALL_THICKNESS / 2.0f, FLOATING_WALL_SHAPE, WALL_SHAPE))
         {
-            // TODO: destroy floating wall?
-            b2Body_Disable(wall->bodyID);
+            // floating wall is partially overlapping with a wall, make it a static body
+            b2Body_SetType(wall->bodyID, b2_staticBody);
+            DEBUG_LOGF("made floating wall at %f, %f static", pos.x, pos.y);
         }
     }
 }
@@ -527,7 +536,7 @@ void droneChangeWeapon(const env *e, droneEntity *drone, const enum weaponType n
         drone->charge = 0;
         drone->heat = 0;
     }
-    drone->weaponInfo = &weaponInfos[newWeapon];
+    drone->weaponInfo = weaponInfos[newWeapon];
     drone->ammo = weaponAmmo(e->defaultWeapon->type, drone->weaponInfo->type);
 }
 
@@ -627,29 +636,37 @@ void projectilesStep(env *e)
     }
 }
 
-void weaponPickupStep(env *e, weaponPickupEntity *pickup, const float frameTime)
+void weaponPickupsStep(env *e, const float frameTime)
 {
     ASSERT(frameTime != 0.0f);
 
-    if (pickup->respawnWait != 0.0f)
+    CC_DequeIter iter;
+    cc_deque_iter_init(&iter, e->pickups);
+    weaponPickupEntity *pickup;
+    while (cc_deque_iter_next(&iter, (void **)&pickup) != CC_ITER_END)
     {
-        pickup->respawnWait = fmaxf(pickup->respawnWait - frameTime, 0.0f);
-        if (pickup->respawnWait == 0.0f)
+        if (pickup->respawnWait != 0.0f)
         {
-            b2Vec2 pos;
-            if (!findOpenPos(e, WEAPON_PICKUP_SHAPE, &pos))
+            pickup->respawnWait = fmaxf(pickup->respawnWait - frameTime, 0.0f);
+            if (pickup->respawnWait == 0.0f)
             {
-                // TODO: destroy weapon pickup
-                pickup->respawnWait = FLT_MAX;
-                return;
-            }
-            b2Body_SetTransform(pickup->bodyID, pos, b2Rot_identity);
-            pickup->weapon = randWeaponPickupType(e);
+                b2Vec2 pos;
+                if (!findOpenPos(e, WEAPON_PICKUP_SHAPE, &pos))
+                {
+                    const enum cc_stat res = cc_deque_iter_remove(&iter, NULL);
+                    MAYBE_UNUSED(res);
+                    ASSERT(res == CC_OK);
+                    destroyWeaponPickup(pickup);
+                    continue;
+                }
+                b2Body_SetTransform(pickup->bodyID, pos, b2Rot_identity);
+                pickup->weapon = randWeaponPickupType(e);
 
-            const uint16_t cellIdx = posToCellIdx(e, pos);
-            mapCell *cell = safe_deque_get_at(e->cells, cellIdx);
-            entity *ent = (entity *)b2Shape_GetUserData(pickup->shapeID);
-            cell->ent = ent;
+                const uint16_t cellIdx = posToCellIdx(e, pos);
+                mapCell *cell = safe_deque_get_at(e->cells, cellIdx);
+                entity *ent = (entity *)b2Shape_GetUserData(pickup->shapeID);
+                cell->ent = ent;
+            }
         }
     }
 }
@@ -685,6 +702,7 @@ bool handleProjectileBeginContact(env *e, const entity *proj, const entity *ent)
 
 void handleProjectileEndContact(const entity *p)
 {
+    // ensure the projectile's speed doesn't change after bouncing off of something
     projectileEntity *projectile = (projectileEntity *)p->entity;
     b2Vec2 velocity = b2Body_GetLinearVelocity(projectile->bodyID);
     b2Vec2 newVel = b2MulSV(weaponFire(projectile->weaponInfo->type) * projectile->weaponInfo->invMass, b2Normalize(velocity));

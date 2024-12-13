@@ -12,8 +12,8 @@ env *createEnv()
     e->rewards = (float *)fastCalloc(NUM_DRONES, sizeof(float));
     e->actions = (float *)fastCalloc(NUM_DRONES * ACTION_SIZE, sizeof(float));
 
-    maps = createMaps();
-    weaponInfos = createWeaponInfos();
+    initMaps();
+    initWeapons();
 
     cc_deque_new(&e->cells);
     cc_deque_new(&e->walls);
@@ -54,7 +54,7 @@ void setupEnv(env *e)
         createDrone(e);
     }
 
-    placeFloatingWalls(e, mapIdx);
+    placeRandFloatingWalls(e, mapIdx);
 
     for (int i = 0; i < maps[mapIdx]->weaponPickups; i++)
     {
@@ -111,7 +111,7 @@ void destroyEnv(env *e)
     clearEnv(e);
 
     fastFree(maps);
-    fastFree(weaponInfos);
+    destroyWeapons();
 
     cc_deque_destroy(e->cells);
     cc_deque_destroy(e->walls);
@@ -245,6 +245,7 @@ void computeObs(env *e)
         float cellType = 0.0f;
         if (cell->ent != NULL)
         {
+            // TODO: make one-hot encoded
             cellType = (float)cell->ent->type / (float)NUM_ENTITY_TYPES;
         }
         e->obs[offset] = cellType;
@@ -332,12 +333,7 @@ void stepEnv(env *e, float deltaTime)
         }
 
         projectilesStep(e);
-
-        for (size_t i = 0; i < cc_deque_size(e->pickups); i++)
-        {
-            weaponPickupEntity *pickup = safe_deque_get_at(e->pickups, i);
-            weaponPickupStep(e, pickup, deltaTime);
-        }
+        weaponPickupsStep(e, DELTA_TIME);
 
         b2World_Step(e->worldID, deltaTime, BOX2D_SUBSTEPS);
 

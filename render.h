@@ -111,6 +111,9 @@ void renderWall(const wallEntity *wall)
     }
 
     DrawRectanglePro(rec, origin, angle, color);
+    // rec.x -= wall->extent.x * scale;
+    // rec.y -= wall->extent.y * scale;
+    // DrawRectangleLinesEx(rec, scale / 20.0f, WHITE);
 }
 
 void renderWeaponPickup(const weaponPickupEntity *pickup)

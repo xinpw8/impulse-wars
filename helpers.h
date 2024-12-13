@@ -12,7 +12,7 @@
 #include "include/dlmalloc.h"
 
 #ifndef NDEBUG
-#define ON_ERROR raise(SIGTRAP)
+#define ON_ERROR __builtin_trap()
 #define DEBUG_LOGF(fmt, args...)                                                                                                              \
     do                                                                                                                                        \
     {                                                                                                                                         \
@@ -88,6 +88,15 @@
 #define fastCalloc(nmemb, size) dlcalloc(nmemb, size)
 #define fastFree(ptr) dlfree(ptr)
 #endif
+
+// returns a pointer to a copy of data that is allocated on the heap;
+// allows the caller to assign a heap-allocated struct with const members
+static inline void *createConstStruct(const void *const data, const size_t size)
+{
+    void *const ptr = fastMalloc(size);
+    memcpy(ptr, data, size);
+    return ptr;
+}
 
 // automatically checks that the index is valid and returns the value
 // so callers can use it as a constant expression
