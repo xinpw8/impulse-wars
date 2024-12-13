@@ -16,9 +16,11 @@ enum entityType
     STANDARD_WALL_ENTITY,
     BOUNCY_WALL_ENTITY,
     DEATH_WALL_ENTITY,
-    WEAPON_PICKUP_ENTITY,
     PROJECTILE_ENTITY,
     DRONE_ENTITY,
+    // this needs to be last so map cell type observations can be
+    // calculated correctly
+    WEAPON_PICKUP_ENTITY,
 };
 
 // the category bit that will be set on each entity's shape; this is
@@ -38,6 +40,8 @@ typedef struct entity
     enum entityType type;
     void *entity;
 } entity;
+
+#define NUM_WEAPONS 5
 
 enum weaponType
 {

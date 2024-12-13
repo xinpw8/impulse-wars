@@ -241,13 +241,13 @@ void renderDroneGuides(const env *e, const droneEntity *drone, const int droneId
         aimGuideWidth = 5.0f;
         break;
     case MACHINEGUN_WEAPON:
-        aimGuideWidth = 7.0f;
+        aimGuideWidth = 10.0f;
         break;
     case SNIPER_WEAPON:
         aimGuideWidth = 100.0f;
         break;
     case SHOTGUN_WEAPON:
-        aimGuideWidth = 4.0f;
+        aimGuideWidth = 3.0f;
         break;
     case IMPLODER_WEAPON:
         aimGuideWidth = 5.0f;

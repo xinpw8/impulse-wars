@@ -155,18 +155,17 @@ void computeObs(env *e)
             scaledAmmo = scaleObsValue(ammo, maxAmmo, true);
         }
 
-        e->obs[offset + 0] = scaleObsValue(pos.x, MAX_X_POS, false);
-        e->obs[offset + 1] = scaleObsValue(pos.y, MAX_Y_POS, false);
-        e->obs[offset + 2] = scaleObsValue(vel.x, MAX_SPEED, false);
-        e->obs[offset + 3] = scaleObsValue(vel.y, MAX_SPEED, false);
-        e->obs[offset + 4] = scaleObsValue(drone->lastAim.x, 1.0f, false);
-        e->obs[offset + 5] = scaleObsValue(drone->lastAim.y, 1.0f, false);
-        e->obs[offset + 6] = scaleObsValue(drone->weaponInfo->type, NUM_WEAPONS, true);
-        e->obs[offset + 7] = scaledAmmo;
-        e->obs[offset + 8] = scaleObsValue(drone->weaponCooldown, drone->weaponInfo->coolDown, true);
-        e->obs[offset + 9] = scaleObsValue(drone->charge, weaponCharge(drone->weaponInfo->type), true);
+        e->obs[offset++] = scaleObsValue(drone->weaponInfo->type, NUM_WEAPONS, true);
+        e->obs[offset++] = scaleObsValue(pos.x, MAX_X_POS, false);
+        e->obs[offset++] = scaleObsValue(pos.y, MAX_Y_POS, false);
+        e->obs[offset++] = scaleObsValue(vel.x, MAX_SPEED, false);
+        e->obs[offset++] = scaleObsValue(vel.y, MAX_SPEED, false);
+        e->obs[offset++] = scaleObsValue(drone->lastAim.x, 1.0f, false);
+        e->obs[offset++] = scaleObsValue(drone->lastAim.y, 1.0f, false);
+        e->obs[offset++] = scaledAmmo;
+        e->obs[offset++] = scaleObsValue(drone->weaponCooldown, drone->weaponInfo->coolDown, true);
+        e->obs[offset++] = scaleObsValue(drone->charge, weaponCharge(drone->weaponInfo->type), true);
 
-        offset += DRONE_OBS_SIZE;
         ASSERT(i + DRONE_OBS_SIZE - 1 < NUM_DRONES * DRONE_OBS_SIZE);
         ASSERT(offset + DRONE_OBS_SIZE - 1 < OBS_SIZE);
     }
@@ -186,13 +185,12 @@ void computeObs(env *e)
         const projectileEntity *projectile = (projectileEntity *)cur->data;
         const b2Vec2 vel = b2Body_GetLinearVelocity(projectile->bodyID);
 
-        e->obs[offset + 0] = scaleObsValue(projectile->lastPos.x, MAX_X_POS, false);
-        e->obs[offset + 1] = scaleObsValue(projectile->lastPos.y, MAX_Y_POS, false);
-        e->obs[offset + 2] = scaleObsValue(vel.x, MAX_SPEED, false);
-        e->obs[offset + 3] = scaleObsValue(vel.y, MAX_SPEED, false);
-        e->obs[offset + 4] = scaleObsValue(projectile->weaponInfo->type, NUM_WEAPONS, true);
+        e->obs[offset++] = scaleObsValue(projectile->weaponInfo->type, NUM_WEAPONS, true);
+        e->obs[offset++] = scaleObsValue(projectile->lastPos.x, MAX_X_POS, false);
+        e->obs[offset++] = scaleObsValue(projectile->lastPos.y, MAX_Y_POS, false);
+        e->obs[offset++] = scaleObsValue(vel.x, MAX_SPEED, false);
+        e->obs[offset++] = scaleObsValue(vel.y, MAX_SPEED, false);
 
-        offset += PROJECTILE_OBS_SIZE;
         ASSERT(projIdx + PROJECTILE_OBS_SIZE - 1 < NUM_PROJECTILE_OBS * PROJECTILE_OBS_SIZE);
         ASSERT(offset + PROJECTILE_OBS_SIZE - 1 < OBS_SIZE);
         projIdx++;
@@ -216,14 +214,13 @@ void computeObs(env *e)
         const b2Vec2 vel = b2Body_GetLinearVelocity(wall->bodyID);
         const float angle = b2Rot_GetAngle(b2Body_GetRotation(wall->bodyID)) * RAD2DEG;
 
-        e->obs[offset + 0] = scaleObsValue(pos.x, MAX_X_POS, false);
-        e->obs[offset + 1] = scaleObsValue(pos.y, MAX_Y_POS, false);
-        e->obs[offset + 2] = scaleObsValue(vel.x, MAX_SPEED, false);
-        e->obs[offset + 3] = scaleObsValue(vel.y, MAX_SPEED, false);
-        e->obs[offset + 4] = scaleObsValue(angle, 360.0f, false);
-        e->obs[offset + 5] = scaleObsValue(wall->type, NUM_WALL_TYPES, true);
+        e->obs[offset++] = scaleObsValue(wall->type, NUM_WALL_TYPES, true);
+        e->obs[offset++] = scaleObsValue(pos.x, MAX_X_POS, false);
+        e->obs[offset++] = scaleObsValue(pos.y, MAX_Y_POS, false);
+        e->obs[offset++] = scaleObsValue(vel.x, MAX_SPEED, false);
+        e->obs[offset++] = scaleObsValue(vel.y, MAX_SPEED, false);
+        e->obs[offset++] = scaleObsValue(angle, 360.0f, false);
 
-        offset += FLOATING_WALL_OBS_SIZE;
         ASSERT(i + FLOATING_WALL_OBS_SIZE - 1 < NUM_FLOATING_WALL_OBS * FLOATING_WALL_OBS_SIZE);
         ASSERT(offset + FLOATING_WALL_OBS_SIZE - 1 < OBS_SIZE);
     }
@@ -245,12 +242,20 @@ void computeObs(env *e)
         float cellType = 0.0f;
         if (cell->ent != NULL)
         {
-            // TODO: make one-hot encoded
-            cellType = (float)cell->ent->type / (float)NUM_ENTITY_TYPES;
+            if (cell->ent->type == WEAPON_PICKUP_ENTITY)
+            {
+                // add weapon pickup type to cell type so that the type
+                // of the weapon pickup can be observed
+                const weaponPickupEntity *pickup = (weaponPickupEntity *)cell->ent->entity;
+                cellType = (float)(cell->ent->type + pickup->weapon) / (float)NUM_ENTITY_TYPES;
+            }
+            else
+            {
+                cellType = cell->ent->type / (float)NUM_ENTITY_TYPES;
+            }
         }
-        e->obs[offset] = cellType;
+        e->obs[offset++] = cellType;
 
-        offset++;
         ASSERT(i < MAX_MAP_COLUMNS * MAX_MAP_ROWS);
         ASSERT(offset <= OBS_SIZE);
     }

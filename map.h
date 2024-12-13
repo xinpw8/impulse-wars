@@ -125,8 +125,8 @@ const char clownHouseLayout[] = {
     'B','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','B',
     'B','O','O','O','O','O','O','d','O','O','O','O','d','O','O','O','O','O','O','B',
     'W','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','W',
-    'B','O','O','O','O','O','O','O','O','B','B','O','O','O','O','O','O','O','O','B',
-    'B','O','O','O','O','O','O','O','O','B','B','O','O','O','O','O','O','O','O','B',
+    'B','O','O','O','O','O','O','O','O','d','d','O','O','O','O','O','O','O','O','B',
+    'B','O','O','O','O','O','O','O','O','d','d','O','O','O','O','O','O','O','O','B',
     'W','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','W',
     'B','O','O','O','O','O','O','d','O','O','O','O','d','O','O','O','O','O','O','B',
     'B','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','B',
@@ -145,8 +145,8 @@ mapEntry clownHouseMap = {
     .floatingStandardWalls = 0,
     .floatingBouncyWalls = 0,
     .floatingDeathWalls = 0,
-    .weaponPickups = 10,
-    .defaultWeapon = SNIPER_WEAPON,
+    .weaponPickups = 8,
+    .defaultWeapon = MACHINEGUN_WEAPON,
 };
 
 // clang-format on

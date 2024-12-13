@@ -150,6 +150,14 @@ static inline float scaleObsValue(const float v, const float max, const bool min
     return fmaxf(fminf(scaled, max), 0.0f);
 }
 
+static inline uint8_t oneHotEncode(float *obs, const uint16_t offset, const uint8_t val, const uint8_t max)
+{
+    ASSERTF(val < max && val >= 0, "val: %d, max: %d", val, max);
+    memset(obs + offset, 0x0, max * sizeof(float));
+    obs[offset + val] = 1;
+    return max;
+}
+
 #define BITNSLOTS(nb) ((nb + sizeof(uint8_t) - 1) / sizeof(uint8_t))
 
 static inline uint16_t bitMask(const uint16_t n)
