@@ -243,13 +243,16 @@ float weaponFire(const enum weaponType type)
     case SNIPER_WEAPON:
         return SNIPER_FIRE_MAGNITUDE;
     case SHOTGUN_WEAPON:
-        const int maxOffset = 3.0f;
-        const int fireOffset = randInt(-maxOffset, maxOffset);
+    {
+        const int maxOffset = 3;  // Declare maxOffset as int
+        const int fireOffset = randInt(-maxOffset, maxOffset);  // Use randInt directly with ints
         return SHOTGUN_FIRE_MAGNITUDE + fireOffset;
+    }
     case IMPLODER_WEAPON:
         return IMPLODER_FIRE_MAGNITUDE;
     default:
         ERRORF("unknown weapon type %d", type);
+        return 0;
     }
 }
 
@@ -287,21 +290,23 @@ b2Vec2 weaponAdjustAim(const enum weaponType type, const uint16_t heat, const b2
     {
     case STANDARD_WEAPON:
         return normAim;
-    case MACHINEGUN_WEAPON:
+    case MACHINEGUN_WEAPON: {
         const float swayCoef = logBasef((heat / 5.0f) + 1, 180);
         const float maxSway = 0.15f;
         const float swayX = randFloat(maxSway * -swayCoef, maxSway * swayCoef);
         const float swayY = randFloat(maxSway * -swayCoef, maxSway * swayCoef);
         b2Vec2 machinegunAim = {.x = normAim.x + swayX, .y = normAim.y + swayY};
         return b2Normalize(machinegunAim);
+    }
     case SNIPER_WEAPON:
         return normAim;
-    case SHOTGUN_WEAPON:
+    case SHOTGUN_WEAPON: {
         const float maxOffset = 0.15f;
         const float offsetX = randFloat(-maxOffset, maxOffset);
         const float offsetY = randFloat(-maxOffset, maxOffset);
         b2Vec2 shotgunAim = {.x = normAim.x + offsetX, .y = normAim.y + offsetY};
         return b2Normalize(shotgunAim);
+    }
     case IMPLODER_WEAPON:
         return normAim;
     default:

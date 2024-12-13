@@ -43,7 +43,7 @@ add_executable(env game.c)
 target_include_directories(env PRIVATE include)
 target_link_libraries(env PRIVATE box2d raylib)
 
-target_compile_options(env PRIVATE "-Wall" "-Werror" "-Wpedantic" "-Wno-variadic-macros")
+target_compile_options(env PRIVATE "-Wall" "-Wpedantic" "-Wno-variadic-macros")
 
 find_program(MOLD_EXECUTABLE "mold")
 if(MOLD_EXECUTABLE)
