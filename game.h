@@ -1,18 +1,13 @@
 #pragma once
 
-#include "box2d/box2d.h"
-
-#include "include/cc_deque.h"
-#include "include/cc_slist.h"
-
 #include "helpers.h"
 #include "env.h"
 #include "settings.h"
 #include "types.h"
 
-static inline bool entityIsWall(const entity *ent)
+static inline bool entityTypeIsWall(const enum entityType type)
 {
-    return ent->type == STANDARD_WALL_ENTITY || ent->type == BOUNCY_WALL_ENTITY || ent->type == DEATH_WALL_ENTITY;
+    return type == STANDARD_WALL_ENTITY || type == BOUNCY_WALL_ENTITY || type == DEATH_WALL_ENTITY;
 }
 
 static inline uint16_t posToCellIdx(const env *e, const b2Vec2 pos)
@@ -63,10 +58,8 @@ bool findOpenPos(env *e, const enum shapeCategory type, b2Vec2 *emptyPos)
         }
         bitSet(checkedCells, cellIdx);
         attempts++;
-        // DEBUG_LOGF("attempts: %d", attempts);
 
-        mapCell *cell;
-        cc_deque_get_at(e->cells, cellIdx, (void **)&cell);
+        const mapCell *cell = safe_deque_get_at(e->cells, cellIdx);
         if (cell->ent != NULL)
         {
             continue;
@@ -101,9 +94,7 @@ bool findOpenPos(env *e, const enum shapeCategory type, b2Vec2 *emptyPos)
 
 entity *createWall(env *e, const float posX, const float posY, const float width, const float height, const enum entityType type, bool floating)
 {
-    assert(type != WEAPON_PICKUP_ENTITY);
-    assert(type != PROJECTILE_ENTITY);
-    assert(type != DRONE_ENTITY);
+    ASSERT(entityTypeIsWall(type));
 
     const b2Vec2 pos = (b2Vec2){.x = posX, .y = posY};
 
@@ -181,11 +172,11 @@ void destroyWall(wallEntity *wall)
 
 void updateCellsWithWall(env *e, entity *wallEnt)
 {
-    assert(entityIsWall(wallEnt));
+    ASSERT(entityTypeIsWall(wallEnt->type));
 
     wallEntity *wall = (wallEntity *)wallEnt->entity;
-    assert(!wall->isFloating);
-    assert(wall->extent.x == WALL_THICKNESS / 2.0f || wall->extent.y == WALL_THICKNESS / 2.0f);
+    ASSERT(!wall->isFloating);
+    ASSERT(wall->extent.x == WALL_THICKNESS / 2.0f || wall->extent.y == WALL_THICKNESS / 2.0f);
     b2Vec2 pos = wall->position;
 
     if (wall->extent.y == WALL_THICKNESS / 2.0f)
@@ -197,8 +188,7 @@ void updateCellsWithWall(env *e, entity *wallEnt)
         const uint16_t endIdx = posToCellIdx(e, pos);
         for (uint16_t i = startIdx; i <= endIdx; i++)
         {
-            mapCell *cell;
-            cc_deque_get_at(e->cells, i, (void **)&cell);
+            mapCell *cell = safe_deque_get_at(e->cells, i);
             if (cell->ent != NULL && cell->ent->type == WEAPON_PICKUP_ENTITY)
             {
                 weaponPickupEntity *pickup = (weaponPickupEntity *)cell->ent->entity;
@@ -214,8 +204,7 @@ void updateCellsWithWall(env *e, entity *wallEnt)
         const uint16_t cellRows = (wall->extent.y * 2.0f) / WALL_THICKNESS;
         for (uint16_t i = 0; i < cellRows; i++)
         {
-            mapCell *cell;
-            cc_deque_get_at(e->cells, idx, (void **)&cell);
+            mapCell *cell = safe_deque_get_at(e->cells, idx);
             if (cell->ent != NULL && cell->ent->type == WEAPON_PICKUP_ENTITY)
             {
                 weaponPickupEntity *pickup = (weaponPickupEntity *)cell->ent->entity;
@@ -295,8 +284,7 @@ void createWeaponPickup(env *e)
     ent->entity = pickup;
 
     const uint16_t cellIdx = posToCellIdx(e, pickupBodyDef.position);
-    mapCell *cell;
-    cc_deque_get_at(e->cells, cellIdx, (void **)&cell);
+    mapCell *cell = safe_deque_get_at(e->cells, cellIdx);
     cell->ent = ent;
 
     pickupShapeDef.userData = ent;
@@ -433,7 +421,6 @@ void destroyProjectile(env *e, projectileEntity *projectile, const bool full)
         b2World_Explode(e->worldID, &explosion);
         e->explosion = explosion;
         e->explosionSteps = EXPLOSION_STEPS;
-        DEBUG_LOGF("explosion at %f, %f", explosion.position.x, explosion.position.y);
     }
 
     entity *ent = (entity *)b2Shape_GetUserData(projectile->shapeID);
@@ -441,7 +428,9 @@ void destroyProjectile(env *e, projectileEntity *projectile, const bool full)
 
     if (full)
     {
-        cc_slist_remove(e->projectiles, projectile, NULL);
+        const enum cc_stat res = cc_slist_remove(e->projectiles, projectile, NULL);
+        MAYBE_UNUSED(res);
+        ASSERT(res == CC_OK);
         b2DestroyBody(projectile->bodyID);
     }
 
@@ -459,7 +448,7 @@ void destroyAllProjectiles(env *e)
 
 void handleSuddenDeath(env *e)
 {
-    assert(e->suddenDeathSteps == 0);
+    ASSERT(e->suddenDeathSteps == 0);
 
     e->suddenDeathWallCounter++;
     entity *topWall = createWall(
@@ -504,9 +493,7 @@ void handleSuddenDeath(env *e)
     bool droneDead = false;
     for (size_t i = 0; i < cc_deque_size(e->drones); i++)
     {
-        droneEntity *drone;
-        cc_deque_get_at(e->drones, i, (void **)&drone);
-
+        droneEntity *drone = safe_deque_get_at(e->drones, i);
         const b2Vec2 pos = b2Body_GetPosition(drone->bodyID);
         if (isOverlapping(e, pos, DRONE_RADIUS, DRONE_SHAPE, WALL_SHAPE))
         {
@@ -521,9 +508,7 @@ void handleSuddenDeath(env *e)
 
     for (size_t i = 0; i < cc_deque_size(e->floatingWalls); i++)
     {
-        wallEntity *wall;
-        cc_deque_get_at(e->floatingWalls, i, (void **)&wall);
-
+        const wallEntity *wall = safe_deque_get_at(e->floatingWalls, i);
         const b2Vec2 pos = b2Body_GetPosition(wall->bodyID);
         if (isOverlapping(e, pos, FLOATING_WALL_THICKNESS / 2.0f, FLOATING_WALL_SHAPE, WALL_SHAPE))
         {
@@ -548,7 +533,7 @@ void droneChangeWeapon(const env *e, droneEntity *drone, const enum weaponType n
 
 void droneShoot(env *e, droneEntity *drone, const b2Vec2 aim)
 {
-    assert(drone->ammo != 0);
+    ASSERT(drone->ammo != 0);
 
     drone->shotThisStep = true;
     // TODO: rework heat to only increase when projectiles are fired,
@@ -576,6 +561,7 @@ void droneShoot(env *e, droneEntity *drone, const b2Vec2 aim)
     {
         normAim = b2Normalize(aim);
     }
+    ASSERT_VEC_NORMALIZED(normAim);
     b2Vec2 recoil = b2MulSV(-drone->weaponInfo->recoilMagnitude, normAim);
     b2Body_ApplyLinearImpulseToCenter(drone->bodyID, recoil, true);
 
@@ -593,7 +579,9 @@ void droneShoot(env *e, droneEntity *drone, const b2Vec2 aim)
 
 void droneStep(droneEntity *drone, const float frameTime)
 {
-    assert(frameTime != 0.0f);
+    ASSERT(frameTime != 0.0f);
+
+    // TODO: set drone pos
 
     drone->weaponCooldown = fmaxf(drone->weaponCooldown - frameTime, 0.0f);
     if (!drone->shotThisStep)
@@ -605,7 +593,7 @@ void droneStep(droneEntity *drone, const float frameTime)
     {
         drone->shotThisStep = false;
     }
-    assert(drone->shotThisStep == false);
+    ASSERT(drone->shotThisStep == false);
 }
 
 void projectilesStep(env *e)
@@ -625,8 +613,13 @@ void projectilesStep(env *e)
         projectile->distance += b2Length(distance);
         if (projectile->distance >= maxDistance)
         {
+            // we have to destroy the projectile using the iterator so
+            // we can continue to iterate correctly, copy the body ID
+            // so we can destroy it after the projectile has been freed
             cc_slist_iter_remove(&iter, NULL);
-            destroyProjectile(e, projectile, true);
+            const b2BodyId bodyID = projectile->bodyID;
+            destroyProjectile(e, projectile, false);
+            b2DestroyBody(bodyID);
             continue;
         }
 
@@ -636,7 +629,7 @@ void projectilesStep(env *e)
 
 void weaponPickupStep(env *e, weaponPickupEntity *pickup, const float frameTime)
 {
-    assert(frameTime != 0.0f);
+    ASSERT(frameTime != 0.0f);
 
     if (pickup->respawnWait != 0.0f)
     {
@@ -654,8 +647,7 @@ void weaponPickupStep(env *e, weaponPickupEntity *pickup, const float frameTime)
             pickup->weapon = randWeaponPickupType(e);
 
             const uint16_t cellIdx = posToCellIdx(e, pos);
-            mapCell *cell;
-            cc_deque_get_at(e->cells, cellIdx, (void **)&cell);
+            mapCell *cell = safe_deque_get_at(e->cells, cellIdx);
             entity *ent = (entity *)b2Shape_GetUserData(pickup->shapeID);
             cell->ent = ent;
         }
@@ -711,12 +703,12 @@ void handleContactEvents(env *e)
         if (b2Shape_IsValid(event->shapeIdA))
         {
             e1 = (entity *)b2Shape_GetUserData(event->shapeIdA);
-            assert(e1 != NULL);
+            ASSERT(e1 != NULL);
         }
         if (b2Shape_IsValid(event->shapeIdB))
         {
             e2 = (entity *)b2Shape_GetUserData(event->shapeIdB);
-            assert(e2 != NULL);
+            ASSERT(e2 != NULL);
         }
 
         if (e1 != NULL)
@@ -757,12 +749,12 @@ void handleContactEvents(env *e)
         if (b2Shape_IsValid(event->shapeIdA))
         {
             e1 = (entity *)b2Shape_GetUserData(event->shapeIdA);
-            assert(e1 != NULL);
+            ASSERT(e1 != NULL);
         }
         if (b2Shape_IsValid(event->shapeIdB))
         {
             e2 = (entity *)b2Shape_GetUserData(event->shapeIdB);
-            assert(e2 != NULL);
+            ASSERT(e2 != NULL);
         }
 
         if (e1 != NULL && e1->type == PROJECTILE_ENTITY)
@@ -834,15 +826,15 @@ void handleSensorEvents(env *e)
             ERROR("could not find sensor shape for begin touch event");
         }
         entity *s = (entity *)b2Shape_GetUserData(event->sensorShapeId);
-        assert(s != NULL);
-        assert(s->type == WEAPON_PICKUP_ENTITY);
+        ASSERT(s != NULL);
+        ASSERT(s->type == WEAPON_PICKUP_ENTITY);
 
         if (!b2Shape_IsValid(event->visitorShapeId))
         {
             ERROR("could not find visitor shape for begin touch event");
         }
         entity *v = (entity *)b2Shape_GetUserData(event->visitorShapeId);
-        assert(v != NULL);
+        ASSERT(v != NULL);
 
         handleWeaponPickupBeginTouch(e, s, v);
     }
@@ -855,15 +847,15 @@ void handleSensorEvents(env *e)
             ERROR("could not find sensor shape for end touch event");
         }
         entity *s = (entity *)b2Shape_GetUserData(event->sensorShapeId);
-        assert(s != NULL);
-        assert(s->type == WEAPON_PICKUP_ENTITY);
+        ASSERT(s != NULL);
+        ASSERT(s->type == WEAPON_PICKUP_ENTITY);
 
         if (!b2Shape_IsValid(event->visitorShapeId))
         {
             ERROR("could not find visitor shape for end touch event");
         }
         entity *v = (entity *)b2Shape_GetUserData(event->visitorShapeId);
-        assert(v != NULL);
+        ASSERT(v != NULL);
 
         handleWeaponPickupEndTouch(e, s, v);
     }

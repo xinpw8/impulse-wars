@@ -102,16 +102,16 @@ void perfTest(const int steps)
 
     for (int i = 0; i < steps; i++)
     {
+        uint8_t actionOffset = 0;
         for (size_t i = 0; i < cc_deque_size(e->drones); i++)
         {
-            droneEntity *drone;
-            cc_deque_get_at(e->drones, i, (void **)&drone);
-            droneInputs input = {
-                .aim = (b2Vec2){.x = randFloat(-1.0f, 1.0f), .y = randFloat(-1.0f, 1.0f)},
-                .move = (b2Vec2){.x = randFloat(-1.0f, 1.0f), .y = randFloat(-1.0f, 1.0f)},
-                .shoot = randInt(0, 1),
-            };
-            handlePlayerDroneInputs(e, drone, input);
+            e->actions[actionOffset + 0] = randFloat(-1.0f, 1.0f);
+            e->actions[actionOffset + 1] = randFloat(-1.0f, 1.0f);
+            e->actions[actionOffset + 2] = randFloat(-1.0f, 1.0f);
+            e->actions[actionOffset + 3] = randFloat(-1.0f, 1.0f);
+            e->actions[actionOffset + 4] = randInt(0, 1);
+
+            actionOffset += ACTION_SIZE;
         }
 
         stepEnv(e, DELTA_TIME);
@@ -185,7 +185,7 @@ int main(void)
                 break;
             }
 
-            renderEnv(e, inputs);
+            renderEnv(e);
         }
 
         resetEnv(e);

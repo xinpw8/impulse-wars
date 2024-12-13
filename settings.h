@@ -3,6 +3,9 @@
 #include "helpers.h"
 #include "types.h"
 
+#define INFINITE -1
+
+// general settings
 #define FRAME_RATE 60.0f
 #define DELTA_TIME 1.0f / FRAME_RATE
 
@@ -15,9 +18,29 @@
 #define ROUND_STEPS 91.0f * FRAME_RATE
 #define SUDDEN_DEATH_STEPS 10.0f * FRAME_RATE
 
-#define INFINITE -1
+#define NUM_DRONES 2
 
 #define EXPLOSION_STEPS 5
+
+// observation constants
+#define DRONE_OBS_SIZE 10
+#define NUM_PROJECTILE_OBS 50
+#define PROJECTILE_OBS_SIZE 5
+#define NUM_FLOATING_WALL_OBS 12
+#define FLOATING_WALL_OBS_SIZE 6
+#define MAX_MAP_COLUMNS 21
+#define MAX_MAP_ROWS 21
+#define OBS_SIZE                                           \
+    (NUM_DRONES * DRONE_OBS_SIZE) +                        \
+        (NUM_PROJECTILE_OBS * PROJECTILE_OBS_SIZE) +       \
+        (NUM_FLOATING_WALL_OBS * FLOATING_WALL_OBS_SIZE) + \
+        (MAX_MAP_COLUMNS * MAX_MAP_ROWS)
+
+#define MAX_X_POS 40.0f
+#define MAX_Y_POS 40.0f
+#define MAX_SPEED 200.0f
+
+#define ACTION_SIZE 5
 
 // wall settings
 #define WALL_THICKNESS 4.0f
@@ -31,7 +54,6 @@
 #define PICKUP_RESPAWN_WAIT 1.0f
 
 // drone settings
-#define NUM_DRONES 2
 #define DRONE_WALL_SPAWN_DISTANCE 7.5f
 #define DRONE_DRONE_SPAWN_DISTANCE 30.0f
 #define DRONE_RADIUS 1.0f
@@ -105,9 +127,9 @@
 
 weaponInformation *weaponInfos;
 
-void initWeapons()
+weaponInformation *createWeaponInfos()
 {
-    weaponInfos = (weaponInformation *)fastCalloc(1, sizeof(weaponInformation) * NUM_WEAPONS);
+    weaponInformation *weaponInfos = (weaponInformation *)fastCalloc(NUM_WEAPONS, sizeof(weaponInformation));
 
     weaponInformation standard = {
         .type = STANDARD_WEAPON,
@@ -178,6 +200,8 @@ void initWeapons()
         .maxBounces = IMPLODER_BOUNCE + 1,
     };
     weaponInfos[IMPLODER_WEAPON] = imploder;
+
+    return weaponInfos;
 }
 
 // max ammo of weapon

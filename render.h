@@ -167,11 +167,16 @@ Color getDroneColor(const int droneIdx)
         return YELLOW;
     default:
         ERRORF("unsupported number of drones %d", droneIdx + 1);
+        return WHITE;
     }
 }
 
-void renderDroneGuides(const env *e, const droneEntity *drone, const b2Vec2 move, b2Vec2 aim, const int droneIdx)
+void renderDroneGuides(const env *e, const droneEntity *drone, const int droneIdx)
 {
+    const uint8_t offset = droneIdx * ACTION_SIZE;
+    const b2Vec2 move = {.x = e->actions[offset + 0], .y = e->actions[offset + 1]};
+    b2Vec2 aim = {.x = e->actions[offset + 2], .y = e->actions[offset + 3]};
+
     b2Vec2 pos = b2Body_GetPosition(drone->bodyID);
     const float rayX = b2XToRayX(pos.x);
     const float rayY = b2YToRayY(pos.y);
@@ -326,7 +331,7 @@ void renderProjectiles(env *e)
     }
 }
 
-void renderEnv(env *e, const CC_Deque *inputs)
+void renderEnv(env *e)
 {
     BeginDrawing();
 
@@ -337,38 +342,30 @@ void renderEnv(env *e, const CC_Deque *inputs)
 
     for (size_t i = 0; i < cc_deque_size(e->drones); i++)
     {
-        droneEntity *drone;
-        cc_deque_get_at(e->drones, i, (void **)&drone);
-        droneInputs *input;
-        cc_deque_get_at(inputs, i, (void **)&input);
-
-        renderDroneGuides(e, drone, input->move, input->aim, i);
+        const droneEntity *drone = safe_deque_get_at(e->drones, i);
+        renderDroneGuides(e, drone, i);
     }
     for (size_t i = 0; i < cc_deque_size(e->drones); i++)
     {
-        droneEntity *drone;
-        cc_deque_get_at(e->drones, i, (void **)&drone);
+        const droneEntity *drone = safe_deque_get_at(e->drones, i);
         renderDrone(drone, i);
     }
 
     for (size_t i = 0; i < cc_deque_size(e->walls); i++)
     {
-        wallEntity *wall;
-        cc_deque_get_at(e->walls, i, (void **)&wall);
+        const wallEntity *wall = safe_deque_get_at(e->walls, i);
         renderWall(wall);
     }
 
     for (size_t i = 0; i < cc_deque_size(e->floatingWalls); i++)
     {
-        wallEntity *wall;
-        cc_deque_get_at(e->floatingWalls, i, (void **)&wall);
+        const wallEntity *wall = safe_deque_get_at(e->floatingWalls, i);
         renderWall(wall);
     }
 
     for (size_t i = 0; i < cc_deque_size(e->pickups); i++)
     {
-        weaponPickupEntity *pickup;
-        cc_deque_get_at(e->pickups, i, (void **)&pickup);
+        const weaponPickupEntity *pickup = safe_deque_get_at(e->pickups, i);
         renderWeaponPickup(pickup);
     }
 
@@ -376,8 +373,7 @@ void renderEnv(env *e, const CC_Deque *inputs)
 
     for (size_t i = 0; i < cc_deque_size(e->drones); i++)
     {
-        droneEntity *drone;
-        cc_deque_get_at(e->drones, i, (void **)&drone);
+        const droneEntity *drone = safe_deque_get_at(e->drones, i);
         renderDroneLabels(drone);
     }
 

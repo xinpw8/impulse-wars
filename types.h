@@ -7,8 +7,12 @@
 
 #include "settings.h"
 
+#define NUM_ENTITY_TYPES 6
+#define NUM_WALL_TYPES 3
+
 enum entityType
 {
+    INVALID_ENTITY,
     STANDARD_WALL_ENTITY,
     BOUNCY_WALL_ENTITY,
     DEATH_WALL_ENTITY,
@@ -92,6 +96,7 @@ typedef struct weaponPickupEntity
 
 typedef struct droneEntity droneEntity;
 
+// TODO: add drone index
 typedef struct projectileEntity
 {
     b2BodyId bodyID;
@@ -118,6 +123,10 @@ typedef struct droneEntity
 
 typedef struct env
 {
+    float *obs;
+    float *rewards;
+    float *actions;
+
     b2WorldId worldID;
     uint8_t columns;
     uint8_t rows;
