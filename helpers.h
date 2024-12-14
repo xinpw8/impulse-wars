@@ -9,8 +9,6 @@
 
 #include "include/cc_deque.h"
 
-#include "include/dlmalloc.h"
-
 #ifndef NDEBUG
 #define ON_ERROR __builtin_trap()
 #define DEBUG_LOGF(fmt, args...)                                                                                             \
@@ -93,6 +91,7 @@
 #define fastCalloc(nmemb, size) calloc(nmemb, size)
 #define fastFree(ptr) free(ptr)
 #else
+#include "include/dlmalloc.h"
 #define fastMalloc(size) dlmalloc(size)
 #define fastCalloc(nmemb, size) dlcalloc(nmemb, size)
 #define fastFree(ptr) dlfree(ptr)
