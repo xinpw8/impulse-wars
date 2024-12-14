@@ -85,42 +85,8 @@ void getPlayerInputs(const env *e, const droneEntity *drone, const int gamepadId
     e->actions[offset++] = shoot;
 }
 
-void perfTest(const int steps)
-{
-    srand(0);
-
-    env *e = createEnv();
-    setupEnv(e);
-
-    for (int i = 0; i < steps; i++)
-    {
-        uint8_t actionOffset = 0;
-        for (size_t i = 0; i < cc_deque_size(e->drones); i++)
-        {
-            e->actions[actionOffset + 0] = randFloat(-1.0f, 1.0f);
-            e->actions[actionOffset + 1] = randFloat(-1.0f, 1.0f);
-            e->actions[actionOffset + 2] = randFloat(-1.0f, 1.0f);
-            e->actions[actionOffset + 3] = randFloat(-1.0f, 1.0f);
-            e->actions[actionOffset + 4] = randInt(0, 1);
-
-            actionOffset += ACTION_SIZE;
-        }
-
-        stepEnv(e, DELTA_TIME);
-        if (envTerminated(e))
-        {
-            resetEnv(e);
-        }
-    }
-
-    destroyEnv(e);
-}
-
 int main(void)
 {
-    // perfTest(3000000);
-    // return 0;
-
     srand(time(NULL));
 
     SetConfigFlags(FLAG_MSAA_4X_HINT);
@@ -133,31 +99,25 @@ int main(void)
 
     while (true)
     {
-        while (true)
+        if (WindowShouldClose())
         {
-            if (WindowShouldClose())
-            {
-                destroyEnv(e);
-                CloseWindow();
-                return 0;
-            }
-
-            for (size_t i = 0; i < cc_deque_size(e->drones); i++)
-            {
-                droneEntity *drone;
-                cc_deque_get_at(e->drones, i, (void **)&drone);
-                getPlayerInputs(e, drone, i);
-            }
-
-            stepEnv(e, DELTA_TIME);
-            if (envTerminated(e))
-            {
-                break;
-            }
-
-            renderEnv(e);
+            destroyEnv(e);
+            CloseWindow();
+            return 0;
         }
 
-        resetEnv(e);
+        for (size_t i = 0; i < cc_deque_size(e->drones); i++)
+        {
+            droneEntity *drone;
+            cc_deque_get_at(e->drones, i, (void **)&drone);
+            getPlayerInputs(e, drone, i);
+        }
+
+        stepEnv(e, DELTA_TIME);
+        renderEnv(e);
+        if (envTerminated(e))
+        {
+            resetEnv(e);
+        }
     }
 }

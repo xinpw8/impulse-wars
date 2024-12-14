@@ -1,9 +1,7 @@
-# cython: language_level=3
-
 from libc.stdlib cimport calloc, free
 import numpy as np
 
-from env cimport createEnv, setupEnv, destroyEnv
+from impulse_wars cimport createEnv, setupEnv, destroyEnv
 
 def test_c():
     e = createEnv()

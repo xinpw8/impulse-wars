@@ -80,6 +80,7 @@
     do                                                                                                       \
     {                                                                                                        \
         const b2Vec2 norm = b2Normalize(vec);                                                                \
+        MAYBE_UNUSED(norm);                                                                                  \
         ASSERTF(fabs(vec.x - norm.x) < 0.000001f, "vec: %f, %f norm: %f, %f", vec.x, vec.y, norm.x, norm.y); \
         ASSERTF(fabs(vec.y - norm.y) < 0.000001f, "vec: %f, %f norm: %f, %f", vec.x, vec.y, norm.x, norm.y); \
     } while (0)

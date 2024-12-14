@@ -1,5 +1,6 @@
 .vscode/
 .vs/
 build/
-debug/
-release/
+debug*/
+release*/
+benchmark/

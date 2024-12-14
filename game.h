@@ -536,6 +536,7 @@ void handleSuddenDeath(env *e)
         if (type == b2_staticBody)
         {
             const b2Vec2 pos = b2Body_GetPosition(wall->bodyID);
+            MAYBE_UNUSED(pos);
 
             // floating wall was previously partially overlapping with a wall,
             // now it is fully inside a wall, destroy it
@@ -543,6 +544,7 @@ void handleSuddenDeath(env *e)
             MAYBE_UNUSED(res);
             ASSERT(res == CC_OK);
             destroyWall(wall);
+
             DEBUG_LOGF("destroyed floating wall at %f, %f", pos.x, pos.y);
             continue;
         }

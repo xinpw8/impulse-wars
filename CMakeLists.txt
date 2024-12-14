@@ -14,7 +14,7 @@ set (CMAKE_LINKER_FLAGS_DEBUG "${CMAKE_LINKER_FLAGS_DEBUG} -fno-omit-frame-point
 set (CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O3 -flto -march=native -fno-math-errno")
 
 project(
-	env
+	impulse-wars
 	DESCRIPTION "Impulse Wars Env"
 	LANGUAGES C
 )
@@ -44,55 +44,72 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(box2d)
 
-# transpile Cython to C
-find_package(
-  Python
-  COMPONENTS Interpreter Development.Module
-  REQUIRED
-)
+function(configure_target target_name)
+	target_include_directories(${target_name} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} include)
+	target_link_libraries(${target_name} PRIVATE raylib box2d)
 
-add_custom_command(
-	OUTPUT env.pxd.raw
-	COMMENT "Converting C headers to Cython PXD file"
-	COMMAND autopxd
-		-I "${CMAKE_CURRENT_SOURCE_DIR}/include"
-		-I "${box2d_SOURCE_DIR}/include" 
-		-I "${raylib_SOURCE_DIR}"
-		"${CMAKE_CURRENT_SOURCE_DIR}/env.h" env.pxd.raw
-	VERBATIM
-)
+	target_compile_options(${target_name} PRIVATE "-Werror" "-Wall" "-Wpedantic" "-Wno-variadic-macros")
 
-# workaround for autopxd not setting bools correctly
-add_custom_command(
-	OUTPUT env.pxd
-	COMMENT "Fixing bools in Cython PXD file"
-	COMMAND "${CMAKE_COMMAND}"
-		"-DSOURCE=${CMAKE_CURRENT_BINARY_DIR}/env.pxd.raw"
-		"-DTARGET=${CMAKE_CURRENT_BINARY_DIR}/env.pxd"
-		-P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/fix-cython-bool.cmake"
-	DEPENDS env.pxd.raw
-	VERBATIM
-)
+	find_program(MOLD_EXECUTABLE "mold")
+	if(MOLD_EXECUTABLE)
+		target_link_options(${target_name} PUBLIC "-fuse-ld=mold")
+	endif()
+endfunction()
 
-add_custom_command(
-  OUTPUT env.c
-  COMMENT "Transpiling Cython to C"
-  COMMAND Python::Interpreter -m cython "${CMAKE_CURRENT_SOURCE_DIR}/env.pyx" --output-file env.c
-  DEPENDS env.pxd env.pyx
-  VERBATIM
-)
+if(DEFINED BUILD_PYTHON_MODULE)
+	# transpile Cython to C
+	find_package(
+		Python
+		COMPONENTS Interpreter Development.Module
+		REQUIRED
+	)
 
-# build python module
-python_add_library(env MODULE env.c WITH_SOABI)
-#add_executable(env game.c)
-target_include_directories(env PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} include)
-target_link_libraries(env PRIVATE raylib box2d)
+	add_custom_command(
+		OUTPUT impulse_wars.pxd.raw
+		COMMENT "Converting C headers to Cython PXD file"
+		COMMAND autopxd
+			-I "${CMAKE_CURRENT_SOURCE_DIR}/include"
+			-I "${box2d_SOURCE_DIR}/include" 
+			-I "${raylib_SOURCE_DIR}"
+			"${CMAKE_CURRENT_SOURCE_DIR}/env.h" impulse_wars.pxd.raw
+		DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/env.h"
+		VERBATIM
+	)
 
-target_compile_options(env PRIVATE "-Werror" "-Wall" "-Wpedantic" "-Wno-variadic-macros")
+	# workaround for autopxd not setting bools correctly
+	add_custom_command(
+		OUTPUT impulse_wars.pxd
+		COMMENT "Fixing bools in Cython PXD file"
+		COMMAND "${CMAKE_COMMAND}"
+			"-DSOURCE=${CMAKE_CURRENT_BINARY_DIR}/impulse_wars.pxd.raw"
+			"-DTARGET=${CMAKE_CURRENT_BINARY_DIR}/impulse_wars.pxd"
+			-P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/fix-cython-bool.cmake"
+		DEPENDS impulse_wars.pxd.raw
+		VERBATIM
+	)
 
-find_program(MOLD_EXECUTABLE "mold")
-if(MOLD_EXECUTABLE)
-	target_link_options(env PUBLIC "-fuse-ld=mold")
+	add_custom_command(
+		OUTPUT impulse_wars.c
+		COMMENT "Transpiling Cython to C"
+		COMMAND Python::Interpreter -m cython
+			-3
+			-X boundscheck=false
+			-X initializedcheck=false
+			-X wraparound=false
+			-X cdivision=true
+			"${CMAKE_CURRENT_SOURCE_DIR}/impulse_wars.pyx" -o impulse_wars.c
+		DEPENDS impulse_wars.pxd impulse_wars.pyx
+		VERBATIM
+	)
+
+	# build python module
+	python_add_library(impulse_wars MODULE impulse_wars.c WITH_SOABI)
+	configure_target(impulse_wars)
+	install(TARGETS impulse_wars DESTINATION .)
+elseif(DEFINED BUILD_DEMO)
+	add_executable(demo demo.c)
+	configure_target(demo)
+elseif(DEFINED BUILD_BENCHMARK)
+	add_executable(benchmark benchmark.c)
+	configure_target(benchmark)
 endif()
-
-install(TARGETS env DESTINATION .)

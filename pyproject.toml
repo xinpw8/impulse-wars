@@ -11,3 +11,6 @@ minimum-version = "build-system.requires"
 cmake.build-type = "Release"
 build.verbose = true
 logging.level = "INFO"
+
+[tool.scikit-build.cmake.define]
+BUILD_PYTHON_MODULE = true
