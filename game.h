@@ -286,7 +286,7 @@ void destroyWeaponPickup(weaponPickupEntity *pickup)
     fastFree(pickup);
 }
 
-void createDrone(env *e)
+void createDrone(env *e, const uint8_t idx)
 {
     b2BodyDef droneBodyDef = b2DefaultBodyDef();
     droneBodyDef.type = b2_dynamicBody;
@@ -315,8 +315,11 @@ void createDrone(env *e)
     drone->heat = 0;
     drone->charge = 0;
     drone->shotThisStep = false;
+    drone->idx = idx;
     drone->lastAim = (b2Vec2){.x = 0.0f, .y = -1.0f};
+    drone->lastVelocity = b2Vec2_zero;
     drone->dead = false;
+    memset(&drone->hitInfo, 0x0, sizeof(stepHitInfo));
 
     entity *ent = (entity *)fastMalloc(sizeof(entity));
     ent->type = DRONE_ENTITY;
@@ -347,7 +350,7 @@ void droneMove(const droneEntity *drone, const b2Vec2 direction)
 
 void createProjectile(env *e, droneEntity *drone, const b2Vec2 normAim)
 {
-    ASSERT_VEC_NORMALIZED(normAim);
+    ASSERT_VEC_NORMALIZED_STRICT(normAim);
 
     b2BodyDef projectileBodyDef = b2DefaultBodyDef();
     projectileBodyDef.type = b2_dynamicBody;
@@ -379,6 +382,7 @@ void createProjectile(env *e, droneEntity *drone, const b2Vec2 normAim)
     b2Body_ApplyLinearImpulseToCenter(projectileBodyID, fire, true);
 
     projectileEntity *projectile = (projectileEntity *)fastMalloc(sizeof(projectileEntity));
+    projectile->droneIdx = drone->idx;
     projectile->bodyID = projectileBodyID;
     projectile->shapeID = projectileShapeID;
     projectile->weaponInfo = drone->weaponInfo;
@@ -394,16 +398,42 @@ void createProjectile(env *e, droneEntity *drone, const b2Vec2 normAim)
     b2Shape_SetUserData(projectile->shapeID, ent);
 }
 
+bool explosionOverlapCallback(b2ShapeId shapeId, void *context)
+{
+    droneEntity *drone = (droneEntity *)context;
+    entity *ent = (entity *)b2Shape_GetUserData(shapeId);
+    droneEntity *hitDrone = (droneEntity *)ent->entity;
+    if (hitDrone->idx == drone->idx)
+    {
+        return true;
+    }
+    drone->hitInfo.explosionHit = true;
+
+    return true;
+}
+
 void destroyProjectile(env *e, projectileEntity *projectile, const bool full)
 {
     b2ExplosionDef explosion;
     if (weaponExplosion(projectile->weaponInfo->type, &explosion))
     {
-        explosion.position = b2Body_GetPosition(projectile->bodyID);
+        const b2Vec2 pos = b2Body_GetPosition(projectile->bodyID);
+        explosion.position = pos;
         explosion.maskBits = FLOATING_WALL_SHAPE | DRONE_SHAPE;
         b2World_Explode(e->worldID, &explosion);
         e->explosion = explosion;
         e->explosionSteps = EXPLOSION_STEPS;
+
+        // check if enemy drone is in explosion radius
+        const float totalRadius = explosion.radius + explosion.falloff;
+        const b2Circle cir = {.center = b2Vec2_zero, .radius = totalRadius};
+        const b2Transform transform = {.p = pos, .q = b2Rot_identity};
+        const b2QueryFilter filter = {
+            .categoryBits = PROJECTILE_SHAPE,
+            .maskBits = DRONE_SHAPE,
+        };
+        droneEntity *drone = safe_deque_get_at(e->drones, projectile->droneIdx);
+        b2World_OverlapCircle(e->worldID, &cir, transform, filter, explosionOverlapCallback, drone);
     }
 
     entity *ent = (entity *)b2Shape_GetUserData(projectile->shapeID);
@@ -570,7 +600,7 @@ void droneShoot(env *e, droneEntity *drone, const b2Vec2 aim)
     {
         normAim = b2Normalize(aim);
     }
-    ASSERT_VEC_NORMALIZED(normAim);
+    ASSERT_VEC_NORMALIZED_STRICT(normAim);
     b2Vec2 recoil = b2MulSV(-drone->weaponInfo->recoilMagnitude, normAim);
     b2Body_ApplyLinearImpulseToCenter(drone->bodyID, recoil, true);
 
@@ -589,8 +619,6 @@ void droneShoot(env *e, droneEntity *drone, const b2Vec2 aim)
 void droneStep(droneEntity *drone, const float frameTime)
 {
     ASSERT(frameTime != 0.0f);
-
-    // TODO: set drone pos
 
     drone->weaponCooldown = fmaxf(drone->weaponCooldown - frameTime, 0.0f);
     if (!drone->shotThisStep)
@@ -681,14 +709,23 @@ bool handleProjectileBeginContact(env *e, const entity *proj, const entity *ent)
         // always allow projectiles to bounce off each other
         return false;
     }
-    else if (ent != NULL && ent->type == BOUNCY_WALL_ENTITY)
+    else if (ent->type == BOUNCY_WALL_ENTITY)
     {
         // always allow projectiles to bounce off bouncy walls
         return false;
     }
-    else if (ent != NULL && ent->type != BOUNCY_WALL_ENTITY)
+    else if (ent->type != BOUNCY_WALL_ENTITY)
     {
         projectile->bounces++;
+        if (ent->type == DRONE_ENTITY)
+        {
+            const droneEntity *hitDrone = (droneEntity *)ent->entity;
+            if (projectile->droneIdx != hitDrone->idx)
+            {
+                droneEntity *shooterDrone = safe_deque_get_at(e->drones, projectile->droneIdx);
+                shooterDrone->hitInfo.shotHit = true;
+            }
+        }
     }
     const uint8_t maxBounces = projectile->weaponInfo->maxBounces;
     if (projectile->bounces == maxBounces)

@@ -51,7 +51,7 @@ void setupEnv(env *e)
 
     for (int i = 0; i < NUM_DRONES; i++)
     {
-        createDrone(e);
+        createDrone(e, i);
     }
 
     placeRandFloatingWalls(e, mapIdx);
@@ -132,6 +132,51 @@ void resetEnv(env *e)
     setupEnv(e);
 }
 
+void computeReward(env *e, const droneEntity *drone)
+{
+    uint8_t enemyID = 1;
+    if (drone->idx == 1)
+    {
+        enemyID = 0;
+    }
+    const droneEntity *enemyDrone = safe_deque_get_at(e->drones, enemyID);
+
+    if (enemyDrone->dead)
+    {
+        e->rewards[drone->idx] += KILL_REWARD;
+        return;
+    }
+    if (drone->dead)
+    {
+        e->rewards[drone->idx] += DEATH_REWARD;
+        return;
+    }
+    if (!drone->hitInfo.shotHit && !drone->hitInfo.explosionHit)
+    {
+        return;
+    }
+
+    // compute reward based off of how much the projectile(s) or explosion(s)
+    // caused the enemy drone to change velocity
+    const float prevEnemySpeed = b2Length(enemyDrone->lastVelocity);
+    const float curEnemySpeed = b2Length(b2Body_GetLinearVelocity(enemyDrone->bodyID));
+    e->rewards[drone->idx] += scaleValue(fabsf(curEnemySpeed - prevEnemySpeed), MAX_SPEED, true) * SHOT_HIT_REWARD_COEF;
+}
+
+void computeRewards(env *e)
+{
+    for (size_t i = 0; i < cc_deque_size(e->drones); i++)
+    {
+        const droneEntity *drone = safe_deque_get_at(e->drones, i);
+        computeReward(e, drone);
+
+        if (e->rewards[drone->idx] != 0.0f)
+        {
+            DEBUG_LOGF("reward[%d]: %f\n", drone->idx, e->rewards[drone->idx]);
+        }
+    }
+}
+
 void computeObs(env *e)
 {
     uint16_t offset = 0;
@@ -141,7 +186,6 @@ void computeObs(env *e)
     {
         const droneEntity *drone = safe_deque_get_at(e->drones, i);
         const b2Vec2 pos = b2Body_GetPosition(drone->bodyID);
-        const b2Vec2 vel = b2Body_GetLinearVelocity(drone->bodyID);
 
         int8_t ammo = drone->ammo;
         int8_t maxAmmo = weaponAmmo(e->defaultWeapon->type, drone->weaponInfo->type);
@@ -152,19 +196,19 @@ void computeObs(env *e)
         }
         else
         {
-            scaledAmmo = scaleObsValue(ammo, maxAmmo, true);
+            scaledAmmo = scaleValue(ammo, maxAmmo, true);
         }
 
-        e->obs[offset++] = scaleObsValue(drone->weaponInfo->type, NUM_WEAPONS, true);
-        e->obs[offset++] = scaleObsValue(pos.x, MAX_X_POS, false);
-        e->obs[offset++] = scaleObsValue(pos.y, MAX_Y_POS, false);
-        e->obs[offset++] = scaleObsValue(vel.x, MAX_SPEED, false);
-        e->obs[offset++] = scaleObsValue(vel.y, MAX_SPEED, false);
-        e->obs[offset++] = scaleObsValue(drone->lastAim.x, 1.0f, false);
-        e->obs[offset++] = scaleObsValue(drone->lastAim.y, 1.0f, false);
+        e->obs[offset++] = scaleValue(drone->weaponInfo->type, NUM_WEAPONS, true);
+        e->obs[offset++] = scaleValue(pos.x, MAX_X_POS, false);
+        e->obs[offset++] = scaleValue(pos.y, MAX_Y_POS, false);
+        e->obs[offset++] = scaleValue(drone->lastVelocity.x, MAX_SPEED, false);
+        e->obs[offset++] = scaleValue(drone->lastVelocity.x, MAX_SPEED, false);
+        e->obs[offset++] = scaleValue(drone->lastAim.x, 1.0f, false);
+        e->obs[offset++] = scaleValue(drone->lastAim.y, 1.0f, false);
         e->obs[offset++] = scaledAmmo;
-        e->obs[offset++] = scaleObsValue(drone->weaponCooldown, drone->weaponInfo->coolDown, true);
-        e->obs[offset++] = scaleObsValue(drone->charge, weaponCharge(drone->weaponInfo->type), true);
+        e->obs[offset++] = scaleValue(drone->weaponCooldown, drone->weaponInfo->coolDown, true);
+        e->obs[offset++] = scaleValue(drone->charge, weaponCharge(drone->weaponInfo->type), true);
 
         ASSERT(i + DRONE_OBS_SIZE - 1 < NUM_DRONES * DRONE_OBS_SIZE);
         ASSERT(offset + DRONE_OBS_SIZE - 1 < OBS_SIZE);
@@ -185,11 +229,11 @@ void computeObs(env *e)
         const projectileEntity *projectile = (projectileEntity *)cur->data;
         const b2Vec2 vel = b2Body_GetLinearVelocity(projectile->bodyID);
 
-        e->obs[offset++] = scaleObsValue(projectile->weaponInfo->type, NUM_WEAPONS, true);
-        e->obs[offset++] = scaleObsValue(projectile->lastPos.x, MAX_X_POS, false);
-        e->obs[offset++] = scaleObsValue(projectile->lastPos.y, MAX_Y_POS, false);
-        e->obs[offset++] = scaleObsValue(vel.x, MAX_SPEED, false);
-        e->obs[offset++] = scaleObsValue(vel.y, MAX_SPEED, false);
+        e->obs[offset++] = scaleValue(projectile->weaponInfo->type, NUM_WEAPONS, true);
+        e->obs[offset++] = scaleValue(projectile->lastPos.x, MAX_X_POS, false);
+        e->obs[offset++] = scaleValue(projectile->lastPos.y, MAX_Y_POS, false);
+        e->obs[offset++] = scaleValue(vel.x, MAX_SPEED, false);
+        e->obs[offset++] = scaleValue(vel.y, MAX_SPEED, false);
 
         ASSERT(projIdx + PROJECTILE_OBS_SIZE - 1 < NUM_PROJECTILE_OBS * PROJECTILE_OBS_SIZE);
         ASSERT(offset + PROJECTILE_OBS_SIZE - 1 < OBS_SIZE);
@@ -214,12 +258,12 @@ void computeObs(env *e)
         const b2Vec2 vel = b2Body_GetLinearVelocity(wall->bodyID);
         const float angle = b2Rot_GetAngle(b2Body_GetRotation(wall->bodyID)) * RAD2DEG;
 
-        e->obs[offset++] = scaleObsValue(wall->type, NUM_WALL_TYPES, true);
-        e->obs[offset++] = scaleObsValue(pos.x, MAX_X_POS, false);
-        e->obs[offset++] = scaleObsValue(pos.y, MAX_Y_POS, false);
-        e->obs[offset++] = scaleObsValue(vel.x, MAX_SPEED, false);
-        e->obs[offset++] = scaleObsValue(vel.y, MAX_SPEED, false);
-        e->obs[offset++] = scaleObsValue(angle, 360.0f, false);
+        e->obs[offset++] = scaleValue(wall->type, NUM_WALL_TYPES, true);
+        e->obs[offset++] = scaleValue(pos.x, MAX_X_POS, false);
+        e->obs[offset++] = scaleValue(pos.y, MAX_Y_POS, false);
+        e->obs[offset++] = scaleValue(vel.x, MAX_SPEED, false);
+        e->obs[offset++] = scaleValue(vel.y, MAX_SPEED, false);
+        e->obs[offset++] = scaleValue(angle, 360.0f, false);
 
         ASSERT(i + FLOATING_WALL_OBS_SIZE - 1 < NUM_FLOATING_WALL_OBS * FLOATING_WALL_OBS_SIZE);
         ASSERT(offset + FLOATING_WALL_OBS_SIZE - 1 < OBS_SIZE);
@@ -300,7 +344,7 @@ void stepEnv(env *e, float deltaTime)
             const b2Vec2 aim = {.x = e->actions[offset + 2], .y = e->actions[offset + 3]};
             const bool shoot = e->actions[offset + 4] > 0.5f;
             ASSERT_VEC_NORMALIZED(move);
-            ASSERT_VEC_NORMALIZED(aim);
+            ASSERT_VEC_NORMALIZED_STRICT(aim);
 
             droneEntity *drone = safe_deque_get_at(e->drones, i);
             if (!b2VecEqual(move, b2Vec2_zero))
@@ -315,15 +359,14 @@ void stepEnv(env *e, float deltaTime)
             {
                 drone->lastAim = b2Normalize(aim);
             }
+
+            e->rewards[i] = 0.0f;
+            drone->lastVelocity = b2Body_GetLinearVelocity(drone->bodyID);
+            memset(&drone->hitInfo, 0x0, sizeof(stepHitInfo));
         }
 
         // update entity info, step physics, and handle events
-        for (size_t i = 0; i < cc_deque_size(e->drones); i++)
-        {
-
-            droneEntity *drone = safe_deque_get_at(e->drones, i);
-            droneStep(drone, deltaTime);
-        }
+        b2World_Step(e->worldID, deltaTime, BOX2D_SUBSTEPS);
 
         // handle sudden death
         e->stepsLeft = fmaxf(e->stepsLeft - 1, 0.0f);
@@ -337,13 +380,19 @@ void stepEnv(env *e, float deltaTime)
             }
         }
 
+        for (size_t i = 0; i < cc_deque_size(e->drones); i++)
+        {
+            droneEntity *drone = safe_deque_get_at(e->drones, i);
+            droneStep(drone, deltaTime);
+        }
+
         projectilesStep(e);
         weaponPickupsStep(e, DELTA_TIME);
 
-        b2World_Step(e->worldID, deltaTime, BOX2D_SUBSTEPS);
-
         handleContactEvents(e);
         handleSensorEvents(e);
+
+        computeRewards(e);
     }
 
     computeObs(e);

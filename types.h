@@ -115,6 +115,8 @@ typedef struct droneEntity droneEntity;
 // TODO: add drone index
 typedef struct projectileEntity
 {
+    uint8_t droneIdx;
+
     b2BodyId bodyID;
     b2ShapeId shapeID;
     weaponInformation *weaponInfo;
@@ -122,6 +124,19 @@ typedef struct projectileEntity
     float distance;
     uint8_t bounces;
 } projectileEntity;
+
+typedef struct stepHitInfo
+{
+    bool shotHit;
+    bool explosionHit;
+} stepHitInfo;
+
+typedef struct droneStats
+{
+    uint16_t shotsFired[NUM_WEAPONS];
+    uint16_t shotsHit[NUM_WEAPONS];
+    uint16_t shotsTaken[NUM_WEAPONS];
+} droneStats;
 
 typedef struct droneEntity
 {
@@ -133,7 +148,11 @@ typedef struct droneEntity
     uint16_t heat;
     uint16_t charge;
     bool shotThisStep;
+
+    uint8_t idx;
     b2Vec2 lastAim;
+    b2Vec2 lastVelocity;
+    stepHitInfo hitInfo;
     bool dead;
 } droneEntity;
 
@@ -156,6 +175,7 @@ typedef struct env
     CC_SList *projectiles;
 
     // used for rendering explosions
+    // TODO: use hitInfo
     uint8_t explosionSteps;
     b2ExplosionDef explosion;
 
@@ -166,10 +186,3 @@ typedef struct env
     // the amount of sudden death walls that have been spawned
     uint8_t suddenDeathWallCounter;
 } env;
-
-typedef struct droneInputs
-{
-    b2Vec2 move;
-    b2Vec2 aim;
-    bool shoot;
-} droneInputs;

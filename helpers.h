@@ -13,35 +13,35 @@
 
 #ifndef NDEBUG
 #define ON_ERROR __builtin_trap()
-#define DEBUG_LOGF(fmt, args...)                                                                                                              \
-    do                                                                                                                                        \
-    {                                                                                                                                         \
-        time_t _t = time(NULL);                                                                                                               \
-        struct tm *_timeinfo;                                                                                                                 \
-        _timeinfo = localtime(&_t);                                                                                                           \
-        printf(fmt " %d:%d:%d %s:%s:%d\n", args, _timeinfo->tm_hour, _timeinfo->tm_min, _timeinfo->tm_sec, __FILE__, __FUNCTION__, __LINE__); \
-        fflush(stdout);                                                                                                                       \
+#define DEBUG_LOGF(fmt, args...)                                                                                             \
+    do                                                                                                                       \
+    {                                                                                                                        \
+        time_t _t = time(NULL);                                                                                              \
+        struct tm *_timeinfo;                                                                                                \
+        _timeinfo = localtime(&_t);                                                                                          \
+        printf(fmt " %d:%d:%d %s:%d\n", args, _timeinfo->tm_hour, _timeinfo->tm_min, _timeinfo->tm_sec, __FILE__, __LINE__); \
+        fflush(stdout);                                                                                                      \
     } while (0)
 #define DEBUG_LOG(msg) DEBUG_LOGF(msg, NULL)
-#define ASSERT(condition)                                                                                   \
-    do                                                                                                      \
-    {                                                                                                       \
-        if (!(condition))                                                                                   \
-        {                                                                                                   \
-            printf("\nASSERTION FAILED: %s at %s:%s:%d\n\n", #condition, __FILE__, __FUNCTION__, __LINE__); \
-            fflush(stdout);                                                                                 \
-            ON_ERROR;                                                                                       \
-        }                                                                                                   \
+#define ASSERT(condition)                                                                  \
+    do                                                                                     \
+    {                                                                                      \
+        if (!(condition))                                                                  \
+        {                                                                                  \
+            printf("\nASSERTION FAILED: %s at %s:%d\n\n", #condition, __FILE__, __LINE__); \
+            fflush(stdout);                                                                \
+            ON_ERROR;                                                                      \
+        }                                                                                  \
     } while (0)
-#define ASSERTF(condition, fmt, args...)                                                                                    \
-    do                                                                                                                      \
-    {                                                                                                                       \
-        if (!(condition))                                                                                                   \
-        {                                                                                                                   \
-            printf("\nASSERTION FAILED: %s; " fmt "; at %s:%s:%d\n\n", #condition, args, __FILE__, __FUNCTION__, __LINE__); \
-            fflush(stdout);                                                                                                 \
-            ON_ERROR;                                                                                                       \
-        }                                                                                                                   \
+#define ASSERTF(condition, fmt, args...)                                                                   \
+    do                                                                                                     \
+    {                                                                                                      \
+        if (!(condition))                                                                                  \
+        {                                                                                                  \
+            printf("\nASSERTION FAILED: %s; " fmt "; at %s:%d\n\n", #condition, args, __FILE__, __LINE__); \
+            fflush(stdout);                                                                                \
+            ON_ERROR;                                                                                      \
+        }                                                                                                  \
     } while (0)
 #else
 #define ON_ERROR abort()
@@ -75,7 +75,16 @@
     ASSERTF(vec.x <= 1.0f, "vec.x: %f", vec.x);  \
     ASSERTF(vec.x >= -1.0f, "vec.x: %f", vec.x); \
     ASSERTF(vec.y <= 1.0f, "vec.y: %f", vec.y);  \
-    ASSERTF(vec.y >= -1.0f, "vec.y: %f", vec.y);
+    ASSERTF(vec.y >= -1.0f, "vec.y: %f", vec.y)
+
+#define ASSERT_VEC_NORMALIZED_STRICT(vec)                                                                    \
+    ASSERT_VEC_NORMALIZED(vec);                                                                              \
+    do                                                                                                       \
+    {                                                                                                        \
+        const b2Vec2 norm = b2Normalize(vec);                                                                \
+        ASSERTF(fabs(vec.x - norm.x) < 0.000001f, "vec: %f, %f norm: %f, %f", vec.x, vec.y, norm.x, norm.y); \
+        ASSERTF(fabs(vec.y - norm.y) < 0.000001f, "vec: %f, %f norm: %f, %f", vec.x, vec.y, norm.x, norm.y); \
+    } while (0)
 
 // use malloc when debugging so the address sanitizer can find issues with
 // heap memory, use dlmalloc in release mode for performance
@@ -132,7 +141,7 @@ static inline float logBasef(const float v, const float b)
 
 // normalize value to be between 0 and max, and clamp to 0 and max;
 // minIsZero determines if the min value is 0 or -max
-static inline float scaleObsValue(const float v, const float max, const bool minIsZero)
+static inline float scaleValue(const float v, const float max, const bool minIsZero)
 {
     ASSERTF(v <= max, "v: %f, max: %f", v, max);
     ASSERTF(!minIsZero || v >= 0, "v: %f", v);

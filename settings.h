@@ -24,6 +24,11 @@
 
 #define EXPLOSION_STEPS 5
 
+// reward settings
+#define KILL_REWARD 1.0f
+#define DEATH_REWARD -1.0f
+#define SHOT_HIT_REWARD_COEF 0.3f
+
 // observation constants
 #define DRONE_OBS_SIZE 10
 #define NUM_PROJECTILE_OBS 50
@@ -329,7 +334,7 @@ bool weaponExplosion(const enum weaponType type, b2ExplosionDef *explosionDef)
     case IMPLODER_WEAPON:
         explosionDef->radius = 10.0f;
         explosionDef->falloff = 5.0f;
-        explosionDef->impulsePerLength = -100.0f;
+        explosionDef->impulsePerLength = -150.0f;
         return true;
     default:
         return false;

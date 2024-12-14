@@ -8,6 +8,7 @@ const float rStickDeadzoneY = 0.1f;
 
 void getPlayerInputs(const env *e, const droneEntity *drone, const int gamepadIdx)
 {
+    uint8_t offset = gamepadIdx * ACTION_SIZE;
     if (IsGamepadAvailable(gamepadIdx))
     {
         float lStickX = GetGamepadAxisMovement(gamepadIdx, GAMEPAD_AXIS_LEFT_X);
@@ -39,16 +40,12 @@ void getPlayerInputs(const env *e, const droneEntity *drone, const int gamepadId
             shoot = IsGamepadButtonDown(gamepadIdx, GAMEPAD_BUTTON_RIGHT_TRIGGER_1);
         }
 
-        e->actions[0] = lStickX;
-        e->actions[1] = lStickY;
-        e->actions[2] = aim.x;
-        e->actions[3] = aim.y;
-        e->actions[4] = shoot;
+        e->actions[offset++] = lStickX;
+        e->actions[offset++] = lStickY;
+        e->actions[offset++] = aim.x;
+        e->actions[offset++] = aim.y;
+        e->actions[offset++] = shoot;
 
-        return;
-    }
-    if (gamepadIdx != 0)
-    {
         return;
     }
 
@@ -81,11 +78,11 @@ void getPlayerInputs(const env *e, const droneEntity *drone, const int gamepadId
         shoot = true;
     }
 
-    e->actions[0] = move.x;
-    e->actions[1] = move.y;
-    e->actions[2] = aim.x;
-    e->actions[3] = aim.y;
-    e->actions[4] = shoot;
+    e->actions[offset++] = move.x;
+    e->actions[offset++] = move.y;
+    e->actions[offset++] = aim.x;
+    e->actions[offset++] = aim.y;
+    e->actions[offset++] = shoot;
 }
 
 void perfTest(const int steps)
