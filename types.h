@@ -161,6 +161,7 @@ typedef struct env
     float *obs;
     float *rewards;
     float *actions;
+    unsigned char *terminals;
 
     b2WorldId worldID;
     uint8_t columns;

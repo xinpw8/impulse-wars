@@ -1,3 +1,4 @@
+PYTHON_MODULE_DIR := python-module
 DEBUG_DIR := debug-demo
 RELEASE_DIR := release-demo
 BENCHMARK_DIR := benchmark
@@ -8,6 +9,13 @@ RELEASE_BUILD_TYPE := RelWithDebInfo
 .PHONY: python-module
 python-module:
 	@pip install .
+
+.PHONY: manual-python-module
+manual-python-module:
+	@mkdir -p $(PYTHON_MODULE_DIR)
+	@cd $(PYTHON_MODULE_DIR) && \
+	cmake -GNinja -DCMAKE_BUILD_TYPE=$(RELEASE_BUILD_TYPE) -DBUILD_PYTHON_MODULE=true .. && \
+	cmake --build .
 
 .PHONY: debug-demo
 debug-demo:
@@ -32,4 +40,4 @@ benchmark:
 
 .PHONY: clean
 clean:
-	@rm -rf build $(DEBUG_DIR) $(RELEASE_DIR) $(BENCHMARK_DIR)
+	@rm -rf build $(PYTHON_MODULE_DIR) $(DEBUG_DIR) $(RELEASE_DIR) $(BENCHMARK_DIR)

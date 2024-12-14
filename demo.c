@@ -94,14 +94,24 @@ int main(void)
 
     SetTargetFPS(FRAME_RATE);
 
-    env *e = createEnv();
-    setupEnv(e);
+    env *e = (env *)fastCalloc(1, sizeof(env));
+    float *obs = (float *)fastCalloc(NUM_DRONES * OBS_SIZE, sizeof(float));
+    float *rewards = (float *)fastCalloc(NUM_DRONES, sizeof(float));
+    float *actions = (float *)fastCalloc(NUM_DRONES * ACTION_SIZE, sizeof(float));
+    unsigned char *terminals = (unsigned char *)fastCalloc(NUM_DRONES, sizeof(bool));
+
+    initEnv(e, obs, rewards, actions, terminals);
 
     while (true)
     {
         if (WindowShouldClose())
         {
             destroyEnv(e);
+            fastFree(obs);
+            fastFree(rewards);
+            fastFree(actions);
+            fastFree(terminals);
+            fastFree(e);
             CloseWindow();
             return 0;
         }
@@ -113,7 +123,7 @@ int main(void)
             getPlayerInputs(e, drone, i);
         }
 
-        stepEnv(e, DELTA_TIME);
+        stepEnv(e);
         renderEnv(e);
         if (envTerminated(e))
         {

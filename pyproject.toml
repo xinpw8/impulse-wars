@@ -3,7 +3,7 @@ requires = ["scikit-build-core>=0.10", "autopxd2>=2.5.0", "cython>=3.0.11"]
 build-backend = "scikit_build_core.build"
 
 [project]
-name = "env"
+name = "impulse_wars"
 version = "1.0.0"
 
 [tool.scikit-build]

@@ -4,3 +4,4 @@ build/
 debug*/
 release*/
 benchmark/
+python-module/

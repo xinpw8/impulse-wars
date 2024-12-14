@@ -5,26 +5,6 @@
 #include "settings.h"
 #include "types.h"
 
-env *createEnv()
-{
-    env *e = (env *)fastCalloc(1, sizeof(env));
-    e->obs = (float *)fastCalloc(NUM_DRONES * OBS_SIZE, sizeof(float));
-    e->rewards = (float *)fastCalloc(NUM_DRONES, sizeof(float));
-    e->actions = (float *)fastCalloc(NUM_DRONES * ACTION_SIZE, sizeof(float));
-
-    initMaps();
-    initWeapons();
-
-    cc_deque_new(&e->cells);
-    cc_deque_new(&e->walls);
-    cc_deque_new(&e->floatingWalls);
-    cc_deque_new(&e->drones);
-    cc_deque_new(&e->pickups);
-    cc_slist_new(&e->projectiles);
-
-    return e;
-}
-
 void setupEnv(env *e)
 {
     b2WorldDef worldDef = b2DefaultWorldDef();
@@ -62,8 +42,32 @@ void setupEnv(env *e)
     }
 }
 
+env *initEnv(env *e, float *obs, float *rewards, float *actions, unsigned char *terminals)
+{
+    e->obs = obs;
+    e->rewards = rewards;
+    e->actions = actions;
+    e->terminals = terminals;
+
+    initMaps();
+    initWeapons();
+
+    cc_deque_new(&e->cells);
+    cc_deque_new(&e->walls);
+    cc_deque_new(&e->floatingWalls);
+    cc_deque_new(&e->drones);
+    cc_deque_new(&e->pickups);
+    cc_slist_new(&e->projectiles);
+
+    setupEnv(e);
+
+    return e;
+}
+
 void clearEnv(env *e)
 {
+    memset(e->terminals, 0, NUM_DRONES * sizeof(bool));
+
     for (size_t i = 0; i < cc_deque_size(e->pickups); i++)
     {
         weaponPickupEntity *pickup = safe_deque_get_at(e->pickups, i);
@@ -119,11 +123,6 @@ void destroyEnv(env *e)
     cc_deque_destroy(e->drones);
     cc_deque_destroy(e->pickups);
     cc_slist_destroy(e->projectiles);
-
-    fastFree(e->obs);
-    fastFree(e->rewards);
-    fastFree(e->actions);
-    fastFree(e);
 }
 
 void resetEnv(env *e)
@@ -332,7 +331,7 @@ void computeObs(env *e)
         (OBS_SIZE - (NUM_DRONES * DRONE_OBS_SIZE)) * sizeof(float));
 }
 
-void stepEnv(env *e, float deltaTime)
+void stepEnv(env *e)
 {
     for (int i = 0; i < FRAMESKIP; i++)
     {
@@ -366,7 +365,7 @@ void stepEnv(env *e, float deltaTime)
         }
 
         // update entity info, step physics, and handle events
-        b2World_Step(e->worldID, deltaTime, BOX2D_SUBSTEPS);
+        b2World_Step(e->worldID, DELTA_TIME, BOX2D_SUBSTEPS);
 
         // handle sudden death
         e->stepsLeft = fmaxf(e->stepsLeft - 1, 0.0f);
@@ -383,7 +382,11 @@ void stepEnv(env *e, float deltaTime)
         for (size_t i = 0; i < cc_deque_size(e->drones); i++)
         {
             droneEntity *drone = safe_deque_get_at(e->drones, i);
-            droneStep(drone, deltaTime);
+            droneStep(drone, DELTA_TIME);
+            if (drone->dead)
+            {
+                memset(e->terminals, 1, NUM_DRONES * sizeof(bool));
+            }
         }
 
         projectilesStep(e);

@@ -38,8 +38,8 @@ FetchContent_MakeAvailable(raylib)
 FetchContent_Declare(
 	box2d
 	GIT_REPOSITORY https://github.com/erincatto/box2d.git
-	GIT_TAG 2c939c287bfcffcd9ae12ce34db486f6e0bd17e2 # known good commit on main
-	GIT_SHALLOW FALSE
+	GIT_TAG f0763aca7d4dfa8f1c19c2c4a9e66fa6e93ea32e # known good commit on main
+	GIT_SHALLOW TRUE
 	GIT_PROGRESS TRUE
 )
 FetchContent_MakeAvailable(box2d)
@@ -88,6 +88,13 @@ if(DEFINED BUILD_PYTHON_MODULE)
 		VERBATIM
 	)
 
+	# copy Cython file to binary dir to avoid "class is declared but not defined" errors
+	configure_file(
+		"${CMAKE_CURRENT_SOURCE_DIR}/impulse_wars.pyx"
+		"${CMAKE_CURRENT_BINARY_DIR}/impulse_wars.pyx"
+		COPYONLY
+	)
+
 	add_custom_command(
 		OUTPUT impulse_wars.c
 		COMMENT "Transpiling Cython to C"
@@ -97,7 +104,7 @@ if(DEFINED BUILD_PYTHON_MODULE)
 			-X initializedcheck=false
 			-X wraparound=false
 			-X cdivision=true
-			"${CMAKE_CURRENT_SOURCE_DIR}/impulse_wars.pyx" -o impulse_wars.c
+			impulse_wars.pyx -o impulse_wars.c
 		DEPENDS impulse_wars.pxd impulse_wars.pyx
 		VERBATIM
 	)
