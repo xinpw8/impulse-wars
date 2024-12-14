@@ -90,8 +90,8 @@ if(DEFINED BUILD_PYTHON_MODULE)
 
 	# copy Cython file to binary dir to avoid "class is declared but not defined" errors
 	configure_file(
-		"${CMAKE_CURRENT_SOURCE_DIR}/impulse_wars.pyx"
-		"${CMAKE_CURRENT_BINARY_DIR}/impulse_wars.pyx"
+		"${CMAKE_CURRENT_SOURCE_DIR}/cy_impulse_wars.pyx"
+		"${CMAKE_CURRENT_BINARY_DIR}/cy_impulse_wars.pyx"
 		COPYONLY
 	)
 
@@ -104,15 +104,15 @@ if(DEFINED BUILD_PYTHON_MODULE)
 			-X initializedcheck=false
 			-X wraparound=false
 			-X cdivision=true
-			impulse_wars.pyx -o impulse_wars.c
-		DEPENDS impulse_wars.pxd impulse_wars.pyx
+			cy_impulse_wars.pyx -o impulse_wars.c
+		DEPENDS impulse_wars.pxd cy_impulse_wars.pyx
 		VERBATIM
 	)
 
 	# build python module
-	python_add_library(impulse_wars MODULE impulse_wars.c WITH_SOABI)
-	configure_target(impulse_wars)
-	install(TARGETS impulse_wars DESTINATION .)
+	python_add_library(cy_impulse_wars MODULE impulse_wars.c WITH_SOABI)
+	configure_target(cy_impulse_wars)
+	install(TARGETS cy_impulse_wars DESTINATION .)
 elseif(DEFINED BUILD_DEMO)
 	add_executable(demo demo.c)
 	configure_target(demo)
