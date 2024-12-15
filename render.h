@@ -346,11 +346,19 @@ void renderEnv(env *e)
     for (size_t i = 0; i < cc_deque_size(e->drones); i++)
     {
         const droneEntity *drone = safe_deque_get_at(e->drones, i);
+        if (drone->dead)
+        {
+            continue;
+        }
         renderDroneGuides(e, drone, i);
     }
     for (size_t i = 0; i < cc_deque_size(e->drones); i++)
     {
         const droneEntity *drone = safe_deque_get_at(e->drones, i);
+        if (drone->dead)
+        {
+            continue;
+        }
         renderDrone(drone, i);
     }
 
@@ -377,6 +385,10 @@ void renderEnv(env *e)
     for (size_t i = 0; i < cc_deque_size(e->drones); i++)
     {
         const droneEntity *drone = safe_deque_get_at(e->drones, i);
+        if (drone->dead)
+        {
+            continue;
+        }
         renderDroneLabels(drone);
     }
 

@@ -45,7 +45,7 @@
 
 #define MAX_X_POS 40.0f
 #define MAX_Y_POS 40.0f
-#define MAX_SPEED 200.0f
+#define MAX_SPEED 250.0f
 
 #define ACTION_SIZE 5
 
