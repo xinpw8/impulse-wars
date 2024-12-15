@@ -22,7 +22,6 @@ project(
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
 # fetch and configure dependencies
-
 FetchContent_Declare(
 	raylib
 	GIT_REPOSITORY https://github.com/raysan5/raylib.git
@@ -45,7 +44,10 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(box2d)
 
 function(configure_target target_name)
-	target_include_directories(${target_name} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} include)
+	target_include_directories(
+		${target_name} PRIVATE
+		"${CMAKE_CURRENT_SOURCE_DIR}/src" "${CMAKE_CURRENT_SOURCE_DIR}/src/include"
+	)
 	target_link_libraries(${target_name} PRIVATE raylib box2d)
 
 	target_compile_options(${target_name} PRIVATE "-Werror" "-Wall" "-Wpedantic" "-Wno-variadic-macros")
@@ -114,9 +116,9 @@ if(DEFINED BUILD_PYTHON_MODULE)
 	configure_target(cy_impulse_wars)
 	install(TARGETS cy_impulse_wars DESTINATION .)
 elseif(DEFINED BUILD_DEMO)
-	add_executable(demo demo.c)
+	add_executable(demo "${CMAKE_CURRENT_SOURCE_DIR}/src/demo.c")
 	configure_target(demo)
 elseif(DEFINED BUILD_BENCHMARK)
-	add_executable(benchmark benchmark.c)
+	add_executable(benchmark "${CMAKE_CURRENT_SOURCE_DIR}/src/benchmark.c")
 	configure_target(benchmark)
 endif()
