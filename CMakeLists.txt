@@ -1,8 +1,13 @@
 ﻿cmake_minimum_required(VERSION 3.22)
 include(FetchContent)
 
-find_program(CLANG_EXECUTABLE "clang")
-if(CLANG_EXECUTABLE)
+find_program(CCACHE_FOUND "ccache")
+if(CCACHE_FOUND)
+	set(CMAKE_C_COMPILER_LAUNCHER "ccache")
+endif()
+
+find_program(CLANG_FOUND "clang")
+if(CLANG_FOUND)
 	set(CMAKE_C_COMPILER "clang")
 	set(CMAKE_CXX_COMPILER "clang++")
 endif()
@@ -52,8 +57,8 @@ function(configure_target target_name)
 
 	target_compile_options(${target_name} PRIVATE "-Werror" "-Wall" "-Wpedantic" "-Wno-variadic-macros")
 
-	find_program(MOLD_EXECUTABLE "mold")
-	if(MOLD_EXECUTABLE)
+	find_program(MOLD_FOUND "mold")
+	if(MOLD_FOUND)
 		target_link_options(${target_name} PUBLIC "-fuse-ld=mold")
 	endif()
 endfunction()
