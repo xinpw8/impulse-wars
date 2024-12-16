@@ -9,14 +9,26 @@ endif()
 find_program(CLANG_FOUND "clang")
 if(CLANG_FOUND)
 	set(CMAKE_C_COMPILER "clang")
-	set(CMAKE_CXX_COMPILER "clang++")
 endif()
 set(CMAKE_C_FLAGS_INIT " -std=c2x")
 
-set (CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -fno-omit-frame-pointer -fsanitize=address,undefined,bounds,pointer-overflow,leak")
-set (CMAKE_LINKER_FLAGS_DEBUG "${CMAKE_LINKER_FLAGS_DEBUG} -fno-omit-frame-pointer -fsanitize=address,undefined,bounds,pointer-overflow,leak")
+if(CMAKE_BUILD_TYPE MATCHES Debug)
+	add_compile_options("-fno-omit-frame-pointer" "-fsanitize=address,undefined,bounds,pointer-overflow,leak")
+	add_link_options("-fno-omit-frame-pointer" "-fsanitize=address,undefined,bounds,pointer-overflow,leak")
 
-set (CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O3 -flto -march=native -fno-math-errno")
+	# only use mold in debug mode, link time optimization currently doesn't
+	# work with mold and provides large speedups
+	find_program(MOLD_FOUND "mold")
+	if(MOLD_FOUND)
+		add_link_options("-fuse-ld=mold")
+	endif()
+else()
+	add_compile_options("-flto" "-march=native" "-fno-math-errno")
+	# use lld if clang is the compiler so the object files are compatible
+	if(CLANG_FOUND)
+		add_link_options("-fuse-ld=lld")
+	endif()
+endif()
 
 project(
 	impulse-wars
@@ -56,11 +68,6 @@ function(configure_target target_name)
 	target_link_libraries(${target_name} PRIVATE raylib box2d)
 
 	target_compile_options(${target_name} PRIVATE "-Werror" "-Wall" "-Wpedantic" "-Wno-variadic-macros")
-
-	find_program(MOLD_FOUND "mold")
-	if(MOLD_FOUND)
-		target_link_options(${target_name} PUBLIC "-fuse-ld=mold")
-	endif()
 endfunction()
 
 if(DEFINED BUILD_PYTHON_MODULE)

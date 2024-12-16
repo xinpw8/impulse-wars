@@ -4,8 +4,13 @@ void perfTest(const int steps)
 {
     srand(0);
 
-    env *e = createEnv();
-    setupEnv(e);
+    env *e = (env *)fastCalloc(1, sizeof(env));
+    float *obs = (float *)fastCalloc(NUM_DRONES * OBS_SIZE, sizeof(float));
+    float *rewards = (float *)fastCalloc(NUM_DRONES, sizeof(float));
+    float *actions = (float *)fastCalloc(NUM_DRONES * ACTION_SIZE, sizeof(float));
+    unsigned char *terminals = (unsigned char *)fastCalloc(NUM_DRONES, sizeof(bool));
+
+    initEnv(e, obs, rewards, actions, terminals);
 
     for (int i = 0; i < steps; i++)
     {
@@ -21,7 +26,7 @@ void perfTest(const int steps)
             actionOffset += ACTION_SIZE;
         }
 
-        stepEnv(e, DELTA_TIME);
+        stepEnv(e);
         if (envTerminated(e))
         {
             resetEnv(e);
