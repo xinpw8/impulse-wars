@@ -70,11 +70,12 @@ if(DEFINED BUILD_PYTHON_MODULE)
 		OUTPUT impulse_wars.pxd.raw
 		COMMENT "Converting C headers to Cython PXD file"
 		COMMAND autopxd
-			-I "${CMAKE_CURRENT_SOURCE_DIR}/include"
+			-I "${CMAKE_CURRENT_SOURCE_DIR}/src"
+			-I "${CMAKE_CURRENT_SOURCE_DIR}/src/include"
 			-I "${box2d_SOURCE_DIR}/include" 
 			-I "${raylib_SOURCE_DIR}"
-			"${CMAKE_CURRENT_SOURCE_DIR}/env.h" impulse_wars.pxd.raw
-		DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/env.h"
+			"${CMAKE_CURRENT_SOURCE_DIR}/src/env.h" impulse_wars.pxd.raw
+		DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/env.h"
 		VERBATIM
 	)
 
@@ -91,6 +92,8 @@ if(DEFINED BUILD_PYTHON_MODULE)
 	)
 
 	# copy Cython file to binary dir to avoid "class is declared but not defined" errors
+	# apparently Cython doesn't like when you aren't compiling a file in the working directory
+	# and that file imports a PXD file
 	configure_file(
 		"${CMAKE_CURRENT_SOURCE_DIR}/cy_impulse_wars.pyx"
 		"${CMAKE_CURRENT_BINARY_DIR}/cy_impulse_wars.pyx"

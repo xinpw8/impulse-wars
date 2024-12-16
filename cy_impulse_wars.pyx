@@ -1,6 +1,21 @@
 from libc.stdlib cimport calloc, free
 
-from impulse_wars cimport env, initEnv, resetEnv, stepEnv, destroyEnv
+from impulse_wars cimport (
+    OBS_SIZE,
+    ACTION_SIZE,
+    env,
+    initEnv,
+    resetEnv,
+    stepEnv,
+    destroyEnv,
+)
+
+
+def getObsSize() -> int:
+    return OBS_SIZE
+
+def getActionsSize() -> int:
+    return ACTION_SIZE
 
 
 cdef class CyImpulseWars:

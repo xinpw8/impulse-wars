@@ -37,17 +37,17 @@
 #define FLOATING_WALL_OBS_SIZE 6
 #define MAX_MAP_COLUMNS 21
 #define MAX_MAP_ROWS 21
-#define OBS_SIZE                                        \
-    ((NUM_DRONES * DRONE_OBS_SIZE) +                    \
-     (NUM_PROJECTILE_OBS * PROJECTILE_OBS_SIZE) +       \
-     (NUM_FLOATING_WALL_OBS * FLOATING_WALL_OBS_SIZE) + \
-     (MAX_MAP_COLUMNS * MAX_MAP_ROWS))
+const uint16_t OBS_SIZE =
+    ((NUM_DRONES * DRONE_OBS_SIZE) +
+     (NUM_PROJECTILE_OBS * PROJECTILE_OBS_SIZE) +
+     (NUM_FLOATING_WALL_OBS * FLOATING_WALL_OBS_SIZE) +
+     (MAX_MAP_COLUMNS * MAX_MAP_ROWS));
 
 #define MAX_X_POS 40.0f
 #define MAX_Y_POS 40.0f
 #define MAX_SPEED 250.0f
 
-#define ACTION_SIZE 5
+const uint8_t ACTION_SIZE = 5;
 
 // wall settings
 #define WALL_THICKNESS 4.0f
