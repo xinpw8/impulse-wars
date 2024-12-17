@@ -9,7 +9,7 @@
 
 #include "box2d/box2d.h"
 
-#include "include/cc_deque.h"
+#include "include/cc_array.h"
 
 #ifndef NDEBUG
 #define ON_ERROR __builtin_trap()
@@ -120,10 +120,10 @@ static inline void *createConstStruct(const void *const data, const size_t size)
 
 // automatically checks that the index is valid and returns the value
 // so callers can use it as a constant expression
-static inline void *safe_deque_get_at(const CC_Deque *const deque, size_t index)
+static inline void *safe_array_get_at(const CC_Array *const array, size_t index)
 {
     void *val;
-    const enum cc_stat res = cc_deque_get_at(deque, index, &val);
+    const enum cc_stat res = cc_array_get_at(array, index, &val);
     ASSERT(res == CC_OK);
     MAYBE_UNUSED(res);
     return val;

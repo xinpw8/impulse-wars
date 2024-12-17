@@ -4,7 +4,7 @@
 
 #include "box2d/box2d.h"
 
-#include "include/cc_deque.h"
+#include "include/cc_array.h"
 #include "include/cc_slist.h"
 
 #include "settings.h"
@@ -178,11 +178,11 @@ typedef struct env
     uint8_t rows;
     mapBounds bounds;
     weaponInformation *defaultWeapon;
-    CC_Deque *cells;
-    CC_Deque *walls;
-    CC_Deque *floatingWalls;
-    CC_Deque *drones;
-    CC_Deque *pickups;
+    CC_Array *cells;
+    CC_Array *walls;
+    CC_Array *floatingWalls;
+    CC_Array *drones;
+    CC_Array *pickups;
     CC_SList *projectiles;
 
     // used for rendering explosions

@@ -5,9 +5,6 @@
 #include <errno.h>
 #include <string.h>
 
-#include "box2d/box2d.h"
-#include "cc_deque.h"
-
 #include "env.h"
 #include "settings.h"
 
@@ -187,7 +184,7 @@ void createMap(env *e, const int mapIdx)
             mapCell *cell = (mapCell *)fastMalloc(sizeof(mapCell));
             cell->ent = NULL;
             cell->pos = pos;
-            cc_deque_add(e->cells, cell);
+            cc_array_add(e->cells, cell);
 
             bool floating = false;
             float thickness = WALL_THICKNESS;

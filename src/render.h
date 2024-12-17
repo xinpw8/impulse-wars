@@ -345,18 +345,18 @@ void renderEnv(env *e)
 
     renderUI(e);
 
-    for (size_t i = 0; i < cc_deque_size(e->drones); i++)
+    for (size_t i = 0; i < cc_array_size(e->drones); i++)
     {
-        const droneEntity *drone = safe_deque_get_at(e->drones, i);
+        const droneEntity *drone = safe_array_get_at(e->drones, i);
         if (drone->dead)
         {
             continue;
         }
         renderDroneGuides(e, drone, i);
     }
-    for (size_t i = 0; i < cc_deque_size(e->drones); i++)
+    for (size_t i = 0; i < cc_array_size(e->drones); i++)
     {
-        const droneEntity *drone = safe_deque_get_at(e->drones, i);
+        const droneEntity *drone = safe_array_get_at(e->drones, i);
         if (drone->dead)
         {
             continue;
@@ -364,29 +364,29 @@ void renderEnv(env *e)
         renderDrone(drone, i);
     }
 
-    for (size_t i = 0; i < cc_deque_size(e->walls); i++)
+    for (size_t i = 0; i < cc_array_size(e->walls); i++)
     {
-        const wallEntity *wall = safe_deque_get_at(e->walls, i);
+        const wallEntity *wall = safe_array_get_at(e->walls, i);
         renderWall(wall);
     }
 
-    for (size_t i = 0; i < cc_deque_size(e->floatingWalls); i++)
+    for (size_t i = 0; i < cc_array_size(e->floatingWalls); i++)
     {
-        const wallEntity *wall = safe_deque_get_at(e->floatingWalls, i);
+        const wallEntity *wall = safe_array_get_at(e->floatingWalls, i);
         renderWall(wall);
     }
 
-    for (size_t i = 0; i < cc_deque_size(e->pickups); i++)
+    for (size_t i = 0; i < cc_array_size(e->pickups); i++)
     {
-        const weaponPickupEntity *pickup = safe_deque_get_at(e->pickups, i);
+        const weaponPickupEntity *pickup = safe_array_get_at(e->pickups, i);
         renderWeaponPickup(pickup);
     }
 
     renderProjectiles(e);
 
-    for (size_t i = 0; i < cc_deque_size(e->drones); i++)
+    for (size_t i = 0; i < cc_array_size(e->drones); i++)
     {
-        const droneEntity *drone = safe_deque_get_at(e->drones, i);
+        const droneEntity *drone = safe_array_get_at(e->drones, i);
         if (drone->dead)
         {
             continue;
@@ -394,10 +394,10 @@ void renderEnv(env *e)
         renderDroneLabels(drone);
     }
 
-    // for (size_t i = 0; i < cc_deque_size(e->cells); i++)
+    // for (size_t i = 0; i < cc_array_size(e->cells); i++)
     // {
     //     mapCell *cell;
-    //     cc_deque_get_at(e->cells, i, (void **)&cell);
+    //     cc_array_get_at(e->cells, i, (void **)&cell);
     //     if (cell->ent == NULL)
     //     {
     //         renderEmptyCell(cell->pos, i);

@@ -48,6 +48,10 @@ void getPlayerInputs(const env *e, const droneEntity *drone, const int gamepadId
 
         return;
     }
+    if (gamepadIdx != 0)
+    {
+        return;
+    }
 
     b2Vec2 move = b2Vec2_zero;
     if (IsKeyDown(KEY_W))
@@ -114,10 +118,10 @@ int main(void)
             return 0;
         }
 
-        for (size_t i = 0; i < cc_deque_size(e->drones); i++)
+        for (size_t i = 0; i < cc_array_size(e->drones); i++)
         {
             droneEntity *drone;
-            cc_deque_get_at(e->drones, i, (void **)&drone);
+            cc_array_get_at(e->drones, i, (void **)&drone);
             getPlayerInputs(e, drone, i);
         }
 
@@ -125,23 +129,23 @@ int main(void)
         renderEnv(e);
 
         // if one drone died, pause the game before resetting so it's clear who won
-        for (size_t i = 0; i < cc_deque_size(e->drones); i++)
+        for (size_t i = 0; i < cc_array_size(e->drones); i++)
         {
-            const droneEntity *drone = safe_deque_get_at(e->drones, i);
+            const droneEntity *drone = safe_array_get_at(e->drones, i);
             if (!drone->dead)
             {
                 continue;
             }
 
-            uint8_t offset = i * ACTION_SIZE;
-            memset(e->actions + offset, 0x0, ACTION_SIZE * sizeof(float));
+            // uint8_t offset = i * ACTION_SIZE;
+            // memset(e->actions + offset, 0x0, ACTION_SIZE * sizeof(float));
 
-            b2Body_Disable(drone->bodyID);
-            for (int i = 0; i < 120; i++)
-            {
-                stepEnv(e);
-                renderEnv(e);
-            }
+            // b2Body_Disable(drone->bodyID);
+            // for (int i = 0; i < 120; i++)
+            // {
+            //     stepEnv(e);
+            //     renderEnv(e);
+            // }
 
             resetEnv(e);
         }

@@ -49,7 +49,7 @@ bool isOverlapping(env *e, const b2Vec2 pos, const float distance, const enum sh
 bool findOpenPos(env *e, const enum shapeCategory type, b2Vec2 *emptyPos)
 {
     uint8_t checkedCells[BITNSLOTS(MAX_CELLS)] = {0};
-    const size_t nCells = cc_deque_size(e->cells);
+    const size_t nCells = cc_array_size(e->cells);
     uint16_t attempts = 0;
 
     while (true)
@@ -66,7 +66,7 @@ bool findOpenPos(env *e, const enum shapeCategory type, b2Vec2 *emptyPos)
         bitSet(checkedCells, cellIdx);
         attempts++;
 
-        const mapCell *cell = safe_deque_get_at(e->cells, cellIdx);
+        const mapCell *cell = safe_array_get_at(e->cells, cellIdx);
         if (cell->ent != NULL)
         {
             continue;
@@ -152,11 +152,11 @@ entity *createWall(env *e, const float posX, const float posY, const float width
 
     if (floating)
     {
-        cc_deque_add(e->floatingWalls, wall);
+        cc_array_add(e->floatingWalls, wall);
     }
     else
     {
-        cc_deque_add(e->walls, wall);
+        cc_array_add(e->walls, wall);
     }
 
     return ent;
@@ -190,7 +190,7 @@ void createSuddenDeathWalls(env *e, const b2Vec2 startPos, const b2Vec2 size)
     const uint16_t startIdx = posToCellIdx(e, startPos);
     for (uint16_t i = startIdx; i <= endIdx; i += indexIncrement)
     {
-        mapCell *cell = safe_deque_get_at(e->cells, i);
+        mapCell *cell = safe_array_get_at(e->cells, i);
         if (cell->ent != NULL && cell->ent->type == WEAPON_PICKUP_ENTITY)
         {
             weaponPickupEntity *pickup = (weaponPickupEntity *)cell->ent->entity;
@@ -270,14 +270,14 @@ void createWeaponPickup(env *e)
 
     const uint16_t cellIdx = posToCellIdx(e, pickupBodyDef.position);
     pickup->mapCellIdx = cellIdx;
-    mapCell *cell = safe_deque_get_at(e->cells, cellIdx);
+    mapCell *cell = safe_array_get_at(e->cells, cellIdx);
     cell->ent = ent;
 
     pickupShapeDef.userData = ent;
     const b2Polygon pickupPolygon = b2MakeBox(PICKUP_THICKNESS / 2.0f, PICKUP_THICKNESS / 2.0f);
     pickup->shapeID = b2CreatePolygonShape(pickupBodyID, &pickupShapeDef, &pickupPolygon);
 
-    cc_deque_add(e->pickups, pickup);
+    cc_array_add(e->pickups, pickup);
 }
 
 void destroyWeaponPickup(weaponPickupEntity *pickup)
@@ -331,7 +331,7 @@ void createDrone(env *e, const uint8_t idx)
     droneShapeDef.userData = ent;
     drone->shapeID = b2CreateCircleShape(droneBodyID, &droneShapeDef, &droneCircle);
 
-    cc_deque_add(e->drones, drone);
+    cc_array_add(e->drones, drone);
 }
 
 void destroyDrone(droneEntity *drone)
@@ -435,7 +435,7 @@ void destroyProjectile(env *e, projectileEntity *projectile, const bool full)
             .categoryBits = PROJECTILE_SHAPE,
             .maskBits = DRONE_SHAPE,
         };
-        droneEntity *drone = safe_deque_get_at(e->drones, projectile->droneIdx);
+        droneEntity *drone = safe_array_get_at(e->drones, projectile->droneIdx);
         b2World_OverlapCircle(e->worldID, &cir, transform, filter, explosionOverlapCallback, drone);
     }
 
@@ -512,9 +512,9 @@ void handleSuddenDeath(env *e)
 
     // mark drones as dead if they touch a newly placed wall
     bool droneDead = false;
-    for (size_t i = 0; i < cc_deque_size(e->drones); i++)
+    for (size_t i = 0; i < cc_array_size(e->drones); i++)
     {
-        droneEntity *drone = safe_deque_get_at(e->drones, i);
+        droneEntity *drone = safe_array_get_at(e->drones, i);
         const b2Vec2 pos = b2Body_GetPosition(drone->bodyID);
         if (isOverlapping(e, pos, DRONE_RADIUS, DRONE_SHAPE, WALL_SHAPE))
         {
@@ -530,10 +530,10 @@ void handleSuddenDeath(env *e)
     // TODO: not all floating walls are destroyed correctly
     // make floating walls static bodies if they are now overlapping with
     // a newly placed wall, but destroy them if they are fully inside a wall
-    CC_DequeIter iter;
-    cc_deque_iter_init(&iter, e->floatingWalls);
+    CC_ArrayIter iter;
+    cc_array_iter_init(&iter, e->floatingWalls);
     wallEntity *wall;
-    while (cc_deque_iter_next(&iter, (void **)&wall) != CC_ITER_END)
+    while (cc_array_iter_next(&iter, (void **)&wall) != CC_ITER_END)
     {
         const b2BodyType type = b2Body_GetType(wall->bodyID);
         if (type == b2_staticBody)
@@ -543,7 +543,7 @@ void handleSuddenDeath(env *e)
 
             // floating wall was previously partially overlapping with a wall,
             // now it is fully inside a wall, destroy it
-            const enum cc_stat res = cc_deque_iter_remove(&iter, NULL);
+            const enum cc_stat res = cc_array_iter_remove(&iter, NULL);
             MAYBE_UNUSED(res);
             ASSERT(res == CC_OK);
             destroyWall(wall);
@@ -673,10 +673,10 @@ void weaponPickupsStep(env *e, const float frameTime)
 {
     ASSERT(frameTime != 0.0f);
 
-    CC_DequeIter iter;
-    cc_deque_iter_init(&iter, e->pickups);
+    CC_ArrayIter iter;
+    cc_array_iter_init(&iter, e->pickups);
     weaponPickupEntity *pickup;
-    while (cc_deque_iter_next(&iter, (void **)&pickup) != CC_ITER_END)
+    while (cc_array_iter_next(&iter, (void **)&pickup) != CC_ITER_END)
     {
         if (pickup->respawnWait != 0.0f)
         {
@@ -686,7 +686,7 @@ void weaponPickupsStep(env *e, const float frameTime)
                 b2Vec2 pos;
                 if (!findOpenPos(e, WEAPON_PICKUP_SHAPE, &pos))
                 {
-                    const enum cc_stat res = cc_deque_iter_remove(&iter, NULL);
+                    const enum cc_stat res = cc_array_iter_remove(&iter, NULL);
                     MAYBE_UNUSED(res);
                     ASSERT(res == CC_OK);
                     DEBUG_LOG("destroying weapon pickup");
@@ -699,7 +699,7 @@ void weaponPickupsStep(env *e, const float frameTime)
                 DEBUG_LOGF("respawned weapon pickup at %f, %f", pos.x, pos.y);
                 const uint16_t cellIdx = posToCellIdx(e, pos);
                 pickup->mapCellIdx = cellIdx;
-                mapCell *cell = safe_deque_get_at(e->cells, cellIdx);
+                mapCell *cell = safe_array_get_at(e->cells, cellIdx);
                 entity *ent = (entity *)b2Shape_GetUserData(pickup->shapeID);
                 cell->ent = ent;
             }
@@ -730,7 +730,7 @@ bool handleProjectileBeginContact(env *e, const entity *proj, const entity *ent)
             const droneEntity *hitDrone = (droneEntity *)ent->entity;
             if (projectile->droneIdx != hitDrone->idx)
             {
-                droneEntity *shooterDrone = safe_deque_get_at(e->drones, projectile->droneIdx);
+                droneEntity *shooterDrone = safe_array_get_at(e->drones, projectile->droneIdx);
                 shooterDrone->hitInfo.shotHit = true;
             }
         }
@@ -843,7 +843,7 @@ void handleWeaponPickupBeginTouch(env *e, const entity *sensor, entity *visitor)
     {
     case DRONE_ENTITY:
         pickup->respawnWait = PICKUP_RESPAWN_WAIT;
-        mapCell *cell = safe_deque_get_at(e->cells, pickup->mapCellIdx);
+        mapCell *cell = safe_array_get_at(e->cells, pickup->mapCellIdx);
         ASSERT(cell->ent != NULL);
         cell->ent = NULL;
 

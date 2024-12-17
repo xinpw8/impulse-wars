@@ -22,9 +22,9 @@ void computeObs(env *e)
     e->obs[offset++] = scaleValue(e->stepsLeft, ROUND_STEPS, true);
 
     // compute drone observations
-    for (size_t i = 0; i < cc_deque_size(e->drones); i++)
+    for (size_t i = 0; i < cc_array_size(e->drones); i++)
     {
-        const droneEntity *drone = safe_deque_get_at(e->drones, i);
+        const droneEntity *drone = safe_array_get_at(e->drones, i);
         const b2Vec2 pos = b2Body_GetPosition(drone->bodyID);
 
         int8_t ammo = drone->ammo;
@@ -95,9 +95,9 @@ void computeObs(env *e)
     ASSERT(offset == projectileObsOffset);
 
     // compute floating wall observations
-    for (size_t i = 0; i < cc_deque_size(e->floatingWalls); i++)
+    for (size_t i = 0; i < cc_array_size(e->floatingWalls); i++)
     {
-        const wallEntity *wall = safe_deque_get_at(e->floatingWalls, i);
+        const wallEntity *wall = safe_array_get_at(e->floatingWalls, i);
         const b2Vec2 pos = b2Body_GetPosition(wall->bodyID);
         const b2Vec2 vel = b2Body_GetLinearVelocity(wall->bodyID);
         const float angle = b2Rot_GetAngle(b2Body_GetRotation(wall->bodyID)) * RAD2DEG;
@@ -126,9 +126,9 @@ void computeObs(env *e)
 
     // compute map cell observations
     // TODO: add discretized positions of drones and maybe projectiles?
-    for (size_t i = 0; i < cc_deque_size(e->cells); i++)
+    for (size_t i = 0; i < cc_array_size(e->cells); i++)
     {
-        const mapCell *cell = safe_deque_get_at(e->cells, i);
+        const mapCell *cell = safe_array_get_at(e->cells, i);
         // empty cells are set as 1 so 0 can be used to represent the end of the map
         float cellType = 1.0f;
         if (cell->ent != NULL)
@@ -209,9 +209,9 @@ void setupEnv(env *e)
     createMap(e, mapIdx);
 
     mapBounds bounds = {.min = {.x = FLT_MAX, .y = FLT_MAX}, .max = {.x = FLT_MIN, .y = FLT_MIN}};
-    for (size_t i = 0; i < cc_deque_size(e->walls); i++)
+    for (size_t i = 0; i < cc_array_size(e->walls); i++)
     {
-        const wallEntity *wall = safe_deque_get_at(e->walls, i);
+        const wallEntity *wall = safe_array_get_at(e->walls, i);
         bounds.min.x = fminf(wall->position.x - wall->extent.x + WALL_THICKNESS, bounds.min.x);
         bounds.min.y = fminf(wall->position.y - wall->extent.y + WALL_THICKNESS, bounds.min.y);
         bounds.max.x = fmaxf(wall->position.x + wall->extent.x - WALL_THICKNESS, bounds.max.x);
@@ -247,11 +247,11 @@ env *initEnv(env *e, float *obs, float *actions, float *rewards, unsigned char *
     e->randState = seed;
     e->needsReset = false;
 
-    cc_deque_new(&e->cells);
-    cc_deque_new(&e->walls);
-    cc_deque_new(&e->floatingWalls);
-    cc_deque_new(&e->drones);
-    cc_deque_new(&e->pickups);
+    cc_array_new(&e->cells);
+    cc_array_new(&e->walls);
+    cc_array_new(&e->floatingWalls);
+    cc_array_new(&e->drones);
+    cc_array_new(&e->pickups);
     cc_slist_new(&e->projectiles);
 
     setupEnv(e);
@@ -264,43 +264,43 @@ void clearEnv(env *e)
     memset(e->obs, 0x0, OBS_SIZE * NUM_DRONES * sizeof(float));
     memset(e->terminals, 0x0, NUM_DRONES * sizeof(bool));
 
-    for (size_t i = 0; i < cc_deque_size(e->pickups); i++)
+    for (size_t i = 0; i < cc_array_size(e->pickups); i++)
     {
-        weaponPickupEntity *pickup = safe_deque_get_at(e->pickups, i);
+        weaponPickupEntity *pickup = safe_array_get_at(e->pickups, i);
         destroyWeaponPickup(pickup);
     }
 
-    for (size_t i = 0; i < cc_deque_size(e->drones); i++)
+    for (size_t i = 0; i < cc_array_size(e->drones); i++)
     {
-        droneEntity *drone = safe_deque_get_at(e->drones, i);
+        droneEntity *drone = safe_array_get_at(e->drones, i);
         destroyDrone(drone);
     }
 
     destroyAllProjectiles(e);
 
-    for (size_t i = 0; i < cc_deque_size(e->walls); i++)
+    for (size_t i = 0; i < cc_array_size(e->walls); i++)
     {
-        wallEntity *wall = safe_deque_get_at(e->walls, i);
+        wallEntity *wall = safe_array_get_at(e->walls, i);
         destroyWall(wall);
     }
 
-    for (size_t i = 0; i < cc_deque_size(e->floatingWalls); i++)
+    for (size_t i = 0; i < cc_array_size(e->floatingWalls); i++)
     {
-        wallEntity *wall = safe_deque_get_at(e->floatingWalls, i);
+        wallEntity *wall = safe_array_get_at(e->floatingWalls, i);
         destroyWall(wall);
     }
 
-    for (size_t i = 0; i < cc_deque_size(e->cells); i++)
+    for (size_t i = 0; i < cc_array_size(e->cells); i++)
     {
-        mapCell *cell = safe_deque_get_at(e->cells, i);
+        mapCell *cell = safe_array_get_at(e->cells, i);
         fastFree(cell);
     }
 
-    cc_deque_remove_all(e->cells);
-    cc_deque_remove_all(e->walls);
-    cc_deque_remove_all(e->floatingWalls);
-    cc_deque_remove_all(e->drones);
-    cc_deque_remove_all(e->pickups);
+    cc_array_remove_all(e->cells);
+    cc_array_remove_all(e->walls);
+    cc_array_remove_all(e->floatingWalls);
+    cc_array_remove_all(e->drones);
+    cc_array_remove_all(e->pickups);
     cc_slist_remove_all(e->projectiles);
 
     b2DestroyWorld(e->worldID);
@@ -310,11 +310,11 @@ void destroyEnv(env *e)
 {
     clearEnv(e);
 
-    cc_deque_destroy(e->cells);
-    cc_deque_destroy(e->walls);
-    cc_deque_destroy(e->floatingWalls);
-    cc_deque_destroy(e->drones);
-    cc_deque_destroy(e->pickups);
+    cc_array_destroy(e->cells);
+    cc_array_destroy(e->walls);
+    cc_array_destroy(e->floatingWalls);
+    cc_array_destroy(e->drones);
+    cc_array_destroy(e->pickups);
     cc_slist_destroy(e->projectiles);
 }
 
@@ -331,7 +331,7 @@ void computeReward(env *e, const droneEntity *drone)
     {
         enemyID = 0;
     }
-    const droneEntity *enemyDrone = safe_deque_get_at(e->drones, enemyID);
+    const droneEntity *enemyDrone = safe_array_get_at(e->drones, enemyID);
 
     if (enemyDrone->dead)
     {
@@ -357,9 +357,9 @@ void computeReward(env *e, const droneEntity *drone)
 
 void computeRewards(env *e)
 {
-    for (size_t i = 0; i < cc_deque_size(e->drones); i++)
+    for (size_t i = 0; i < cc_array_size(e->drones); i++)
     {
-        const droneEntity *drone = safe_deque_get_at(e->drones, i);
+        const droneEntity *drone = safe_array_get_at(e->drones, i);
         computeReward(e, drone);
 
         if (e->rewards[drone->idx] != 0.0f)
@@ -380,14 +380,14 @@ void stepEnv(env *e)
     for (int i = 0; i < FRAMESKIP; i++)
     {
         // handle actions
-        for (size_t i = 0; i < cc_deque_size(e->drones); i++)
+        for (size_t i = 0; i < cc_array_size(e->drones); i++)
         {
             const uint8_t offset = i * ACTION_SIZE;
             const b2Vec2 move = b2Normalize((b2Vec2){.x = e->actions[offset + 0], .y = e->actions[offset + 1]});
             const b2Vec2 aim = b2Normalize((b2Vec2){.x = e->actions[offset + 2], .y = e->actions[offset + 3]});
             const bool shoot = e->actions[offset + 4] > 0.0f;
 
-            droneEntity *drone = safe_deque_get_at(e->drones, i);
+            droneEntity *drone = safe_array_get_at(e->drones, i);
             if (!b2VecEqual(move, b2Vec2_zero))
             {
                 droneMove(drone, move);
@@ -423,9 +423,9 @@ void stepEnv(env *e)
         }
 
         bool terminate = false;
-        for (size_t i = 0; i < cc_deque_size(e->drones); i++)
+        for (size_t i = 0; i < cc_array_size(e->drones); i++)
         {
-            droneEntity *drone = safe_deque_get_at(e->drones, i);
+            droneEntity *drone = safe_array_get_at(e->drones, i);
             droneStep(drone, DELTA_TIME);
             if (drone->dead)
             {
@@ -454,9 +454,9 @@ void stepEnv(env *e)
 
 bool envTerminated(env *e)
 {
-    for (size_t i = 0; i < cc_deque_size(e->drones); i++)
+    for (size_t i = 0; i < cc_array_size(e->drones); i++)
     {
-        droneEntity *drone = safe_deque_get_at(e->drones, i);
+        droneEntity *drone = safe_array_get_at(e->drones, i);
         if (drone->dead)
         {
             return true;
