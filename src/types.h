@@ -9,8 +9,9 @@
 
 #include "settings.h"
 
-#define NUM_ENTITY_TYPES 6
-#define NUM_WALL_TYPES 3
+// 1 is added for the invalid entity type
+const uint8_t NUM_ENTITY_TYPES = 7;
+const uint8_t NUM_WALL_TYPES = 4;
 
 enum entityType
 {
@@ -43,7 +44,8 @@ typedef struct entity
     void *entity;
 } entity;
 
-#define NUM_WEAPONS 5
+#define _NUM_WEAPONS 5
+const uint8_t NUM_WEAPONS = _NUM_WEAPONS;
 
 enum weaponType
 {
@@ -135,9 +137,9 @@ typedef struct stepHitInfo
 
 typedef struct droneStats
 {
-    uint16_t shotsFired[NUM_WEAPONS];
-    uint16_t shotsHit[NUM_WEAPONS];
-    uint16_t shotsTaken[NUM_WEAPONS];
+    uint16_t shotsFired[_NUM_WEAPONS];
+    uint16_t shotsHit[_NUM_WEAPONS];
+    uint16_t shotsTaken[_NUM_WEAPONS];
 } droneStats;
 
 typedef struct droneEntity

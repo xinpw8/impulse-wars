@@ -1,6 +1,8 @@
 __pycache__/
 .vscode/
 .vs/
+wandb/
+checkpoints/
 build/
 debug*/
 release*/

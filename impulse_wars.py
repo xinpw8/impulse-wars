@@ -4,25 +4,25 @@ import numpy as np
 import pufferlib
 
 from cy_impulse_wars import (
-    getObsSize,
-    getActionsSize,
+    obsHigh,
+    numDrones,
+    obsSize,
+    actionsSize,
     CyImpulseWars,
 )
-
-
-NUM_DRONES = 2
 
 
 class ImpulseWars(pufferlib.PufferEnv):
     def __init__(self, num_envs: int, seed: int = 0, render_mode: str = None, buf=None):
         self.single_observation_space = gymnasium.spaces.Box(
-            low=0.0, high=1.0, shape=(getObsSize(),), dtype=np.float32
+            low=0.0, high=obsHigh(), shape=(obsSize(),), dtype=np.float32
         )
         self.single_action_space = gymnasium.spaces.Box(
-            low=-1.0, high=1.0, shape=(getActionsSize(),), dtype=np.float32
+            low=-1.0, high=1.0, shape=(actionsSize(),), dtype=np.float32
         )
+
         self.render_mode = render_mode
-        self.num_agents = NUM_DRONES * num_envs
+        self.num_agents = numDrones() * num_envs
 
         super().__init__(buf)
         self.c_envs = CyImpulseWars(
@@ -52,7 +52,7 @@ def testPerf(timeout=10, actionCache=1024, numEnvs=1024):
     actions = np.random.randint(
         env.single_action_space.low[0],
         env.single_action_space.high[1],
-        (actionCache, env.num_agents, getActionsSize()),
+        (actionCache, env.num_agents, actionsSize()),
     )
 
     import time

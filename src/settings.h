@@ -15,14 +15,16 @@
 
 #define FRAMESKIP 1
 
-#define MAX_CELLS 450
+#define _MAX_MAP_COLUMNS 21
+#define _MAX_MAP_ROWS 21
+#define MAX_CELLS _MAX_MAP_COLUMNS *_MAX_MAP_ROWS + 1
 
 #define MIN_SPAWN_DISTANCE 6.0f
 
 #define ROUND_STEPS 91.0f * FRAME_RATE
 #define SUDDEN_DEATH_STEPS 5.0f * FRAME_RATE
 
-#define NUM_DRONES 2
+const uint8_t NUM_DRONES = 2;
 
 #define EXPLOSION_STEPS 5
 
@@ -32,18 +34,20 @@
 #define SHOT_HIT_REWARD_COEF 0.3f
 
 // observation constants
-#define DRONE_OBS_SIZE 10
-#define NUM_PROJECTILE_OBS 50
-#define PROJECTILE_OBS_SIZE 5
-#define NUM_FLOATING_WALL_OBS 12
-#define FLOATING_WALL_OBS_SIZE 6
-#define MAX_MAP_COLUMNS 21
-#define MAX_MAP_ROWS 21
+const uint8_t DRONE_OBS_SIZE = 10;
+const uint8_t NUM_PROJECTILE_OBS = 50;
+const uint8_t PROJECTILE_OBS_SIZE = 5;
+const uint8_t NUM_FLOATING_WALL_OBS = 12;
+const uint8_t FLOATING_WALL_OBS_SIZE = 6;
+const uint8_t MAX_MAP_COLUMNS = _MAX_MAP_COLUMNS;
+const uint8_t MAX_MAP_ROWS = _MAX_MAP_ROWS;
 const uint16_t OBS_SIZE =
     ((NUM_DRONES * DRONE_OBS_SIZE) +
      (NUM_PROJECTILE_OBS * PROJECTILE_OBS_SIZE) +
      (NUM_FLOATING_WALL_OBS * FLOATING_WALL_OBS_SIZE) +
      (MAX_MAP_COLUMNS * MAX_MAP_ROWS));
+
+const uint8_t OBS_HIGH = NUM_ENTITY_TYPES + NUM_WEAPONS + 1;
 
 #define MAX_X_POS 40.0f
 #define MAX_Y_POS 40.0f

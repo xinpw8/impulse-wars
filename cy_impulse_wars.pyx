@@ -1,9 +1,23 @@
 from libc.stdint cimport uint64_t
 from libc.stdlib cimport calloc, free
 
+import pufferlib
+
 from impulse_wars cimport (
+    NUM_DRONES,
     OBS_SIZE,
     ACTION_SIZE,
+    OBS_HIGH,
+    NUM_WEAPONS,
+    NUM_WALL_TYPES,
+    NUM_ENTITY_TYPES,
+    DRONE_OBS_SIZE,
+    NUM_PROJECTILE_OBS,
+    PROJECTILE_OBS_SIZE,
+    NUM_FLOATING_WALL_OBS,
+    FLOATING_WALL_OBS_SIZE,
+    MAX_MAP_COLUMNS,
+    MAX_MAP_ROWS,
     env,
     initEnv,
     resetEnv,
@@ -12,13 +26,44 @@ from impulse_wars cimport (
 )
 
 
-cdef int NUM_DRONES = 2
+# doesn't seem like you an directly import C or Cython constants 
+# from Python so we have to create wrapper functions
 
-def getObsSize() -> int:
+def numDrones() -> int:
+    return NUM_DRONES
+
+def obsSize() -> int:
     return OBS_SIZE
 
-def getActionsSize() -> int:
+def actionsSize() -> int:
     return ACTION_SIZE
+
+def obsHigh() -> float:
+    return OBS_HIGH
+
+def obsConstants() -> pufferlib.Namespace:
+    weaponTypes = NUM_WEAPONS
+    wallTypes = NUM_WALL_TYPES
+    mapCellTypes = NUM_ENTITY_TYPES + NUM_WEAPONS
+    droneObsSize = DRONE_OBS_SIZE
+    numProjectileObs = NUM_PROJECTILE_OBS
+    projectileObsSize = PROJECTILE_OBS_SIZE
+    numFloatingWallObs = NUM_FLOATING_WALL_OBS
+    floatingWallObsSize = FLOATING_WALL_OBS_SIZE
+    maxMapColumns = MAX_MAP_COLUMNS
+    maxMapRows = MAX_MAP_ROWS
+    return pufferlib.Namespace(
+        weaponTypes=NUM_WEAPONS,
+        wallTypes=NUM_WALL_TYPES,
+        mapCellTypes=NUM_ENTITY_TYPES + NUM_WEAPONS + 1,
+        droneObsSize=DRONE_OBS_SIZE,
+        numProjectileObs=NUM_PROJECTILE_OBS,
+        projectileObsSize=PROJECTILE_OBS_SIZE,
+        numFloatingWallObs=NUM_FLOATING_WALL_OBS,
+        floatingWallObsSize=FLOATING_WALL_OBS_SIZE,
+        maxMapColumns=MAX_MAP_COLUMNS,
+        maxMapRows=MAX_MAP_ROWS,
+    )
 
 
 cdef class CyImpulseWars:

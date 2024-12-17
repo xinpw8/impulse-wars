@@ -70,11 +70,14 @@ FetchContent_MakeAvailable(box2d)
 function(configure_target target_name)
 	target_include_directories(
 		${target_name} PRIVATE
-		"${CMAKE_CURRENT_SOURCE_DIR}/src" "${CMAKE_CURRENT_SOURCE_DIR}/src/include"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/include"
 	)
 	target_link_libraries(${target_name} PRIVATE raylib box2d)
 
-	target_compile_options(${target_name} PRIVATE "-Werror" "-Wall" "-Wpedantic" "-Wno-variadic-macros")
+	target_compile_options(${target_name} PRIVATE
+		"-Werror" "-Wall" "-Wpedantic" "-Wno-variadic-macros"
+	)
 endfunction()
 
 if(DEFINED BUILD_PYTHON_MODULE)
@@ -84,6 +87,10 @@ if(DEFINED BUILD_PYTHON_MODULE)
 		COMPONENTS Interpreter Development.Module
 		REQUIRED
 	)
+
+	# add all project headers as a dependency to the autopxd command so
+	# the PXD file will be regenerated if any of the headers change
+	file(GLOB_RECURSE HEADERS RELATIVE ${CMAKE_SOURCE_DIR} "src/*.h")
 
 	add_custom_command(
 		OUTPUT impulse_wars.pxd.raw
@@ -95,7 +102,7 @@ if(DEFINED BUILD_PYTHON_MODULE)
 			-I "${raylib_SOURCE_DIR}"
 			-D AUTOPXD
 			"${CMAKE_CURRENT_SOURCE_DIR}/src/env.h" impulse_wars.pxd.raw
-		DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/env.h"
+		DEPENDS "${HEADERS}"
 		VERBATIM
 	)
 

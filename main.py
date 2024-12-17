@@ -20,27 +20,14 @@ install(show_locals=False)
 
 import clean_pufferl
 
+from policy import Policy, Recurrent
 from impulse_wars import ImpulseWars
-
-
-def get_constants(module):
-    # Get the module's global variables
-    global_vars = module.__dict__
-
-    # Filter out anything that is not a constant (no underscores, no imports)
-    constants_dict = {
-        name: value
-        for name, value in global_vars.items()
-        if not name.startswith("__") and not callable(value) and not isinstance(value, type(module))
-    }
-
-    return constants_dict
 
 
 def make_policy(env, config):
     """Make the policy for the environment"""
-    policy = pufferlib.models.Default(env, hidden_size=256)
-    policy = pufferlib.models.LSTMWrapper(env, policy, input_size=256, hidden_size=256)
+    policy = Policy(env)
+    policy = Recurrent(env, policy)
     return pufferlib.cleanrl.RecurrentPolicy(policy)
 
 
@@ -130,7 +117,6 @@ def eval_policy(
 
     state = None
     ob, _ = env.reset()
-    driver = env.driver_env.env
     while True:
         with th.no_grad():
             ob = th.from_numpy(ob).to(device)
@@ -141,16 +127,12 @@ def eval_policy(
 
             action = th.argmax(actions).cpu().numpy().reshape(env.action_space.shape)
 
-        action_probs = actions.cpu().numpy().tolist()
-        value = float(value)
-        driver.recorder.setPolicyOutputs(action_probs, value)
-
         ob, reward, done, trunc, info = env.step(action)
         totalReward += reward
         steps += 1
 
         if printInfo:
-            print(reward[0], action[0], action_probs, value)
+            print(reward[0], action[0], value)
 
         if done or trunc:
             break
@@ -204,7 +186,6 @@ if __name__ == "__main__":
     parser.add_argument("--wandb-sweep", type=str, default="", help="Wandb sweep ID")
     parser.add_argument("--track", action="store_true", help="Track on WandB")
 
-    # Train configuration
     parser.add_argument("--train.data-dir", type=str, default="checkpoints")
     parser.add_argument("--train.exp-id", type=str, default=None)
     parser.add_argument("--train.seed", type=int, default=-1)
@@ -218,17 +199,17 @@ if __name__ == "__main__":
     parser.add_argument("--train.compile-mode", type=str, default="reduce-overhead")
 
     parser.add_argument("--train.num-envs", type=int, default=1024)
-    parser.add_argument("--train.batch-size", type=int, default=65_536)
+    parser.add_argument("--train.batch-size", type=int, default=262_144)
     parser.add_argument("--train.bptt-horizon", type=int, default=64)
     parser.add_argument("--train.clip-coef", type=float, default=0.2)
     parser.add_argument("--train.clip-vloss", action="store_false")
     parser.add_argument("--train.ent-coef", type=float, default=0.0005)
     parser.add_argument("--train.gae-lambda", type=float, default=0.90)
     parser.add_argument("--train.gamma", type=float, default=0.99)
-    parser.add_argument("--train.learning-rate", type=float, default=0.000003)
+    parser.add_argument("--train.learning-rate", type=float, default=0.0003)
     parser.add_argument("--train.anneal-lr", action="store_true")
     parser.add_argument("--train.max-grad-norm", type=float, default=1.0)
-    parser.add_argument("--train.minibatch-size", type=int, default=16_384)
+    parser.add_argument("--train.minibatch-size", type=int, default=65_536)
     parser.add_argument("--train.norm-adv", action="store_false")
     parser.add_argument("--train.update-epochs", type=int, default=1)
     parser.add_argument("--train.vf-clip-coef", type=float, default=0.1)
