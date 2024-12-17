@@ -1,4 +1,6 @@
 #pragma once
+#ifndef IMPULSE_WARS_SETTINGS_H
+#define IMPULSE_WARS_SETTINGS_H
 
 #include "helpers.h"
 #include "types.h"
@@ -130,91 +132,80 @@ const uint8_t ACTION_SIZE = 5;
 #define IMPLODER_INV_MASS INV_MASS(IMPLODER_DENSITY, IMPLODER_RADIUS)
 #define IMPLODER_BOUNCE 0
 
-weaponInformation **weaponInfos;
+const weaponInformation standard = {
+    .type = STANDARD_WEAPON,
+    .isPhysicsBullet = true,
+    .numProjectiles = STANDARD_PROJECTILES,
+    .recoilMagnitude = STANDARD_RECOIL_MAGNITUDE,
+    .coolDown = STANDARD_COOL_DOWN,
+    .maxDistance = STANDARD_MAX_DISTANCE,
+    .radius = STANDARD_RADIUS,
+    .density = STANDARD_DENSITY,
+    .invMass = STANDARD_INV_MASS,
+    .maxBounces = STANDARD_BOUNCE + 1,
+};
 
-void initWeapons()
-{
-    weaponInfos = (weaponInformation **)fastCalloc(NUM_WEAPONS, sizeof(weaponInformation *));
+const weaponInformation machineGun = {
+    .type = MACHINEGUN_WEAPON,
+    .isPhysicsBullet = true,
+    .numProjectiles = MACHINEGUN_PROJECTILES,
+    .recoilMagnitude = MACHINEGUN_RECOIL_MAGNITUDE,
+    .coolDown = MACHINEGUN_COOL_DOWN,
+    .maxDistance = MACHINEGUN_MAX_DISTANCE,
+    .radius = MACHINEGUN_RADIUS,
+    .density = MACHINEGUN_DENSITY,
+    .invMass = MACHINEGUN_INV_MASS,
+    .maxBounces = MACHINEGUN_BOUNCE + 1,
+};
 
-    weaponInformation standard = {
-        .type = STANDARD_WEAPON,
-        .isPhysicsBullet = true,
-        .numProjectiles = STANDARD_PROJECTILES,
-        .recoilMagnitude = STANDARD_RECOIL_MAGNITUDE,
-        .coolDown = STANDARD_COOL_DOWN,
-        .maxDistance = STANDARD_MAX_DISTANCE,
-        .radius = STANDARD_RADIUS,
-        .density = STANDARD_DENSITY,
-        .invMass = STANDARD_INV_MASS,
-        .maxBounces = STANDARD_BOUNCE + 1,
-    };
-    weaponInfos[STANDARD_WEAPON] = (weaponInformation *)createConstStruct(&standard, sizeof(weaponInformation));
+const weaponInformation sniper = {
+    .type = SNIPER_WEAPON,
+    .isPhysicsBullet = true,
+    .numProjectiles = SNIPER_PROJECTILES,
+    .recoilMagnitude = SNIPER_RECOIL_MAGNITUDE,
+    .coolDown = SNIPER_COOL_DOWN,
+    .maxDistance = SNIPER_MAX_DISTANCE,
+    .radius = SNIPER_RADIUS,
+    .density = SNIPER_DENSITY,
+    .invMass = SNIPER_INV_MASS,
+    .maxBounces = SNIPER_BOUNCE + 1,
+};
 
-    weaponInformation machineGun = {
-        .type = MACHINEGUN_WEAPON,
-        .isPhysicsBullet = true,
-        .numProjectiles = MACHINEGUN_PROJECTILES,
-        .recoilMagnitude = MACHINEGUN_RECOIL_MAGNITUDE,
-        .coolDown = MACHINEGUN_COOL_DOWN,
-        .maxDistance = MACHINEGUN_MAX_DISTANCE,
-        .radius = MACHINEGUN_RADIUS,
-        .density = MACHINEGUN_DENSITY,
-        .invMass = MACHINEGUN_INV_MASS,
-        .maxBounces = MACHINEGUN_BOUNCE + 1,
-    };
-    weaponInfos[MACHINEGUN_WEAPON] = (weaponInformation *)createConstStruct(&machineGun, sizeof(weaponInformation));
+const weaponInformation shotgun = {
+    .type = SHOTGUN_WEAPON,
+    .isPhysicsBullet = true,
+    .numProjectiles = SHOTGUN_PROJECTILES,
+    .recoilMagnitude = SHOTGUN_RECOIL_MAGNITUDE,
+    .coolDown = SHOTGUN_COOL_DOWN,
+    .maxDistance = SHOTGUN_MAX_DISTANCE,
+    .radius = SHOTGUN_RADIUS,
+    .density = SHOTGUN_DENSITY,
+    .invMass = SHOTGUN_INV_MASS,
+    .maxBounces = SHOTGUN_BOUNCE + 1,
+};
 
-    weaponInformation sniper = {
-        .type = SNIPER_WEAPON,
-        .isPhysicsBullet = true,
-        .numProjectiles = SNIPER_PROJECTILES,
-        .recoilMagnitude = SNIPER_RECOIL_MAGNITUDE,
-        .coolDown = SNIPER_COOL_DOWN,
-        .maxDistance = SNIPER_MAX_DISTANCE,
-        .radius = SNIPER_RADIUS,
-        .density = SNIPER_DENSITY,
-        .invMass = SNIPER_INV_MASS,
-        .maxBounces = SNIPER_BOUNCE + 1,
-    };
-    weaponInfos[SNIPER_WEAPON] = (weaponInformation *)createConstStruct(&sniper, sizeof(weaponInformation));
+const weaponInformation imploder = {
+    .type = IMPLODER_WEAPON,
+    .isPhysicsBullet = false,
+    .numProjectiles = IMPLODER_PROJECTILES,
+    .recoilMagnitude = IMPLODER_RECOIL_MAGNITUDE,
+    .coolDown = IMPLODER_COOL_DOWN,
+    .maxDistance = IMPLODER_MAX_DISTANCE,
+    .radius = IMPLODER_RADIUS,
+    .density = IMPLODER_DENSITY,
+    .invMass = IMPLODER_INV_MASS,
+    .maxBounces = IMPLODER_BOUNCE + 1,
+};
 
-    weaponInformation shotgun = {
-        .type = SHOTGUN_WEAPON,
-        .isPhysicsBullet = true,
-        .numProjectiles = SHOTGUN_PROJECTILES,
-        .recoilMagnitude = SHOTGUN_RECOIL_MAGNITUDE,
-        .coolDown = SHOTGUN_COOL_DOWN,
-        .maxDistance = SHOTGUN_MAX_DISTANCE,
-        .radius = SHOTGUN_RADIUS,
-        .density = SHOTGUN_DENSITY,
-        .invMass = SHOTGUN_INV_MASS,
-        .maxBounces = SHOTGUN_BOUNCE + 1,
-    };
-    weaponInfos[SHOTGUN_WEAPON] = (weaponInformation *)createConstStruct(&shotgun, sizeof(weaponInformation));
-
-    weaponInformation imploder = {
-        .type = IMPLODER_WEAPON,
-        .isPhysicsBullet = false,
-        .numProjectiles = IMPLODER_PROJECTILES,
-        .recoilMagnitude = IMPLODER_RECOIL_MAGNITUDE,
-        .coolDown = IMPLODER_COOL_DOWN,
-        .maxDistance = IMPLODER_MAX_DISTANCE,
-        .radius = IMPLODER_RADIUS,
-        .density = IMPLODER_DENSITY,
-        .invMass = IMPLODER_INV_MASS,
-        .maxBounces = IMPLODER_BOUNCE + 1,
-    };
-    weaponInfos[IMPLODER_WEAPON] = (weaponInformation *)createConstStruct(&imploder, sizeof(weaponInformation));
-}
-
-void destroyWeapons()
-{
-    for (int i = 0; i < NUM_WEAPONS; i++)
-    {
-        fastFree(weaponInfos[i]);
-    }
-    free(weaponInfos);
-}
+#ifndef AUTOPXD
+weaponInformation *weaponInfos[] = {
+    (weaponInformation *)&standard,
+    (weaponInformation *)&machineGun,
+    (weaponInformation *)&sniper,
+    (weaponInformation *)&shotgun,
+    (weaponInformation *)&imploder,
+};
+#endif
 
 // max ammo of weapon
 int8_t weaponAmmo(const enum weaponType defaultWep, const enum weaponType type)
@@ -241,7 +232,7 @@ int8_t weaponAmmo(const enum weaponType defaultWep, const enum weaponType type)
 }
 
 // amount of force to apply to projectile
-float weaponFire(const enum weaponType type)
+float weaponFire(uint64_t *seed, const enum weaponType type)
 {
     switch (type)
     {
@@ -254,7 +245,7 @@ float weaponFire(const enum weaponType type)
     case SHOTGUN_WEAPON:
     {
         const int maxOffset = 3;
-        const int fireOffset = randInt(-maxOffset, maxOffset);
+        const int fireOffset = randInt(seed, -maxOffset, maxOffset);
         return SHOTGUN_FIRE_MAGNITUDE + fireOffset;
     }
     case IMPLODER_WEAPON:
@@ -293,7 +284,7 @@ uint16_t weaponCharge(const enum weaponType type)
     return (uint16_t)(charge * FRAME_RATE);
 }
 
-b2Vec2 weaponAdjustAim(const enum weaponType type, const uint16_t heat, const b2Vec2 normAim)
+b2Vec2 weaponAdjustAim(uint64_t *seed, const enum weaponType type, const uint16_t heat, const b2Vec2 normAim)
 {
     switch (type)
     {
@@ -303,8 +294,8 @@ b2Vec2 weaponAdjustAim(const enum weaponType type, const uint16_t heat, const b2
     {
         const float swayCoef = logBasef((heat / 5.0f) + 1, 180);
         const float maxSway = 0.15f;
-        const float swayX = randFloat(maxSway * -swayCoef, maxSway * swayCoef);
-        const float swayY = randFloat(maxSway * -swayCoef, maxSway * swayCoef);
+        const float swayX = randFloat(seed, maxSway * -swayCoef, maxSway * swayCoef);
+        const float swayY = randFloat(seed, maxSway * -swayCoef, maxSway * swayCoef);
         b2Vec2 machinegunAim = {.x = normAim.x + swayX, .y = normAim.y + swayY};
         return b2Normalize(machinegunAim);
     }
@@ -313,8 +304,8 @@ b2Vec2 weaponAdjustAim(const enum weaponType type, const uint16_t heat, const b2
     case SHOTGUN_WEAPON:
     {
         const float maxOffset = 0.15f;
-        const float offsetX = randFloat(-maxOffset, maxOffset);
-        const float offsetY = randFloat(-maxOffset, maxOffset);
+        const float offsetX = randFloat(seed, -maxOffset, maxOffset);
+        const float offsetY = randFloat(seed, -maxOffset, maxOffset);
         b2Vec2 shotgunAim = {.x = normAim.x + offsetX, .y = normAim.y + offsetY};
         return b2Normalize(shotgunAim);
     }
@@ -340,3 +331,5 @@ bool weaponExplosion(const enum weaponType type, b2ExplosionDef *explosionDef)
         return false;
     }
 }
+
+#endif

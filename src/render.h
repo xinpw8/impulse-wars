@@ -1,4 +1,6 @@
 #pragma once
+#ifndef IMPULSE_WARS_RENDER_H
+#define IMPULSE_WARS_RENDER_H
 
 #include "raylib.h"
 
@@ -404,3 +406,5 @@ void renderEnv(env *e)
 
     EndDrawing();
 }
+
+#endif

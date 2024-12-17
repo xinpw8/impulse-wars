@@ -87,8 +87,6 @@ void getPlayerInputs(const env *e, const droneEntity *drone, const int gamepadId
 
 int main(void)
 {
-    srand(time(NULL));
-
     SetConfigFlags(FLAG_MSAA_4X_HINT);
     InitWindow(width, height, "test");
 
@@ -100,7 +98,7 @@ int main(void)
     float *actions = (float *)fastCalloc(NUM_DRONES * ACTION_SIZE, sizeof(float));
     unsigned char *terminals = (unsigned char *)fastCalloc(NUM_DRONES, sizeof(bool));
 
-    initEnv(e, obs, rewards, actions, terminals);
+    initEnv(e, obs, actions, rewards, terminals, time(NULL));
 
     while (true)
     {
@@ -108,8 +106,8 @@ int main(void)
         {
             destroyEnv(e);
             fastFree(obs);
-            fastFree(rewards);
             fastFree(actions);
+            fastFree(rewards);
             fastFree(terminals);
             fastFree(e);
             CloseWindow();

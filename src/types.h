@@ -1,4 +1,6 @@
 #pragma once
+#ifndef IMPULSE_WARS_TYPES_H
+#define IMPULSE_WARS_TYPES_H
 
 #include "box2d/box2d.h"
 
@@ -163,6 +165,9 @@ typedef struct env
     float *actions;
     unsigned char *terminals;
 
+    uint64_t randState;
+    bool needsReset;
+
     b2WorldId worldID;
     uint8_t columns;
     uint8_t rows;
@@ -187,3 +192,5 @@ typedef struct env
     // the amount of sudden death walls that have been spawned
     uint8_t suddenDeathWallCounter;
 } env;
+
+#endif

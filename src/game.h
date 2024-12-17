@@ -1,4 +1,6 @@
 #pragma once
+#ifndef IMPULSE_WARS_GAME_H
+#define IMPULSE_WARS_GAME_H
 
 #include "helpers.h"
 #include "env.h"
@@ -56,7 +58,7 @@ bool findOpenPos(env *e, const enum shapeCategory type, b2Vec2 *emptyPos)
         {
             return false;
         }
-        const int cellIdx = randInt(0, nCells - 1);
+        const int cellIdx = randInt(&e->randState, 0, nCells - 1);
         if (bitTest(checkedCells, cellIdx))
         {
             continue;
@@ -231,11 +233,11 @@ b2DistanceProxy makeDistanceProxy(const enum entityType type, bool *isCircle)
     return proxy;
 }
 
-enum weaponType randWeaponPickupType(const env *e)
+enum weaponType randWeaponPickupType(env *e)
 {
     while (true)
     {
-        const enum weaponType type = (enum weaponType)randInt(STANDARD_WEAPON + 1, NUM_WEAPONS - 1);
+        const enum weaponType type = (enum weaponType)randInt(&e->randState, STANDARD_WEAPON + 1, NUM_WEAPONS - 1);
         if (type != e->defaultWeapon->type)
         {
             return type;
@@ -377,8 +379,8 @@ void createProjectile(env *e, droneEntity *drone, const b2Vec2 normAim)
     b2Vec2 forwardVel = b2MulSV(b2Dot(droneVel, normAim), normAim);
     b2Vec2 lateralVel = b2Sub(droneVel, forwardVel);
     lateralVel = b2MulSV(projectileShapeDef.density / DRONE_MOVE_AIM_DIVISOR, lateralVel);
-    b2Vec2 aim = weaponAdjustAim(drone->weaponInfo->type, drone->heat, normAim);
-    b2Vec2 fire = b2MulAdd(lateralVel, weaponFire(drone->weaponInfo->type), aim);
+    b2Vec2 aim = weaponAdjustAim(&e->randState, drone->weaponInfo->type, drone->heat, normAim);
+    b2Vec2 fire = b2MulAdd(lateralVel, weaponFire(&e->randState, drone->weaponInfo->type), aim);
     b2Body_ApplyLinearImpulseToCenter(projectileBodyID, fire, true);
 
     projectileEntity *projectile = (projectileEntity *)fastMalloc(sizeof(projectileEntity));
@@ -686,12 +688,14 @@ void weaponPickupsStep(env *e, const float frameTime)
                     const enum cc_stat res = cc_deque_iter_remove(&iter, NULL);
                     MAYBE_UNUSED(res);
                     ASSERT(res == CC_OK);
+                    DEBUG_LOG("destroying weapon pickup");
                     destroyWeaponPickup(pickup);
                     continue;
                 }
                 b2Body_SetTransform(pickup->bodyID, pos, b2Rot_identity);
                 pickup->weapon = randWeaponPickupType(e);
 
+                DEBUG_LOGF("respawned weapon pickup at %f, %f", pos.x, pos.y);
                 const uint16_t cellIdx = posToCellIdx(e, pos);
                 mapCell *cell = safe_deque_get_at(e->cells, cellIdx);
                 entity *ent = (entity *)b2Shape_GetUserData(pickup->shapeID);
@@ -739,12 +743,12 @@ bool handleProjectileBeginContact(env *e, const entity *proj, const entity *ent)
     return false;
 }
 
-void handleProjectileEndContact(const entity *p)
+void handleProjectileEndContact(env *e, const entity *p)
 {
     // ensure the projectile's speed doesn't change after bouncing off of something
     projectileEntity *projectile = (projectileEntity *)p->entity;
     b2Vec2 velocity = b2Body_GetLinearVelocity(projectile->bodyID);
-    b2Vec2 newVel = b2MulSV(weaponFire(projectile->weaponInfo->type) * projectile->weaponInfo->invMass, b2Normalize(velocity));
+    b2Vec2 newVel = b2MulSV(weaponFire(&e->randState, projectile->weaponInfo->type) * projectile->weaponInfo->invMass, b2Normalize(velocity));
     b2Body_SetLinearVelocity(projectile->bodyID, newVel);
 }
 
@@ -816,11 +820,11 @@ void handleContactEvents(env *e)
 
         if (e1 != NULL && e1->type == PROJECTILE_ENTITY)
         {
-            handleProjectileEndContact(e1);
+            handleProjectileEndContact(e, e1);
         }
         if (e2 != NULL && e2->type == PROJECTILE_ENTITY)
         {
-            handleProjectileEndContact(e2);
+            handleProjectileEndContact(e, e2);
         }
     }
 }
@@ -917,3 +921,5 @@ void handleSensorEvents(env *e)
         handleWeaponPickupEndTouch(e, s, v);
     }
 }
+
+#endif

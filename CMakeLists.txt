@@ -13,8 +13,15 @@ endif()
 set(CMAKE_C_FLAGS_INIT " -std=c2x")
 
 if(CMAKE_BUILD_TYPE MATCHES Debug)
-	add_compile_options("-fno-omit-frame-pointer" "-fsanitize=address,undefined,bounds,pointer-overflow,leak")
-	add_link_options("-fno-omit-frame-pointer" "-fsanitize=address,undefined,bounds,pointer-overflow,leak")
+	# leak detection doesn't work correctly when the code is called by
+	# Python, so disable it
+	if(DEFINED BUILD_PYTHON_MODULE)
+		add_compile_options("-fno-omit-frame-pointer" "-fsanitize=address,undefined,bounds,pointer-overflow")
+		add_link_options("-shared-libasan" "-fno-omit-frame-pointer" "-fsanitize=address,undefined,bounds,pointer-overflow")
+	else()
+		add_compile_options("-fno-omit-frame-pointer" "-fsanitize=address,undefined,bounds,pointer-overflow,leak")
+		add_link_options("-fno-omit-frame-pointer" "-fsanitize=address,undefined,bounds,pointer-overflow,leak")
+	endif()
 
 	# only use mold in debug mode, link time optimization currently doesn't
 	# work with mold and provides large speedups
@@ -86,6 +93,7 @@ if(DEFINED BUILD_PYTHON_MODULE)
 			-I "${CMAKE_CURRENT_SOURCE_DIR}/src/include"
 			-I "${box2d_SOURCE_DIR}/include" 
 			-I "${raylib_SOURCE_DIR}"
+			-D AUTOPXD
 			"${CMAKE_CURRENT_SOURCE_DIR}/src/env.h" impulse_wars.pxd.raw
 		DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/env.h"
 		VERBATIM

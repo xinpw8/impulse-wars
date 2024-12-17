@@ -1,4 +1,6 @@
 #pragma once
+#ifndef IMPULSE_WARS_HELPERS_H
+#define IMPULSE_WARS_HELPERS_H
 
 #include <signal.h>
 #include <stdio.h>
@@ -11,16 +13,25 @@
 
 #ifndef NDEBUG
 #define ON_ERROR __builtin_trap()
+#define _DEBUG_GET_TIMEINFO() \
+    time_t _t = time(NULL);   \
+    struct tm *_timeinfo;     \
+    _timeinfo = localtime(&_t)
 #define DEBUG_LOGF(fmt, args...)                                                                                             \
     do                                                                                                                       \
     {                                                                                                                        \
-        time_t _t = time(NULL);                                                                                              \
-        struct tm *_timeinfo;                                                                                                \
-        _timeinfo = localtime(&_t);                                                                                          \
+        _DEBUG_GET_TIMEINFO();                                                                                               \
         printf(fmt " %d:%d:%d %s:%d\n", args, _timeinfo->tm_hour, _timeinfo->tm_min, _timeinfo->tm_sec, __FILE__, __LINE__); \
         fflush(stdout);                                                                                                      \
     } while (0)
-#define DEBUG_LOG(msg) DEBUG_LOGF(msg, NULL)
+#define DEBUG_LOG(msg)                                                                                                 \
+    do                                                                                                                 \
+    {                                                                                                                  \
+        _DEBUG_GET_TIMEINFO();                                                                                         \
+        printf(msg " %d:%d:%d %s:%d\n", _timeinfo->tm_hour, _timeinfo->tm_min, _timeinfo->tm_sec, __FILE__, __LINE__); \
+        fflush(stdout);                                                                                                \
+    } while (0)
+
 #define ASSERT(condition)                                                                  \
     do                                                                                     \
     {                                                                                      \
@@ -123,15 +134,30 @@ static inline bool b2VecEqual(const b2Vec2 v1, const b2Vec2 v2)
     return v1.x == v2.x && v1.y == v2.y;
 }
 
-static inline float randFloat(const float min, const float max)
+#ifndef AUTOPXD
+// from https://lemire.me/blog/2019/03/19/the-fastest-conventional-random-number-generator-that-can-pass-big-crush/
+// see also https://github.com/lemire/testingRNG
+uint64_t wyhash64(uint64_t *state)
 {
-    float n = rand() / (float)RAND_MAX;
+    *state += 0x60bee2bee120fc15;
+    __uint128_t tmp;
+    tmp = (__uint128_t)(*state) * 0xa3b195354a39b70d;
+    uint64_t m1 = (tmp >> 64) ^ tmp;
+    tmp = (__uint128_t)m1 * 0x1b03738712fad5c9;
+    uint64_t m2 = (tmp >> 64) ^ tmp;
+    return m2;
+}
+#endif
+
+static inline float randFloat(uint64_t *state, const float min, const float max)
+{
+    float n = wyhash64(state) / (float)UINT64_MAX;
     return min + n * (max - min);
 }
 
-static inline int randInt(const int min, const int max)
+static inline int randInt(uint64_t *state, const int min, const int max)
 {
-    return min + rand() % (max - min + 1);
+    return min + wyhash64(state) % (max - min + 1);
 }
 
 static inline float logBasef(const float v, const float b)
@@ -188,3 +214,5 @@ static inline bool bitTest(const uint8_t *b, const uint16_t n)
 {
     return b[bitSlot(n)] & bitMask(n);
 }
+
+#endif

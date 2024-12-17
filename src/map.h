@@ -1,4 +1,6 @@
 #pragma once
+#ifndef IMPULSE_WARS_MAP_H
+#define IMPULSE_WARS_MAP_H
 
 #include <errno.h>
 #include <string.h>
@@ -34,7 +36,7 @@ const char prototypeArenaLayout[] = {
     'D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D',
 };
 
-mapEntry prototypeArenaMap = {
+const mapEntry prototypeArenaMap = {
     .layout = prototypeArenaLayout,
     .columns = 20,
     .rows = 20,
@@ -69,7 +71,7 @@ const char snipersLayout[] = {
     'B','B','B','B','B','B','B','B','B','B','B','B','B','B','B','B','B','B','B','B','B',
 };
 
-mapEntry snipersMap = {
+const mapEntry snipersMap = {
     .layout = snipersLayout,
     .columns = 21,
     .rows = 21,
@@ -104,7 +106,7 @@ const char roomsLayout[] = {
     'D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D',
 };
 
-mapEntry roomsMap = {
+const mapEntry roomsMap = {
     .layout = roomsLayout,
     .columns = 21,
     .rows = 21,
@@ -138,7 +140,7 @@ const char clownHouseLayout[] = {
     'W','W','W','B','B','W','B','B','W','B','B','W','B','B','W','B','B','W','W','W',
 };
 
-mapEntry clownHouseMap = {
+const mapEntry clownHouseMap = {
     .layout = clownHouseLayout,
     .columns = 20,
     .rows = 20,
@@ -153,16 +155,14 @@ mapEntry clownHouseMap = {
 
 #define NUM_MAPS 4
 
-mapEntry **maps;
-
-void initMaps()
-{
-    maps = (mapEntry **)fastCalloc(NUM_MAPS, sizeof(mapEntry *));
-    maps[0] = &prototypeArenaMap;
-    maps[1] = &snipersMap;
-    maps[2] = &roomsMap;
-    maps[3] = &clownHouseMap;
-}
+#ifndef AUTOPXD
+const mapEntry *maps[] = {
+    (mapEntry *)&prototypeArenaMap,
+    (mapEntry *)&snipersMap,
+    (mapEntry *)&roomsMap,
+    (mapEntry *)&clownHouseMap,
+};
+#endif
 
 void createMap(env *e, const int mapIdx)
 {
@@ -251,3 +251,5 @@ void placeRandFloatingWalls(env *e, const int mapIdx)
         placeRandFloatingWall(e, DEATH_WALL_ENTITY);
     }
 }
+
+#endif

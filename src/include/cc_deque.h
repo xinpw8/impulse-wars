@@ -19,6 +19,8 @@
  */
 
 #pragma once
+#ifndef CC_DEQUE_H
+#define CC_DEQUE_H
 
 #ifdef __cplusplus
 extern "C"
@@ -1488,4 +1490,6 @@ extern "C"
 
 #ifdef __cplusplus
 }
+#endif
+
 #endif

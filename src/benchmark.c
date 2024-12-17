@@ -1,6 +1,6 @@
 #include "env.h"
 
-void perfTest(const int steps)
+void perfTest(const float testTime)
 {
     srand(0);
 
@@ -10,35 +10,44 @@ void perfTest(const int steps)
     float *actions = (float *)fastCalloc(NUM_DRONES * ACTION_SIZE, sizeof(float));
     unsigned char *terminals = (unsigned char *)fastCalloc(NUM_DRONES, sizeof(bool));
 
-    initEnv(e, obs, rewards, actions, terminals);
+    initEnv(e, obs, actions, rewards, terminals, 0);
 
-    for (int i = 0; i < steps; i++)
+    const time_t start = time(NULL);
+    int steps = 0;
+    while (time(NULL) - start < testTime)
     {
         uint8_t actionOffset = 0;
         for (size_t i = 0; i < cc_deque_size(e->drones); i++)
         {
-            e->actions[actionOffset + 0] = randFloat(-1.0f, 1.0f);
-            e->actions[actionOffset + 1] = randFloat(-1.0f, 1.0f);
-            e->actions[actionOffset + 2] = randFloat(-1.0f, 1.0f);
-            e->actions[actionOffset + 3] = randFloat(-1.0f, 1.0f);
-            e->actions[actionOffset + 4] = randInt(0, 1);
+            e->actions[actionOffset + 0] = randFloat(&e->randState, -1.0f, 1.0f);
+            e->actions[actionOffset + 1] = randFloat(&e->randState, -1.0f, 1.0f);
+            e->actions[actionOffset + 2] = randFloat(&e->randState, -1.0f, 1.0f);
+            e->actions[actionOffset + 3] = randFloat(&e->randState, -1.0f, 1.0f);
+            e->actions[actionOffset + 4] = randFloat(&e->randState, -1.0f, 1.0f);
 
             actionOffset += ACTION_SIZE;
         }
 
         stepEnv(e);
-        if (envTerminated(e))
-        {
-            resetEnv(e);
-        }
+        steps++;
     }
 
+    const time_t end = time(NULL);
+    printf("SPS: %f\n", (2.0f * steps) / (end - start));
+    printf("Steps: %d\n", steps);
+
     destroyEnv(e);
+
+    fastFree(obs);
+    fastFree(actions);
+    fastFree(rewards);
+    fastFree(terminals);
+    fastFree(e);
 }
 
 int main(void)
 {
     srand(0);
-    perfTest(3000000);
+    perfTest(10.0f);
     return 0;
 }
