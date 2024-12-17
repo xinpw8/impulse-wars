@@ -269,6 +269,7 @@ void createWeaponPickup(env *e)
     ent->entity = pickup;
 
     const uint16_t cellIdx = posToCellIdx(e, pickupBodyDef.position);
+    pickup->mapCellIdx = cellIdx;
     mapCell *cell = safe_deque_get_at(e->cells, cellIdx);
     cell->ent = ent;
 
@@ -697,6 +698,7 @@ void weaponPickupsStep(env *e, const float frameTime)
 
                 DEBUG_LOGF("respawned weapon pickup at %f, %f", pos.x, pos.y);
                 const uint16_t cellIdx = posToCellIdx(e, pos);
+                pickup->mapCellIdx = cellIdx;
                 mapCell *cell = safe_deque_get_at(e->cells, cellIdx);
                 entity *ent = (entity *)b2Shape_GetUserData(pickup->shapeID);
                 cell->ent = ent;
@@ -841,6 +843,10 @@ void handleWeaponPickupBeginTouch(env *e, const entity *sensor, entity *visitor)
     {
     case DRONE_ENTITY:
         pickup->respawnWait = PICKUP_RESPAWN_WAIT;
+        mapCell *cell = safe_deque_get_at(e->cells, pickup->mapCellIdx);
+        ASSERT(cell->ent != NULL);
+        cell->ent = NULL;
+
         droneEntity *drone = (droneEntity *)visitor->entity;
         droneChangeWeapon(e, drone, pickup->weapon);
         break;

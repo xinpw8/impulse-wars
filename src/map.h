@@ -219,7 +219,10 @@ void createMap(env *e, const int mapIdx)
             }
 
             entity *ent = createWall(e, x, y, thickness, thickness, wallType, floating);
-            cell->ent = ent;
+            if (!floating)
+            {
+                cell->ent = ent;
+            }
         }
     }
 }
@@ -231,9 +234,7 @@ void placeRandFloatingWall(env *e, const enum entityType wallType)
     {
         ERROR("failed to find open position for floating wall");
     }
-    entity *ent = createWall(e, pos.x, pos.y, FLOATING_WALL_THICKNESS, FLOATING_WALL_THICKNESS, wallType, true);
-    mapCell *cell = safe_deque_get_at(e->cells, posToCellIdx(e, pos));
-    cell->ent = ent;
+    createWall(e, pos.x, pos.y, FLOATING_WALL_THICKNESS, FLOATING_WALL_THICKNESS, wallType, true);
 }
 
 void placeRandFloatingWalls(env *e, const int mapIdx)

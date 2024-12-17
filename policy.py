@@ -38,7 +38,7 @@ class Policy(nn.Module):
         self.obsInfo = obsConstants()
         self.numDrones = numDrones()
         self.obsSize = obsSize()
-        self.droneOffset = self.numDrones * self.obsInfo.droneObsSize
+        self.droneOffset = self.obsInfo.scalarObsSize + (self.numDrones * self.obsInfo.droneObsSize)
         self.projectileObsTotalSize = self.obsInfo.numProjectileObs * self.obsInfo.projectileObsSize
         self.projectileOffset = self.droneOffset + self.projectileObsTotalSize
         self.floatingWallObsTotalSize = self.obsInfo.numFloatingWallObs * self.obsInfo.floatingWallObsSize
@@ -57,7 +57,8 @@ class Policy(nn.Module):
         )
         cnnOutputSize = self._computeCNNShape()
         featuresSize = (
-            +(self.numDrones * (weaponTypesEmbeddingDims + self.obsInfo.droneObsSize - 1))
+            self.obsInfo.scalarObsSize
+            + (self.numDrones * (weaponTypesEmbeddingDims + self.obsInfo.droneObsSize - 1))
             + (
                 self.obsInfo.numProjectileObs
                 * (weaponTypesEmbeddingDims + self.obsInfo.projectileObsSize - 1)
@@ -95,6 +96,10 @@ class Policy(nn.Module):
     def encode_observations(self, obs: th.Tensor) -> th.Tensor:
         batchSize = obs.shape[0]
         offset = 0
+
+        # process scalar observations
+        scalarObs = obs[:, offset : self.obsInfo.scalarObsSize]
+        offset += self.obsInfo.scalarObsSize
 
         # process drone observations
         droneWeapons = th.zeros(
@@ -160,7 +165,7 @@ class Policy(nn.Module):
         projectiles = th.flatten(projectiles, start_dim=-2, end_dim=-1)
         floatingWalls = th.cat((floatingWallTypes, floatingWallObs), dim=-1)
         floatingWalls = th.flatten(floatingWalls, start_dim=-2, end_dim=-1)
-        features = th.cat((drones, projectiles, floatingWalls, mapCells), dim=-1)
+        features = th.cat((drones, projectiles, floatingWalls, mapCells, scalarObs), dim=-1)
 
         return self.encoder(features), None
 

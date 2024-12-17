@@ -9,21 +9,23 @@
 
 #include "settings.h"
 
+#define _NUM_DRONES 2
+
 // 1 is added for the invalid entity type
-const uint8_t NUM_ENTITY_TYPES = 7;
 const uint8_t NUM_WALL_TYPES = 4;
+const uint8_t NUM_ENTITY_TYPES = NUM_WALL_TYPES + 2;
 
 enum entityType
 {
-    INVALID_ENTITY,
-    STANDARD_WALL_ENTITY,
-    BOUNCY_WALL_ENTITY,
-    DEATH_WALL_ENTITY,
-    PROJECTILE_ENTITY,
-    DRONE_ENTITY,
+    INVALID_ENTITY = 0,
+    STANDARD_WALL_ENTITY = 1,
+    BOUNCY_WALL_ENTITY = 2,
+    DEATH_WALL_ENTITY = 3,
+    PROJECTILE_ENTITY = 4,
+    DRONE_ENTITY = 5,
     // this needs to be last so map cell type observations can be
     // calculated correctly
-    WEAPON_PICKUP_ENTITY,
+    WEAPON_PICKUP_ENTITY = 5 + _NUM_DRONES,
 };
 
 // the category bit that will be set on each entity's shape; this is
@@ -112,6 +114,7 @@ typedef struct weaponPickupEntity
     enum weaponType weapon;
     float respawnWait;
     uint8_t floatingWallsTouching;
+    uint16_t mapCellIdx;
 } weaponPickupEntity;
 
 typedef struct droneEntity droneEntity;

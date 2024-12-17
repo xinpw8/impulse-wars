@@ -7,9 +7,19 @@
 #include "settings.h"
 #include "types.h"
 
+const uint16_t scalarObsOffset = SCALAR_OBS_SIZE;
+const uint16_t droneObsOffset = scalarObsOffset + (NUM_DRONES * DRONE_OBS_SIZE);
+const uint16_t projectileObsOffset = droneObsOffset + (NUM_PROJECTILE_OBS * PROJECTILE_OBS_SIZE);
+const uint16_t floatingWallObsOffset = projectileObsOffset + (NUM_FLOATING_WALL_OBS * FLOATING_WALL_OBS_SIZE);
+const uint16_t mapCellObsOffset = floatingWallObsOffset + (MAX_MAP_COLUMNS * MAX_MAP_ROWS);
+
 void computeObs(env *e)
 {
     uint16_t offset = 0;
+
+    // add scalar observations
+    offset += oneHotEncode(e->obs, offset, 0, NUM_DRONES);
+    e->obs[offset++] = scaleValue(e->stepsLeft, ROUND_STEPS, true);
 
     // compute drone observations
     for (size_t i = 0; i < cc_deque_size(e->drones); i++)
@@ -43,9 +53,10 @@ void computeObs(env *e)
         e->obs[offset++] = scaleValue(drone->charge, weaponCharge(drone->weaponInfo->type), true);
 
         ASSERT(i * DRONE_OBS_SIZE <= NUM_DRONES * DRONE_OBS_SIZE);
-        ASSERT(offset <= NUM_DRONES * DRONE_OBS_SIZE);
+        ASSERT(offset <= droneObsOffset);
+
+        // DEBUG_LOGF("drone cell index: %d", posToCellIdx(e, pos));
     }
-    const uint16_t droneObsOffset = NUM_DRONES * DRONE_OBS_SIZE;
     ASSERT(offset == droneObsOffset);
 
     //  compute projectile observations
@@ -70,7 +81,7 @@ void computeObs(env *e)
         e->obs[offset++] = scaleValue(vel.y, MAX_SPEED, false);
 
         ASSERT(projIdx * PROJECTILE_OBS_SIZE <= NUM_PROJECTILE_OBS * PROJECTILE_OBS_SIZE);
-        ASSERT(offset - droneObsOffset <= NUM_PROJECTILE_OBS * PROJECTILE_OBS_SIZE);
+        ASSERT(offset <= projectileObsOffset);
         projIdx++;
     }
     // zero out any remaining projectile observations
@@ -81,7 +92,6 @@ void computeObs(env *e)
         memset(e->obs + offset, 0x0, projectileObsUnset * sizeof(float));
         offset += projectileObsUnset;
     }
-    const uint16_t projectileObsOffset = droneObsOffset + (NUM_PROJECTILE_OBS * PROJECTILE_OBS_SIZE);
     ASSERT(offset == projectileObsOffset);
 
     // compute floating wall observations
@@ -99,10 +109,10 @@ void computeObs(env *e)
         e->obs[offset++] = scaleValue(pos.y, MAX_Y_POS, false);
         e->obs[offset++] = scaleValue(vel.x, MAX_SPEED, false);
         e->obs[offset++] = scaleValue(vel.y, MAX_SPEED, false);
-        e->obs[offset++] = scaleValue(angle, 360.0f, false);
+        e->obs[offset++] = scaleValue(angle, 180.0f, false);
 
         ASSERT(i * FLOATING_WALL_OBS_SIZE <= NUM_FLOATING_WALL_OBS * FLOATING_WALL_OBS_SIZE);
-        ASSERT(offset - projectileObsOffset <= NUM_FLOATING_WALL_OBS * FLOATING_WALL_OBS_SIZE);
+        ASSERT(offset <= floatingWallObsOffset);
     }
     // zero out any remaining floating wall observations
     const uint16_t floatingWallObsSet = abs(offset - projectileObsOffset);
@@ -112,7 +122,6 @@ void computeObs(env *e)
         memset(e->obs + offset, 0x0, floatingWallObsUnset * sizeof(float));
         offset += floatingWallObsUnset;
     }
-    const uint16_t floatingWallObsOffset = projectileObsOffset + (NUM_FLOATING_WALL_OBS * FLOATING_WALL_OBS_SIZE);
     ASSERT(offset == floatingWallObsOffset);
 
     // compute map cell observations
@@ -153,30 +162,34 @@ void computeObs(env *e)
     }
     ASSERT(offset == OBS_SIZE);
 
-    // copy observations for other drone
+    // copy observations for other agent
     // TODO: handle more than 2 drones
+
+    // add scalar observations
+    e->obs[OBS_SIZE] = e->obs[0];
+    oneHotEncode(e->obs, OBS_SIZE + 1, 1, NUM_DRONES);
 
     // reorder drone observation so that the second drone is first
     memcpy(
-        e->obs + OBS_SIZE,
-        e->obs + DRONE_OBS_SIZE,
-        DRONE_OBS_SIZE * sizeof(float));
+        e->obs + OBS_SIZE + scalarObsOffset,
+        e->obs + droneObsOffset,
+        droneObsOffset * sizeof(float));
     memcpy(
-        e->obs + OBS_SIZE + DRONE_OBS_SIZE,
+        e->obs + OBS_SIZE + droneObsOffset,
         e->obs,
-        DRONE_OBS_SIZE * sizeof(float));
+        droneObsOffset * sizeof(float));
     // copy the rest of the observations over unmodified
     memcpy(
-        e->obs + (OBS_SIZE + (NUM_DRONES * DRONE_OBS_SIZE)),
-        e->obs + (NUM_DRONES * DRONE_OBS_SIZE),
-        (OBS_SIZE - (NUM_DRONES * DRONE_OBS_SIZE)) * sizeof(float));
+        e->obs + OBS_SIZE + droneObsOffset,
+        e->obs + droneObsOffset,
+        (OBS_SIZE - droneObsOffset) * sizeof(float));
 
     // assert that the observations are the same after the drone reordering
     ASSERT(
         memcmp(
-            e->obs + (NUM_DRONES * DRONE_OBS_SIZE),
-            e->obs + OBS_SIZE + (NUM_DRONES * DRONE_OBS_SIZE),
-            (OBS_SIZE - (NUM_DRONES * DRONE_OBS_SIZE)) * sizeof(float)) == 0);
+            e->obs + droneObsOffset,
+            e->obs + OBS_SIZE + droneObsOffset,
+            (OBS_SIZE - droneObsOffset) * sizeof(float)) == 0);
 }
 
 void setupEnv(env *e)
