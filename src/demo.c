@@ -101,8 +101,9 @@ int main(void)
     float *rewards = (float *)fastCalloc(NUM_DRONES, sizeof(float));
     float *actions = (float *)fastCalloc(NUM_DRONES * ACTION_SIZE, sizeof(float));
     unsigned char *terminals = (unsigned char *)fastCalloc(NUM_DRONES, sizeof(bool));
+    logBuffer *logs = createLogBuffer(LOG_BUFFER_SIZE);
 
-    initEnv(e, obs, actions, rewards, terminals, time(NULL));
+    initEnv(e, obs, actions, rewards, terminals, logs, time(NULL));
 
     while (true)
     {
@@ -113,6 +114,7 @@ int main(void)
             fastFree(actions);
             fastFree(rewards);
             fastFree(terminals);
+            destroyLogBuffer(logs);
             fastFree(e);
             CloseWindow();
             return 0;
@@ -129,25 +131,25 @@ int main(void)
         renderEnv(e);
 
         // if one drone died, pause the game before resetting so it's clear who won
-        for (size_t i = 0; i < cc_array_size(e->drones); i++)
-        {
-            const droneEntity *drone = safe_array_get_at(e->drones, i);
-            if (!drone->dead)
-            {
-                continue;
-            }
+        // for (size_t i = 0; i < cc_array_size(e->drones); i++)
+        // {
+        //     const droneEntity *drone = safe_array_get_at(e->drones, i);
+        //     if (!drone->dead)
+        //     {
+        //         continue;
+        //     }
 
-            // uint8_t offset = i * ACTION_SIZE;
-            // memset(e->actions + offset, 0x0, ACTION_SIZE * sizeof(float));
+        //     // uint8_t offset = i * ACTION_SIZE;
+        //     // memset(e->actions + offset, 0x0, ACTION_SIZE * sizeof(float));
 
-            // b2Body_Disable(drone->bodyID);
-            // for (int i = 0; i < 120; i++)
-            // {
-            //     stepEnv(e);
-            //     renderEnv(e);
-            // }
+        //     // b2Body_Disable(drone->bodyID);
+        //     // for (int i = 0; i < 120; i++)
+        //     // {
+        //     //     stepEnv(e);
+        //     //     renderEnv(e);
+        //     // }
 
-            resetEnv(e);
-        }
+        //     resetEnv(e);
+        // }
     }
 }

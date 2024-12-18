@@ -28,10 +28,12 @@ const uint8_t NUM_DRONES = _NUM_DRONES;
 
 #define EXPLOSION_STEPS 5
 
+const uint16_t LOG_BUFFER_SIZE = 1024;
+
 // reward settings
 #define KILL_REWARD 1.0f
 #define DEATH_REWARD -1.0f
-#define SHOT_HIT_REWARD_COEF 0.3f
+#define SHOT_HIT_REWARD_COEF 0.5f
 
 // observation constants
 const uint8_t DRONE_OBS_SIZE = 10;

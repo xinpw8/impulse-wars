@@ -143,6 +143,8 @@ typedef struct droneStats
     uint16_t shotsFired[_NUM_WEAPONS];
     uint16_t shotsHit[_NUM_WEAPONS];
     uint16_t shotsTaken[_NUM_WEAPONS];
+    uint16_t ownShotsTaken[_NUM_WEAPONS];
+    uint16_t weaponsPickedUp[_NUM_WEAPONS];
 } droneStats;
 
 typedef struct droneEntity
@@ -165,6 +167,21 @@ typedef struct droneEntity
     bool dead;
 } droneEntity;
 
+typedef struct logEntry
+{
+    float reward[_NUM_DRONES];
+    uint16_t length;
+    droneStats stats[_NUM_DRONES];
+    uint8_t winner;
+} logEntry;
+
+typedef struct logBuffer
+{
+    logEntry *logs;
+    uint16_t size;
+    uint16_t capacity;
+} logBuffer;
+
 typedef struct env
 {
     float *obs;
@@ -173,7 +190,13 @@ typedef struct env
     unsigned char *terminals;
 
     uint64_t randState;
+    // TODO: allow for manual resetting
     bool needsReset;
+
+    float episodeReward[_NUM_DRONES];
+    uint16_t episodeLength;
+    logBuffer *logs;
+    droneStats stats[_NUM_DRONES];
 
     b2WorldId worldID;
     uint8_t columns;

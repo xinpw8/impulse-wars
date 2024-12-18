@@ -7,8 +7,9 @@ void perfTest(const float testTime)
     float *rewards = (float *)fastCalloc(NUM_DRONES, sizeof(float));
     float *actions = (float *)fastCalloc(NUM_DRONES * ACTION_SIZE, sizeof(float));
     unsigned char *terminals = (unsigned char *)fastCalloc(NUM_DRONES, sizeof(bool));
+    logBuffer *logs = createLogBuffer(1);
 
-    initEnv(e, obs, actions, rewards, terminals, 0);
+    initEnv(e, obs, actions, rewards, terminals, logs, 0);
 
     const time_t start = time(NULL);
     int steps = 0;
@@ -40,6 +41,7 @@ void perfTest(const float testTime)
     fastFree(actions);
     fastFree(rewards);
     fastFree(terminals);
+    destroyLogBuffer(logs);
     fastFree(e);
 }
 

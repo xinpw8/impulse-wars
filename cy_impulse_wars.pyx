@@ -24,6 +24,12 @@ from impulse_wars cimport (
     resetEnv,
     stepEnv,
     destroyEnv,
+    LOG_BUFFER_SIZE,
+    logBuffer,
+    logEntry,
+    createLogBuffer,
+    destroyLogBuffer,
+    aggregateAndClearLogBuffer,
 )
 
 
@@ -56,7 +62,7 @@ def obsConstants() -> pufferlib.Namespace:
     return pufferlib.Namespace(
         weaponTypes=NUM_WEAPONS,
         wallTypes=NUM_WALL_TYPES,
-        mapCellTypes=NUM_ENTITY_TYPES + NUM_WEAPONS + 1,
+        mapCellTypes=OBS_HIGH,
         scalarObsSize=SCALAR_OBS_SIZE,
         droneObsSize=DRONE_OBS_SIZE,
         numProjectileObs=NUM_PROJECTILE_OBS,
@@ -70,12 +76,14 @@ def obsConstants() -> pufferlib.Namespace:
 
 cdef class CyImpulseWars:
     cdef:
-        env* envs
         int numEnvs
+        env* envs
+        logBuffer *logs
 
     def __init__(self, float[:, :] observations, float[:, :] actions, float[:] rewards, unsigned char[:] terminals, unsigned int numEnvs, uint64_t seed):
-        self.envs = <env*>calloc(numEnvs, sizeof(env))
         self.numEnvs = numEnvs
+        self.envs = <env*>calloc(numEnvs, sizeof(env))
+        self.logs = createLogBuffer(LOG_BUFFER_SIZE)
 
         cdef int inc = NUM_DRONES
         cdef int i
@@ -86,6 +94,7 @@ cdef class CyImpulseWars:
                 &actions[i * inc, 0],
                 &rewards[i * inc],
                 &terminals[i * inc],
+                self.logs,
                 seed + i,
             )
 
@@ -99,9 +108,14 @@ cdef class CyImpulseWars:
         for i in range(self.numEnvs):
             stepEnv(&self.envs[i])
 
+    def log(self):
+        cdef logEntry log = aggregateAndClearLogBuffer(self.logs)
+        return log
+
     def close(self):
         cdef int i
         for i in range(self.numEnvs):
             destroyEnv(&self.envs[i])
 
+        destroyLogBuffer(self.logs)
         free(self.envs)

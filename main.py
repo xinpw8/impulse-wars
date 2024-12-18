@@ -5,8 +5,6 @@ import os
 
 import numpy as np
 import pufferlib
-import pufferlib.models
-import pufferlib.emulation
 import pufferlib.vector
 import pufferlib.cleanrl
 import torch as th

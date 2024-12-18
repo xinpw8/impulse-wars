@@ -13,6 +13,65 @@ const uint16_t projectileObsOffset = droneObsOffset + (NUM_PROJECTILE_OBS * PROJ
 const uint16_t floatingWallObsOffset = projectileObsOffset + (NUM_FLOATING_WALL_OBS * FLOATING_WALL_OBS_SIZE);
 const uint16_t mapCellObsOffset = floatingWallObsOffset + (MAX_MAP_COLUMNS * MAX_MAP_ROWS);
 
+logBuffer *createLogBuffer(uint16_t capacity)
+{
+    logBuffer *logs = (logBuffer *)fastCalloc(1, sizeof(logBuffer));
+    logs->logs = (logEntry *)fastCalloc(capacity, sizeof(logEntry));
+    logs->size = 0;
+    logs->capacity = capacity;
+    return logs;
+}
+
+void destroyLogBuffer(logBuffer *buffer)
+{
+    fastFree(buffer->logs);
+    fastFree(buffer);
+}
+
+void addLogEntry(logBuffer *logs, logEntry *log)
+{
+    if (logs->size == logs->capacity)
+    {
+        return;
+    }
+    logs->logs[logs->size] = *log;
+    logs->size += 1;
+}
+
+logEntry aggregateAndClearLogBuffer(logBuffer *logs)
+{
+    logEntry log = {0};
+    if (logs->size == 0)
+    {
+        return log;
+    }
+
+    DEBUG_LOGF("aggregating logs, size: %d", logs->size);
+
+    for (uint16_t i = 0; i < logs->size; i++)
+    {
+        log.length += logs->logs[i].length / logs->size;
+        log.winner += logs->logs[i].winner / logs->size;
+
+        for (uint8_t j = 0; j < NUM_DRONES; j++)
+        {
+            log.reward[j] += logs->logs[i].reward[j] / logs->size;
+
+            for (uint8_t k = 0; k < NUM_WEAPONS; k++)
+            {
+                log.stats[j].shotsFired[k] += logs->logs[i].stats[j].shotsFired[k] / logs->size;
+                log.stats[j].shotsHit[k] += logs->logs[i].stats[j].shotsHit[k] / logs->size;
+                log.stats[j].shotsTaken[k] += logs->logs[i].stats[j].shotsTaken[k] / logs->size;
+                log.stats[j].ownShotsTaken[k] += logs->logs[i].stats[j].ownShotsTaken[k] / logs->size;
+                log.stats[j].weaponsPickedUp[k] += logs->logs[i].stats[j].weaponsPickedUp[k] / logs->size;
+            }
+        }
+    }
+
+    logs->size = 0;
+    return log;
+}
+
 // TODO: can posToCellIdx be replaced with this?
 static inline uint16_t entityPosToCellIdx(const env *e, const b2Vec2 pos)
 {
@@ -227,7 +286,7 @@ void setupEnv(env *e)
     e->suddenDeathWallCounter = 0;
 
     DEBUG_LOG("creating map");
-    const int mapIdx = randInt(&e->randState, 0, NUM_MAPS - 1);
+    const int mapIdx = 0; // randInt(&e->randState, 0, NUM_MAPS - 1);
     createMap(e, mapIdx);
 
     mapBounds bounds = {.min = {.x = FLT_MAX, .y = FLT_MAX}, .max = {.x = FLT_MIN, .y = FLT_MIN}};
@@ -259,7 +318,7 @@ void setupEnv(env *e)
     computeObs(e);
 }
 
-env *initEnv(env *e, float *obs, float *actions, float *rewards, unsigned char *terminals, uint64_t seed)
+env *initEnv(env *e, float *obs, float *actions, float *rewards, unsigned char *terminals, logBuffer *logs, uint64_t seed)
 {
     e->obs = obs;
     e->actions = actions;
@@ -268,6 +327,8 @@ env *initEnv(env *e, float *obs, float *actions, float *rewards, unsigned char *
 
     e->randState = seed;
     e->needsReset = false;
+
+    e->logs = logs;
 
     cc_array_new(&e->cells);
     cc_array_new(&e->walls);
@@ -284,7 +345,11 @@ env *initEnv(env *e, float *obs, float *actions, float *rewards, unsigned char *
 void clearEnv(env *e)
 {
     memset(e->obs, 0x0, OBS_SIZE * NUM_DRONES * sizeof(float));
+    // rewards get cleared in stepEnv every step
     memset(e->terminals, 0x0, NUM_DRONES * sizeof(bool));
+
+    memset(e->episodeReward, 0x0, NUM_DRONES * sizeof(float));
+    e->episodeLength = 0;
 
     for (size_t i = 0; i < cc_array_size(e->pickups); i++)
     {
@@ -383,6 +448,7 @@ void computeRewards(env *e)
     {
         const droneEntity *drone = safe_array_get_at(e->drones, i);
         computeReward(e, drone);
+        e->episodeReward[drone->idx] += e->rewards[drone->idx];
 
         if (e->rewards[drone->idx] != 0.0f)
         {
@@ -399,8 +465,13 @@ void stepEnv(env *e)
         resetEnv(e);
     }
 
+    // reset reward buffer
+    memset(e->rewards, 0x0, NUM_DRONES * sizeof(float));
+
     for (int i = 0; i < FRAMESKIP; i++)
     {
+        e->episodeLength++;
+
         // handle actions
         for (size_t i = 0; i < cc_array_size(e->drones); i++)
         {
@@ -423,7 +494,6 @@ void stepEnv(env *e)
                 drone->lastAim = b2Normalize(aim);
             }
 
-            e->rewards[i] = 0.0f;
             drone->lastVelocity = b2Body_GetLinearVelocity(drone->bodyID);
             memset(&drone->hitInfo, 0x0, sizeof(stepHitInfo));
         }
@@ -451,6 +521,11 @@ void stepEnv(env *e)
             }
         }
 
+        projectilesStep(e);
+
+        handleContactEvents(e);
+        handleSensorEvents(e);
+
         bool terminate = false;
         for (size_t i = 0; i < cc_array_size(e->drones); i++)
         {
@@ -463,16 +538,23 @@ void stepEnv(env *e)
             }
         }
 
-        projectilesStep(e);
         weaponPickupsStep(e, DELTA_TIME);
-
-        handleContactEvents(e);
-        handleSensorEvents(e);
 
         computeRewards(e);
 
         if (terminate)
         {
+            logEntry log = {0};
+            memcpy(log.reward, e->episodeReward, NUM_DRONES * sizeof(float));
+            log.length = e->episodeLength;
+            memcpy(log.stats, e->stats, sizeof(e->stats));
+            addLogEntry(e->logs, &log);
+
+            for (size_t i = 0; i < cc_array_size(e->drones); i++)
+            {
+                DEBUG_LOGF("drone %zu total reward: %f", i, log.reward[i]);
+            }
+
             e->needsReset = true;
             break;
         }

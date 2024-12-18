@@ -414,16 +414,30 @@ void createProjectile(env *e, droneEntity *drone, const b2Vec2 normAim)
     b2Shape_SetUserData(projectile->shapeID, ent);
 }
 
+typedef struct explosionCallbackContext
+{
+    droneEntity *drone;
+    env *e;
+    enum weaponType weaponType;
+} explosionCallbackContext;
+
 bool explosionOverlapCallback(b2ShapeId shapeId, void *context)
 {
-    droneEntity *drone = (droneEntity *)context;
+    explosionCallbackContext *ctx = (explosionCallbackContext *)context;
     entity *ent = (entity *)b2Shape_GetUserData(shapeId);
     droneEntity *hitDrone = (droneEntity *)ent->entity;
-    if (hitDrone->idx == drone->idx)
+    if (hitDrone->idx == ctx->drone->idx)
     {
+        ctx->e->stats[hitDrone->idx].ownShotsTaken[ctx->weaponType]++;
+        DEBUG_LOGF("drone %d hit itself with explosion from weapon %d", ctx->drone->idx, ctx->weaponType);
         return true;
     }
-    drone->hitInfo.explosionHit = true;
+    ctx->drone->hitInfo.explosionHit = true;
+
+    ctx->e->stats[ctx->drone->idx].shotsHit[ctx->weaponType]++;
+    DEBUG_LOGF("drone %d hit drone %d with explosion from weapon %d", ctx->drone->idx, hitDrone->idx, ctx->weaponType);
+    ctx->e->stats[hitDrone->idx].shotsTaken[ctx->weaponType]++;
+    DEBUG_LOGF("drone %d hit by explosion from drone %d with weapon %d", hitDrone->idx, ctx->drone->idx, ctx->weaponType);
 
     return true;
 }
@@ -449,7 +463,12 @@ void destroyProjectile(env *e, projectileEntity *projectile, const bool full)
             .maskBits = DRONE_SHAPE,
         };
         droneEntity *drone = safe_array_get_at(e->drones, projectile->droneIdx);
-        b2World_OverlapCircle(e->worldID, &cir, transform, filter, explosionOverlapCallback, drone);
+        explosionCallbackContext ctx = {
+            .drone = drone,
+            .e = e,
+            .weaponType = projectile->weaponInfo->type,
+        };
+        b2World_OverlapCircle(e->worldID, &cir, transform, filter, explosionOverlapCallback, &ctx);
     }
 
     entity *ent = (entity *)b2Shape_GetUserData(projectile->shapeID);
@@ -625,6 +644,9 @@ void droneShoot(env *e, droneEntity *drone, const b2Vec2 aim)
     for (int i = 0; i < drone->weaponInfo->numProjectiles; i++)
     {
         createProjectile(e, drone, normAim);
+
+        e->stats[drone->idx].shotsFired[drone->weaponInfo->type]++;
+        DEBUG_LOGF("drone %d fired %d weapon", drone->idx, drone->weaponInfo->type);
     }
 
     if (drone->ammo == 0)
@@ -745,6 +767,16 @@ bool handleProjectileBeginContact(env *e, const entity *proj, const entity *ent)
             {
                 droneEntity *shooterDrone = safe_array_get_at(e->drones, projectile->droneIdx);
                 shooterDrone->hitInfo.shotHit = true;
+
+                e->stats[shooterDrone->idx].shotsHit[projectile->weaponInfo->type]++;
+                DEBUG_LOGF("drone %d hit drone %d with weapon %d", shooterDrone->idx, hitDrone->idx, projectile->weaponInfo->type);
+                e->stats[hitDrone->idx].shotsTaken[projectile->weaponInfo->type]++;
+                DEBUG_LOGF("drone %d hit by drone %d with weapon %d", hitDrone->idx, shooterDrone->idx, projectile->weaponInfo->type);
+            }
+            else
+            {
+                e->stats[hitDrone->idx].ownShotsTaken[projectile->weaponInfo->type]++;
+                DEBUG_LOGF("drone %d hit by own weapon %d", hitDrone->idx, projectile->weaponInfo->type);
             }
         }
     }
@@ -862,6 +894,10 @@ void handleWeaponPickupBeginTouch(env *e, const entity *sensor, entity *visitor)
 
         droneEntity *drone = (droneEntity *)visitor->entity;
         droneChangeWeapon(e, drone, pickup->weapon);
+
+        e->stats[drone->idx].weaponsPickedUp[pickup->weapon]++;
+        DEBUG_LOGF("drone %d picked up weapon %d", drone->idx, pickup->weapon);
+
         break;
     case STANDARD_WALL_ENTITY:
     case BOUNCY_WALL_ENTITY:

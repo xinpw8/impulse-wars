@@ -12,8 +12,33 @@ from cy_impulse_wars import (
 )
 
 
+def transformRawLog(rawLog):
+    log = {}
+    for i, reward in enumerate(rawLog["reward"]):
+        log[f"drone_{i}_reward"] = reward
+
+    for i, stats in enumerate(rawLog["stats"]):
+        log[f"drone_{i}_shots_fired"] = sum(stats["shotsFired"])
+
+    for i, stats in enumerate(rawLog["stats"]):
+        log[f"drone_{i}_shots_hit"] = sum(stats["shotsHit"])
+
+    for i, stats in enumerate(rawLog["stats"]):
+        log[f"drone_{i}_shots_taken"] = sum(stats["shotsTaken"])
+
+    for i, stats in enumerate(rawLog["stats"]):
+        log[f"drone_{i}_own_shots_taken"] = sum(stats["ownShotsTaken"])
+
+    for i, stats in enumerate(rawLog["stats"]):
+        log[f"drone_{i}_weapons_picked_up"] = sum(stats["weaponsPickedUp"])
+
+    log["length"] = rawLog["length"]
+
+    return log
+
+
 class ImpulseWars(pufferlib.PufferEnv):
-    def __init__(self, num_envs: int, seed: int = 0, render_mode: str = None, buf=None):
+    def __init__(self, num_envs: int, seed: int = 0, report_interval=128, render_mode: str = None, buf=None):
         self.single_observation_space = gymnasium.spaces.Box(
             low=0.0, high=obsHigh(), shape=(obsSize(),), dtype=np.float32
         )
@@ -21,8 +46,10 @@ class ImpulseWars(pufferlib.PufferEnv):
             low=-1.0, high=1.0, shape=(actionsSize(),), dtype=np.float32
         )
 
+        self.report_interval = report_interval
         self.render_mode = render_mode
         self.num_agents = numDrones() * num_envs
+        self.tick = 0
 
         super().__init__(buf)
         self.c_envs = CyImpulseWars(
@@ -31,13 +58,21 @@ class ImpulseWars(pufferlib.PufferEnv):
 
     def reset(self, seed=None):
         self.c_envs.reset()
+        self.tick = 0
         return self.observations, []
 
     def step(self, actions):
         self.actions[:] = actions
         self.c_envs.step()
 
-        return self.observations, self.rewards, self.terminals, self.truncations, []
+        infos = []
+        self.tick += 1
+        if self.tick % self.report_interval == 0:
+            rawLog = self.c_envs.log()
+            if rawLog["length"] > 0:
+                infos.append(transformRawLog(rawLog))
+
+        return self.observations, self.rewards, self.terminals, self.truncations, infos
 
     def render(self):
         pass
@@ -46,16 +81,17 @@ class ImpulseWars(pufferlib.PufferEnv):
         self.c_envs.close()
 
 
-def testPerf(timeout=10, actionCache=1024, numEnvs=1024):
+def testPerf(timeout, actionCache, numEnvs):
     env = ImpulseWars(numEnvs)
 
-    actions = np.random.randint(
+    import time
+
+    np.random.seed(int(time.time()))
+    actions = np.random.uniform(
         env.single_action_space.low[0],
-        env.single_action_space.high[1],
+        env.single_action_space.high[0],
         (actionCache, env.num_agents, actionsSize()),
     )
-
-    import time
 
     tick = 0
     start = time.time()
@@ -71,4 +107,4 @@ def testPerf(timeout=10, actionCache=1024, numEnvs=1024):
 
 
 if __name__ == "__main__":
-    testPerf(timeout=10, actionCache=1024, numEnvs=10)
+    testPerf(timeout=10, actionCache=10240, numEnvs=1)
