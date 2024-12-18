@@ -12,6 +12,17 @@ static inline bool entityTypeIsWall(const enum entityType type)
     return type == STANDARD_WALL_ENTITY || type == BOUNCY_WALL_ENTITY || type == DEATH_WALL_ENTITY;
 }
 
+static inline b2Vec2 getDronePos(droneEntity *drone)
+{
+    if (drone->posValid)
+    {
+        return drone->pos;
+    }
+    drone->pos = b2Body_GetPosition(drone->bodyID);
+    drone->posValid = true;
+    return drone->pos;
+}
+
 // returns the index of a map cell that contains the given world position
 static inline uint16_t posToCellIdx(const env *e, const b2Vec2 pos)
 {
@@ -319,6 +330,8 @@ void createDrone(env *e, const uint8_t idx)
     drone->charge = 0;
     drone->shotThisStep = false;
     drone->idx = idx;
+    drone->pos = droneBodyDef.position;
+    drone->posValid = true;
     drone->lastAim = (b2Vec2){.x = 0.0f, .y = -1.0f};
     drone->lastVelocity = b2Vec2_zero;
     drone->dead = false;
@@ -360,7 +373,7 @@ void createProjectile(env *e, droneEntity *drone, const b2Vec2 normAim)
     projectileBodyDef.fixedRotation = true;
     projectileBodyDef.isBullet = drone->weaponInfo->isPhysicsBullet;
     projectileBodyDef.enableSleep = false;
-    b2Vec2 dronePos = b2Body_GetPosition(drone->bodyID);
+    b2Vec2 dronePos = getDronePos(drone);
     float radius = drone->weaponInfo->radius;
     projectileBodyDef.position = b2MulAdd(dronePos, 1.0f + (radius * 1.5f), normAim);
     b2BodyId projectileBodyID = b2CreateBody(e->worldID, &projectileBodyDef);
@@ -515,7 +528,7 @@ void handleSuddenDeath(env *e)
     for (size_t i = 0; i < cc_array_size(e->drones); i++)
     {
         droneEntity *drone = safe_array_get_at(e->drones, i);
-        const b2Vec2 pos = b2Body_GetPosition(drone->bodyID);
+        const b2Vec2 pos = getDronePos(drone);
         if (isOverlapping(e, pos, DRONE_RADIUS, DRONE_SHAPE, WALL_SHAPE))
         {
             drone->dead = true;

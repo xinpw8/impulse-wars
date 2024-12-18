@@ -157,6 +157,8 @@ typedef struct droneEntity
     bool shotThisStep;
 
     uint8_t idx;
+    b2Vec2 pos;
+    bool posValid;
     b2Vec2 lastAim;
     b2Vec2 lastVelocity;
     stepHitInfo hitInfo;

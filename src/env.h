@@ -13,6 +13,16 @@ const uint16_t projectileObsOffset = droneObsOffset + (NUM_PROJECTILE_OBS * PROJ
 const uint16_t floatingWallObsOffset = projectileObsOffset + (NUM_FLOATING_WALL_OBS * FLOATING_WALL_OBS_SIZE);
 const uint16_t mapCellObsOffset = floatingWallObsOffset + (MAX_MAP_COLUMNS * MAX_MAP_ROWS);
 
+// TODO: can posToCellIdx be replaced with this?
+static inline uint16_t entityPosToCellIdx(const env *e, const b2Vec2 pos)
+{
+    float cellX = pos.x + (((float)e->columns * WALL_THICKNESS) / 2.0f);
+    float cellY = pos.y + (((float)e->rows * WALL_THICKNESS) / 2.0f);
+    uint16_t cellCol = cellX / WALL_THICKNESS;
+    uint16_t cellRow = cellY / WALL_THICKNESS;
+    return cellCol + (cellRow * e->columns);
+}
+
 void computeObs(env *e)
 {
     uint16_t offset = 0;
@@ -25,7 +35,7 @@ void computeObs(env *e)
     for (size_t i = 0; i < cc_array_size(e->drones); i++)
     {
         const droneEntity *drone = safe_array_get_at(e->drones, i);
-        const b2Vec2 pos = b2Body_GetPosition(drone->bodyID);
+        const b2Vec2 pos = getDronePos((droneEntity *)drone);
 
         int8_t ammo = drone->ammo;
         int8_t maxAmmo = weaponAmmo(e->defaultWeapon->type, drone->weaponInfo->type);
@@ -54,8 +64,6 @@ void computeObs(env *e)
 
         ASSERT(i * DRONE_OBS_SIZE <= NUM_DRONES * DRONE_OBS_SIZE);
         ASSERT(offset <= droneObsOffset);
-
-        // DEBUG_LOGF("drone cell index: %d", posToCellIdx(e, pos));
     }
     ASSERT(offset == droneObsOffset);
 
@@ -104,7 +112,7 @@ void computeObs(env *e)
 
         // will be processed in an embedding layer separately
         // 1 doesn't need to be added here as the first valid wall type is 1 already
-        e->obs[offset++] = (float)(wall->type);
+        e->obs[offset++] = wall->type;
         e->obs[offset++] = scaleValue(pos.x, MAX_X_POS, false);
         e->obs[offset++] = scaleValue(pos.y, MAX_Y_POS, false);
         e->obs[offset++] = scaleValue(vel.x, MAX_SPEED, false);
@@ -162,12 +170,26 @@ void computeObs(env *e)
     }
     ASSERT(offset == OBS_SIZE);
 
+    // add drones and floating walls to map cells
+    // add floating walls first so that we can ensure drones will
+    // always be present in the map cell observation
+    for (size_t i = 0; i < cc_array_size(e->floatingWalls); i++)
+    {
+        // TODO: cache floating wall positions
+        const wallEntity *wall = safe_array_get_at(e->floatingWalls, i);
+        const b2Vec2 pos = b2Body_GetPosition(wall->bodyID);
+        const uint16_t cellIdx = entityPosToCellIdx(e, pos);
+        e->obs[floatingWallObsOffset + cellIdx] = wall->type;
+    }
+    for (size_t i = 0; i < cc_array_size(e->drones); i++)
+    {
+        droneEntity *drone = safe_array_get_at(e->drones, i);
+        const uint16_t cellIdx = entityPosToCellIdx(e, drone->pos);
+        e->obs[floatingWallObsOffset + cellIdx] = (float)(DRONE_ENTITY + i);
+    }
+
     // copy observations for other agent
     // TODO: handle more than 2 drones
-
-    // add scalar observations
-    e->obs[OBS_SIZE] = e->obs[0];
-    oneHotEncode(e->obs, OBS_SIZE + 1, 1, NUM_DRONES);
 
     // reorder drone observation so that the second drone is first
     memcpy(
@@ -408,6 +430,13 @@ void stepEnv(env *e)
 
         // update entity info, step physics, and handle events
         b2World_Step(e->worldID, DELTA_TIME, BOX2D_SUBSTEPS);
+
+        // mark old drone positions as invalid now that physics has been stepped
+        for (size_t i = 0; i < cc_array_size(e->drones); i++)
+        {
+            droneEntity *drone = safe_array_get_at(e->drones, i);
+            drone->posValid = false;
+        }
 
         // handle sudden death
         e->stepsLeft = fmaxf(e->stepsLeft - 1, 0.0f);

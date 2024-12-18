@@ -2,8 +2,6 @@
 
 void perfTest(const float testTime)
 {
-    srand(0);
-
     env *e = (env *)fastCalloc(1, sizeof(env));
     float *obs = (float *)fastCalloc(NUM_DRONES * OBS_SIZE, sizeof(float));
     float *rewards = (float *)fastCalloc(NUM_DRONES, sizeof(float));
@@ -17,7 +15,7 @@ void perfTest(const float testTime)
     while (time(NULL) - start < testTime)
     {
         uint8_t actionOffset = 0;
-        for (size_t i = 0; i < cc_deque_size(e->drones); i++)
+        for (size_t i = 0; i < cc_array_size(e->drones); i++)
         {
             e->actions[actionOffset + 0] = randFloat(&e->randState, -1.0f, 1.0f);
             e->actions[actionOffset + 1] = randFloat(&e->randState, -1.0f, 1.0f);
@@ -33,8 +31,8 @@ void perfTest(const float testTime)
     }
 
     const time_t end = time(NULL);
-    printf("SPS: %f\n", (2.0f * steps) / (end - start));
-    printf("Steps: %d\n", steps);
+    printf("SPS: %f\n", (2.0f * FRAMESKIP * steps) / (end - start));
+    printf("Steps: %d\n", steps * FRAMESKIP);
 
     destroyEnv(e);
 
