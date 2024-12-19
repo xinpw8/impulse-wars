@@ -109,15 +109,6 @@
 #define fastFree(ptr) dlfree(ptr)
 #endif
 
-// returns a pointer to a copy of data that is allocated on the heap;
-// allows the caller to assign a heap-allocated struct with const members
-static inline void *createConstStruct(const void *const data, const size_t size)
-{
-    void *const ptr = fastMalloc(size);
-    memcpy(ptr, data, size);
-    return ptr;
-}
-
 // automatically checks that the index is valid and returns the value
 // so callers can use it as a constant expression
 static inline void *safe_array_get_at(const CC_Array *const array, size_t index)

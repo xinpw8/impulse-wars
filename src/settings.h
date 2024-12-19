@@ -13,7 +13,7 @@
 
 #define BOX2D_SUBSTEPS 4
 
-#define FRAMESKIP 1
+#define FRAMESKIP 4
 
 #define _MAX_MAP_COLUMNS 21
 #define _MAX_MAP_ROWS 21

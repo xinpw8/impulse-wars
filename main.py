@@ -196,7 +196,7 @@ if __name__ == "__main__":
     parser.add_argument("--train.compile", action="store_true")
     parser.add_argument("--train.compile-mode", type=str, default="reduce-overhead")
 
-    parser.add_argument("--train.num-envs", type=int, default=1024)
+    parser.add_argument("--train.num-envs", type=int, default=1536)
     parser.add_argument("--train.batch-size", type=int, default=262_144)
     parser.add_argument("--train.bptt-horizon", type=int, default=64)
     parser.add_argument("--train.clip-coef", type=float, default=0.2)
@@ -219,7 +219,7 @@ if __name__ == "__main__":
     )
     parser.add_argument("--vec.num-envs", type=int, default=16)
     parser.add_argument("--vec.num-workers", type=int, default=16)
-    parser.add_argument("--vec.env-batch-size", type=int, default=16)
+    parser.add_argument("--vec.env-batch-size", type=int, default=8)
     parser.add_argument("--vec.zero-copy", action="store_false")
     parsed = parser.parse_args()
 

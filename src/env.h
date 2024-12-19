@@ -48,22 +48,25 @@ logEntry aggregateAndClearLogBuffer(logBuffer *logs)
 
     DEBUG_LOGF("aggregating logs, size: %d", logs->size);
 
+    const float logSize = logs->size;
     for (uint16_t i = 0; i < logs->size; i++)
     {
-        log.length += logs->logs[i].length / logs->size;
-        log.winner += logs->logs[i].winner / logs->size;
+        log.length += logs->logs[i].length / logSize;
+        log.winner += logs->logs[i].winner / logSize;
 
         for (uint8_t j = 0; j < NUM_DRONES; j++)
         {
-            log.reward[j] += logs->logs[i].reward[j] / logs->size;
+            log.reward[j] += logs->logs[i].reward[j] / logSize;
 
             for (uint8_t k = 0; k < NUM_WEAPONS; k++)
             {
-                log.stats[j].shotsFired[k] += logs->logs[i].stats[j].shotsFired[k] / logs->size;
-                log.stats[j].shotsHit[k] += logs->logs[i].stats[j].shotsHit[k] / logs->size;
-                log.stats[j].shotsTaken[k] += logs->logs[i].stats[j].shotsTaken[k] / logs->size;
-                log.stats[j].ownShotsTaken[k] += logs->logs[i].stats[j].ownShotsTaken[k] / logs->size;
-                log.stats[j].weaponsPickedUp[k] += logs->logs[i].stats[j].weaponsPickedUp[k] / logs->size;
+                log.stats[j].distanceTraveled += logs->logs[i].stats[j].distanceTraveled / logSize;
+                log.stats[j].shotsFired[k] += logs->logs[i].stats[j].shotsFired[k] / logSize;
+                log.stats[j].shotsHit[k] += logs->logs[i].stats[j].shotsHit[k] / logSize;
+                log.stats[j].shotsTaken[k] += logs->logs[i].stats[j].shotsTaken[k] / logSize;
+                log.stats[j].ownShotsTaken[k] += logs->logs[i].stats[j].ownShotsTaken[k] / logSize;
+                log.stats[j].weaponsPickedUp[k] += logs->logs[i].stats[j].weaponsPickedUp[k] / logSize;
+                log.stats[j].shotDistances[k] += logs->logs[i].stats[j].shotDistances[k] / logSize;
             }
         }
     }
@@ -93,8 +96,8 @@ void computeObs(env *e)
     // compute drone observations
     for (size_t i = 0; i < cc_array_size(e->drones); i++)
     {
-        const droneEntity *drone = safe_array_get_at(e->drones, i);
-        const b2Vec2 pos = getDronePos((droneEntity *)drone);
+        droneEntity *drone = safe_array_get_at(e->drones, i);
+        const b2Vec2 pos = getCachedPos(drone->bodyID, &drone->pos);
 
         int8_t ammo = drone->ammo;
         int8_t maxAmmo = weaponAmmo(e->defaultWeapon->type, drone->weaponInfo->type);
@@ -164,8 +167,8 @@ void computeObs(env *e)
     // compute floating wall observations
     for (size_t i = 0; i < cc_array_size(e->floatingWalls); i++)
     {
-        const wallEntity *wall = safe_array_get_at(e->floatingWalls, i);
-        const b2Vec2 pos = b2Body_GetPosition(wall->bodyID);
+        wallEntity *wall = safe_array_get_at(e->floatingWalls, i);
+        const b2Vec2 pos = getCachedPos(wall->bodyID, &wall->pos);
         const b2Vec2 vel = b2Body_GetLinearVelocity(wall->bodyID);
         const float angle = b2Rot_GetAngle(b2Body_GetRotation(wall->bodyID)) * RAD2DEG;
 
@@ -234,16 +237,14 @@ void computeObs(env *e)
     // always be present in the map cell observation
     for (size_t i = 0; i < cc_array_size(e->floatingWalls); i++)
     {
-        // TODO: cache floating wall positions
         const wallEntity *wall = safe_array_get_at(e->floatingWalls, i);
-        const b2Vec2 pos = b2Body_GetPosition(wall->bodyID);
-        const uint16_t cellIdx = entityPosToCellIdx(e, pos);
+        const uint16_t cellIdx = entityPosToCellIdx(e, wall->pos.pos);
         e->obs[floatingWallObsOffset + cellIdx] = wall->type;
     }
     for (size_t i = 0; i < cc_array_size(e->drones); i++)
     {
         droneEntity *drone = safe_array_get_at(e->drones, i);
-        const uint16_t cellIdx = entityPosToCellIdx(e, drone->pos);
+        const uint16_t cellIdx = entityPosToCellIdx(e, drone->pos.pos);
         e->obs[floatingWallObsOffset + cellIdx] = (float)(DRONE_ENTITY + i);
     }
 
@@ -293,10 +294,10 @@ void setupEnv(env *e)
     for (size_t i = 0; i < cc_array_size(e->walls); i++)
     {
         const wallEntity *wall = safe_array_get_at(e->walls, i);
-        bounds.min.x = fminf(wall->position.x - wall->extent.x + WALL_THICKNESS, bounds.min.x);
-        bounds.min.y = fminf(wall->position.y - wall->extent.y + WALL_THICKNESS, bounds.min.y);
-        bounds.max.x = fmaxf(wall->position.x + wall->extent.x - WALL_THICKNESS, bounds.max.x);
-        bounds.max.y = fmaxf(wall->position.y + wall->extent.y - WALL_THICKNESS, bounds.max.y);
+        bounds.min.x = fminf(wall->pos.pos.x - wall->extent.x + WALL_THICKNESS, bounds.min.x);
+        bounds.min.y = fminf(wall->pos.pos.y - wall->extent.y + WALL_THICKNESS, bounds.min.y);
+        bounds.max.x = fmaxf(wall->pos.pos.x + wall->extent.x - WALL_THICKNESS, bounds.max.x);
+        bounds.max.y = fmaxf(wall->pos.pos.y + wall->extent.y - WALL_THICKNESS, bounds.max.y);
     }
     e->bounds = bounds;
 
@@ -350,6 +351,7 @@ void clearEnv(env *e)
 
     memset(e->episodeReward, 0x0, NUM_DRONES * sizeof(float));
     e->episodeLength = 0;
+    memset(e->stats, 0x0, sizeof(e->stats));
 
     for (size_t i = 0; i < cc_array_size(e->pickups); i++)
     {
@@ -501,11 +503,17 @@ void stepEnv(env *e)
         // update entity info, step physics, and handle events
         b2World_Step(e->worldID, DELTA_TIME, BOX2D_SUBSTEPS);
 
-        // mark old drone positions as invalid now that physics has been stepped
+        // mark old positions as invalid now that physics has been stepped
+        // projectiles will have their positions correctly updated in projectilesStep
         for (size_t i = 0; i < cc_array_size(e->drones); i++)
         {
             droneEntity *drone = safe_array_get_at(e->drones, i);
-            drone->posValid = false;
+            drone->pos.valid = false;
+        }
+        for (size_t i = 0; i < cc_array_size(e->floatingWalls); i++)
+        {
+            wallEntity *wall = safe_array_get_at(e->floatingWalls, i);
+            wall->pos.valid = false;
         }
 
         // handle sudden death
@@ -530,7 +538,7 @@ void stepEnv(env *e)
         for (size_t i = 0; i < cc_array_size(e->drones); i++)
         {
             droneEntity *drone = safe_array_get_at(e->drones, i);
-            droneStep(drone, DELTA_TIME);
+            droneStep(e, drone, DELTA_TIME);
             if (drone->dead)
             {
                 memset(e->terminals, 1, NUM_DRONES * sizeof(bool));
@@ -544,8 +552,15 @@ void stepEnv(env *e)
 
         if (terminate)
         {
+            // add existing projectile distances to stats
+            for (SNode *cur = e->projectiles->head; cur != NULL; cur = cur->next)
+            {
+                const projectileEntity *projectile = (projectileEntity *)cur->data;
+                e->stats[projectile->droneIdx].shotDistances[projectile->weaponInfo->type] += projectile->distance;
+            }
+
             logEntry log = {0};
-            memcpy(log.reward, e->episodeReward, NUM_DRONES * sizeof(float));
+            memcpy(log.reward, e->episodeReward, sizeof(e->episodeReward));
             log.length = e->episodeLength;
             memcpy(log.stats, e->stats, sizeof(e->stats));
             addLogEntry(e->logs, &log);

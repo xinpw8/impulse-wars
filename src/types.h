@@ -83,11 +83,17 @@ typedef struct mapBounds
     b2Vec2 max;
 } mapBounds;
 
+typedef struct cachedPos
+{
+    b2Vec2 pos;
+    bool valid;
+} cachedPos;
+
 typedef struct wallEntity
 {
     b2BodyId bodyID;
     b2ShapeId shapeID;
-    b2Vec2 position;
+    cachedPos pos;
     b2Vec2 extent;
     bool isFloating;
     enum entityType type;
@@ -119,7 +125,6 @@ typedef struct weaponPickupEntity
 
 typedef struct droneEntity droneEntity;
 
-// TODO: add drone index
 typedef struct projectileEntity
 {
     uint8_t droneIdx;
@@ -127,6 +132,7 @@ typedef struct projectileEntity
     b2BodyId bodyID;
     b2ShapeId shapeID;
     weaponInformation *weaponInfo;
+    cachedPos pos;
     b2Vec2 lastPos;
     float distance;
     uint8_t bounces;
@@ -140,11 +146,13 @@ typedef struct stepHitInfo
 
 typedef struct droneStats
 {
-    uint16_t shotsFired[_NUM_WEAPONS];
-    uint16_t shotsHit[_NUM_WEAPONS];
-    uint16_t shotsTaken[_NUM_WEAPONS];
-    uint16_t ownShotsTaken[_NUM_WEAPONS];
-    uint16_t weaponsPickedUp[_NUM_WEAPONS];
+    float distanceTraveled;
+    float shotsFired[_NUM_WEAPONS];
+    float shotsHit[_NUM_WEAPONS];
+    float shotsTaken[_NUM_WEAPONS];
+    float ownShotsTaken[_NUM_WEAPONS];
+    float weaponsPickedUp[_NUM_WEAPONS];
+    float shotDistances[_NUM_WEAPONS];
 } droneStats;
 
 typedef struct droneEntity
@@ -159,8 +167,8 @@ typedef struct droneEntity
     bool shotThisStep;
 
     uint8_t idx;
-    b2Vec2 pos;
-    bool posValid;
+    cachedPos pos;
+    b2Vec2 lastPos;
     b2Vec2 lastAim;
     b2Vec2 lastVelocity;
     stepHitInfo hitInfo;
@@ -170,7 +178,7 @@ typedef struct droneEntity
 typedef struct logEntry
 {
     float reward[_NUM_DRONES];
-    uint16_t length;
+    float length;
     droneStats stats[_NUM_DRONES];
     uint8_t winner;
 } logEntry;

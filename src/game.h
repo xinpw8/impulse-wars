@@ -12,15 +12,15 @@ static inline bool entityTypeIsWall(const enum entityType type)
     return type == STANDARD_WALL_ENTITY || type == BOUNCY_WALL_ENTITY || type == DEATH_WALL_ENTITY;
 }
 
-static inline b2Vec2 getDronePos(droneEntity *drone)
+static inline b2Vec2 getCachedPos(const b2BodyId bodyID, cachedPos *pos)
 {
-    if (drone->posValid)
+    if (pos->valid)
     {
-        return drone->pos;
+        return pos->pos;
     }
-    drone->pos = b2Body_GetPosition(drone->bodyID);
-    drone->posValid = true;
-    return drone->pos;
+    pos->pos = b2Body_GetPosition(bodyID);
+    pos->valid = true;
+    return pos->pos;
 }
 
 // returns the index of a map cell that contains the given world position
@@ -144,11 +144,7 @@ entity *createWall(env *e, const float posX, const float posY, const float width
 
     wallEntity *wall = (wallEntity *)fastMalloc(sizeof(wallEntity));
     wall->bodyID = wallBodyID;
-    wall->position = b2Vec2_zero;
-    if (!floating)
-    {
-        wall->position = pos;
-    }
+    wall->pos = (cachedPos){.pos = pos, .valid = true};
     wall->extent = extent;
     wall->isFloating = floating;
     wall->type = type;
@@ -330,8 +326,8 @@ void createDrone(env *e, const uint8_t idx)
     drone->charge = 0;
     drone->shotThisStep = false;
     drone->idx = idx;
-    drone->pos = droneBodyDef.position;
-    drone->posValid = true;
+    drone->pos = (cachedPos){.pos = droneBodyDef.position, .valid = true};
+    drone->lastPos = b2Vec2_zero;
     drone->lastAim = (b2Vec2){.x = 0.0f, .y = -1.0f};
     drone->lastVelocity = b2Vec2_zero;
     drone->dead = false;
@@ -373,7 +369,7 @@ void createProjectile(env *e, droneEntity *drone, const b2Vec2 normAim)
     projectileBodyDef.fixedRotation = true;
     projectileBodyDef.isBullet = drone->weaponInfo->isPhysicsBullet;
     projectileBodyDef.enableSleep = false;
-    b2Vec2 dronePos = getDronePos(drone);
+    b2Vec2 dronePos = getCachedPos(drone->bodyID, &drone->pos);
     float radius = drone->weaponInfo->radius;
     projectileBodyDef.position = b2MulAdd(dronePos, 1.0f + (radius * 1.5f), normAim);
     b2BodyId projectileBodyID = b2CreateBody(e->worldID, &projectileBodyDef);
@@ -447,7 +443,7 @@ void destroyProjectile(env *e, projectileEntity *projectile, const bool full)
     b2ExplosionDef explosion;
     if (weaponExplosion(projectile->weaponInfo->type, &explosion))
     {
-        const b2Vec2 pos = b2Body_GetPosition(projectile->bodyID);
+        const b2Vec2 pos = getCachedPos(projectile->bodyID, &projectile->pos);
         explosion.position = pos;
         explosion.maskBits = FLOATING_WALL_SHAPE | DRONE_SHAPE;
         b2World_Explode(e->worldID, &explosion);
@@ -480,6 +476,12 @@ void destroyProjectile(env *e, projectileEntity *projectile, const bool full)
         MAYBE_UNUSED(res);
         ASSERT(res == CC_OK);
         b2DestroyBody(projectile->bodyID);
+    }
+    else
+    {
+        // only add to the stats if we are not clearing the environment,
+        // otherwise this projectile's distance will be counted twice
+        e->stats[projectile->droneIdx].shotDistances[projectile->droneIdx] += projectile->distance;
     }
 
     fastFree(projectile);
@@ -547,7 +549,7 @@ void handleSuddenDeath(env *e)
     for (size_t i = 0; i < cc_array_size(e->drones); i++)
     {
         droneEntity *drone = safe_array_get_at(e->drones, i);
-        const b2Vec2 pos = getDronePos(drone);
+        const b2Vec2 pos = getCachedPos(drone->bodyID, &drone->pos);
         if (isOverlapping(e, pos, DRONE_RADIUS, DRONE_SHAPE, WALL_SHAPE))
         {
             drone->dead = true;
@@ -567,12 +569,10 @@ void handleSuddenDeath(env *e)
     wallEntity *wall;
     while (cc_array_iter_next(&iter, (void **)&wall) != CC_ITER_END)
     {
+        const b2Vec2 pos = getCachedPos(wall->bodyID, &wall->pos);
         const b2BodyType type = b2Body_GetType(wall->bodyID);
         if (type == b2_staticBody)
         {
-            const b2Vec2 pos = b2Body_GetPosition(wall->bodyID);
-            MAYBE_UNUSED(pos);
-
             // floating wall was previously partially overlapping with a wall,
             // now it is fully inside a wall, destroy it
             const enum cc_stat res = cc_array_iter_remove(&iter, NULL);
@@ -584,7 +584,6 @@ void handleSuddenDeath(env *e)
             continue;
         }
 
-        const b2Vec2 pos = b2Body_GetPosition(wall->bodyID);
         if (isOverlapping(e, pos, FLOATING_WALL_THICKNESS / 2.0f, FLOATING_WALL_SHAPE, WALL_SHAPE))
         {
             // floating wall is partially overlapping with a wall, make it a static body
@@ -656,7 +655,7 @@ void droneShoot(env *e, droneEntity *drone, const b2Vec2 aim)
     }
 }
 
-void droneStep(droneEntity *drone, const float frameTime)
+void droneStep(env *e, droneEntity *drone, const float frameTime)
 {
     ASSERT(frameTime != 0.0f);
 
@@ -671,6 +670,11 @@ void droneStep(droneEntity *drone, const float frameTime)
         drone->shotThisStep = false;
     }
     ASSERT(drone->shotThisStep == false);
+
+    const b2Vec2 pos = getCachedPos(drone->bodyID, &drone->pos);
+    const float distance = b2Distance(drone->lastPos, pos);
+    e->stats[drone->idx].distanceTraveled += distance;
+    drone->lastPos = pos;
 }
 
 void projectilesStep(env *e)
@@ -681,13 +685,17 @@ void projectilesStep(env *e)
     while (cc_slist_iter_next(&iter, (void **)&projectile) != CC_ITER_END)
     {
         const float maxDistance = projectile->weaponInfo->maxDistance;
+        projectile->pos.valid = false;
+        const b2Vec2 pos = getCachedPos(projectile->bodyID, &projectile->pos);
+        const b2Vec2 distance = b2Sub(pos, projectile->lastPos);
+        projectile->distance += b2Length(distance);
+        projectile->lastPos = pos;
+
         if (maxDistance == INFINITE)
         {
             continue;
         }
-        const b2Vec2 pos = b2Body_GetPosition(projectile->bodyID);
-        const b2Vec2 distance = b2Sub(pos, projectile->lastPos);
-        projectile->distance += b2Length(distance);
+
         if (projectile->distance >= maxDistance)
         {
             // we have to destroy the projectile using the iterator so
@@ -699,8 +707,6 @@ void projectilesStep(env *e)
             b2DestroyBody(bodyID);
             continue;
         }
-
-        projectile->lastPos = pos;
     }
 }
 

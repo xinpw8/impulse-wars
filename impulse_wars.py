@@ -13,32 +13,24 @@ from cy_impulse_wars import (
 
 
 def transformRawLog(rawLog):
-    log = {}
+    log = {"length": rawLog["length"]}
     for i, reward in enumerate(rawLog["reward"]):
         log[f"drone_{i}_reward"] = reward
 
     for i, stats in enumerate(rawLog["stats"]):
+        log[f"drone_{i}_distance_traveled"] = stats["distanceTraveled"]
         log[f"drone_{i}_shots_fired"] = sum(stats["shotsFired"])
-
-    for i, stats in enumerate(rawLog["stats"]):
         log[f"drone_{i}_shots_hit"] = sum(stats["shotsHit"])
-
-    for i, stats in enumerate(rawLog["stats"]):
         log[f"drone_{i}_shots_taken"] = sum(stats["shotsTaken"])
-
-    for i, stats in enumerate(rawLog["stats"]):
         log[f"drone_{i}_own_shots_taken"] = sum(stats["ownShotsTaken"])
-
-    for i, stats in enumerate(rawLog["stats"]):
         log[f"drone_{i}_weapons_picked_up"] = sum(stats["weaponsPickedUp"])
-
-    log["length"] = rawLog["length"]
+        log[f"drone_{i}_shots_distance"] = sum(stats["shotDistances"])
 
     return log
 
 
 class ImpulseWars(pufferlib.PufferEnv):
-    def __init__(self, num_envs: int, seed: int = 0, report_interval=128, render_mode: str = None, buf=None):
+    def __init__(self, num_envs: int, seed: int = 0, report_interval=8, render_mode: str = None, buf=None):
         self.single_observation_space = gymnasium.spaces.Box(
             low=0.0, high=obsHigh(), shape=(obsSize(),), dtype=np.float32
         )
