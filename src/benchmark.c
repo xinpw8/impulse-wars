@@ -9,7 +9,7 @@ void perfTest(const float testTime)
     unsigned char *terminals = (unsigned char *)fastCalloc(NUM_DRONES, sizeof(bool));
     logBuffer *logs = createLogBuffer(1);
 
-    initEnv(e, obs, actions, rewards, terminals, logs, 0);
+    initEnv(e, 2, obs, actions, rewards, terminals, logs, 0);
 
     const time_t start = time(NULL);
     int steps = 0;
@@ -47,7 +47,6 @@ void perfTest(const float testTime)
 
 int main(void)
 {
-    srand(0);
     perfTest(10.0f);
     return 0;
 }

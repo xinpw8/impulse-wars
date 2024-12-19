@@ -98,7 +98,10 @@ int main(void)
     unsigned char *terminals = (unsigned char *)fastCalloc(NUM_DRONES, sizeof(bool));
     logBuffer *logs = createLogBuffer(LOG_BUFFER_SIZE);
 
-    initEnv(e, obs, actions, rewards, terminals, logs, time(NULL), true);
+    initEnv(e, 2, obs, actions, rewards, terminals, logs, time(NULL));
+
+    rayClient *client = createRayClient();
+    e->client = client;
 
     while (true)
     {
@@ -111,6 +114,7 @@ int main(void)
             fastFree(terminals);
             destroyLogBuffer(logs);
             fastFree(e);
+            destroyRayClient(client);
             return 0;
         }
 

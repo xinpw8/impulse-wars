@@ -38,7 +38,7 @@ def train(args, shouldStopEarly=None):
         ImpulseWars,
         num_envs=args.vec.num_envs,
         env_args=(args.train.num_envs,),
-        env_kwargs=dict(seed=args.train.seed),
+        env_kwargs=dict(num_agents=args.train.num_agents, seed=args.train.seed),
         num_workers=args.vec.num_workers,
         batch_size=args.vec.env_batch_size,
         zero_copy=args.vec.zero_copy,
@@ -99,9 +99,7 @@ def init_wandb(args, name, id=None, resume=True):
     return wandb
 
 
-def eval_policy(
-    env: pufferlib.vector.PufferEnv, policy, device, data=None, bestEval: float = None, printInfo=False
-):
+def eval_policy(env: pufferlib.PufferEnv, policy, device, data=None, bestEval: float = None, printInfo=False):
     steps = 0
     totalReward = 0.0
 
@@ -109,13 +107,14 @@ def eval_policy(
     ob, _ = env.reset()
     while True:
         with th.no_grad():
-            ob = th.from_numpy(ob).to(device)
+            ob = th.as_tensor(ob).to(device)
             if hasattr(policy, "lstm"):
                 actions, _, _, _, state = policy(ob, state)
             else:
                 actions, _, _, _ = policy(ob)
 
             action = actions.cpu().numpy().reshape(env.action_space.shape)
+            action = np.clip(action, env.single_action_space.low[0], env.single_action_space.high[0])
 
         ob, reward, done, trunc, info = env.step(action)
         totalReward += reward
@@ -181,6 +180,8 @@ if __name__ == "__main__":
     parser.add_argument("--train.vf-coef", type=float, default=0.5)
     parser.add_argument("--train.target-kl", type=float, default=0.2)
 
+    parser.add_argument("--train.num_agents", type=int, default=1)
+
     parser.add_argument("--vec.num-envs", type=int, default=16)
     parser.add_argument("--vec.num-workers", type=int, default=16)
     parser.add_argument("--vec.env-batch-size", type=int, default=8)
@@ -222,10 +223,10 @@ if __name__ == "__main__":
             ImpulseWars,
             num_envs=1,
             env_args=(1,),
-            env_kwargs=dict(render=True, seed=args.train.seed),
+            env_kwargs=dict(num_agents=args.train.num_agents, render=True, seed=args.train.seed),
             num_workers=1,
             batch_size=1,
-            backend=pufferlib.vector.PufferEnv,
+            backend=pufferlib.PufferEnv,
         )
 
         if args.eval_model_path is None:

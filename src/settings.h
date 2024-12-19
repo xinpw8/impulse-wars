@@ -32,8 +32,8 @@ const uint16_t LOG_BUFFER_SIZE = 1024;
 
 // reward settings
 #define KILL_REWARD 0.5f
-#define DEATH_REWARD -0.5f
-#define SHOT_HIT_REWARD_COEF 0.5f
+#define DEATH_REWARD 0.0f
+#define SHOT_HIT_REWARD_COEF 1.0f
 
 // observation constants
 const uint8_t SCALAR_OBS_SIZE = 1;

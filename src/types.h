@@ -169,6 +169,7 @@ typedef struct droneEntity
     uint8_t idx;
     cachedPos pos;
     b2Vec2 lastPos;
+    b2Vec2 lastMove;
     b2Vec2 lastAim;
     b2Vec2 lastVelocity;
     stepHitInfo hitInfo;
@@ -192,7 +193,6 @@ typedef struct logBuffer
 
 typedef struct rayClient
 {
-    bool enabled;
     float scale;
     uint16_t width;
     uint16_t height;
@@ -202,6 +202,8 @@ typedef struct rayClient
 
 typedef struct env
 {
+    uint8_t numAgents;
+
     float *obs;
     float *rewards;
     float *actions;
@@ -235,7 +237,7 @@ typedef struct env
     // the amount of sudden death walls that have been spawned
     uint8_t suddenDeathWallCounter;
 
-    rayClient client;
+    rayClient *client;
 
     // used for rendering explosions
     // TODO: use hitInfo

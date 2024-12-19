@@ -17,29 +17,30 @@ const Color barolo = {.r = 165, .b = 8, .g = 37, .a = 255};
 const float halfDroneRadius = DRONE_RADIUS / 2.0f;
 const float aimGuideHeight = 0.3f * DRONE_RADIUS;
 
-static inline float b2XToRayX(const rayClient c, const float x)
+static inline float b2XToRayX(const rayClient *c, const float x)
 {
-    return c.halfWidth + (x * c.scale);
+    return c->halfWidth + (x * c->scale);
 }
 
-static inline float b2YToRayY(const rayClient c, const float y)
+static inline float b2YToRayY(const rayClient *c, const float y)
 {
-    return (c.halfHeight + (y * c.scale)) + (2 * c.scale);
+    return (c->halfHeight + (y * c->scale)) + (2 * c->scale);
 }
 
-static inline Vector2 b2VecToRayVec(const rayClient c, const b2Vec2 v)
+static inline Vector2 b2VecToRayVec(const rayClient *c, const b2Vec2 v)
 {
     return (Vector2){.x = b2XToRayX(c, v.x), .y = b2YToRayY(c, v.y)};
 }
 
-static inline b2Vec2 rayVecToB2Vec(const rayClient c, const Vector2 v)
+static inline b2Vec2 rayVecToB2Vec(const rayClient *c, const Vector2 v)
 {
-    return (b2Vec2){.x = (v.x - c.halfWidth) / c.scale, .y = ((v.y - c.halfHeight - (2 * c.scale)) / c.scale)};
+    return (b2Vec2){.x = (v.x - c->halfWidth) / c->scale, .y = ((v.y - c->halfHeight - (2 * c->scale)) / c->scale)};
 }
 
-void initRayClient(rayClient *client)
+rayClient *createRayClient()
 {
-    client->enabled = true;
+    rayClient *client = (rayClient *)fastCalloc(1, sizeof(rayClient));
+
     if (client->height == 0)
     {
         client->height = DEFAULT_HEIGHT; // GetMonitorHeight(0) - HEIGHT_LEEWAY;
@@ -57,18 +58,21 @@ void initRayClient(rayClient *client)
     InitWindow(client->width, client->height, "Impulse Wars");
 
     SetTargetFPS(FRAME_RATE);
+
+    return client;
 }
 
-void closeRayClient(const rayClient client)
+void destroyRayClient(rayClient *client)
 {
     CloseWindow();
+    fastFree(client);
 }
 
 void renderUI(const env *e)
 {
     if (e->stepsLeft == 0)
     {
-        DrawText("SUDDEN DEATH", (e->client.width / 2) - (8 * e->client.scale), e->client.scale, 2 * e->client.scale, WHITE);
+        DrawText("SUDDEN DEATH", (e->client->width / 2) - (8 * e->client->scale), e->client->scale, 2 * e->client->scale, WHITE);
         return;
     }
 
@@ -82,7 +86,7 @@ void renderUI(const env *e)
     {
         snprintf(timerStr, bufferSize, "0%d", (uint16_t)(e->stepsLeft / FRAME_RATE));
     }
-    DrawText(timerStr, (e->client.width / 2) - e->client.scale, e->client.scale, 2 * e->client.scale, WHITE);
+    DrawText(timerStr, (e->client->width / 2) - e->client->scale, e->client->scale, 2 * e->client->scale, WHITE);
 }
 
 void renderEmptyCell(const env *e, const b2Vec2 emptyCell, const size_t idx)
@@ -90,15 +94,15 @@ void renderEmptyCell(const env *e, const b2Vec2 emptyCell, const size_t idx)
     Rectangle rec = {
         .x = b2XToRayX(e->client, emptyCell.x - (WALL_THICKNESS / 2.0f)),
         .y = b2YToRayY(e->client, emptyCell.y - (WALL_THICKNESS / 2.0f)),
-        .width = WALL_THICKNESS * e->client.scale,
-        .height = WALL_THICKNESS * e->client.scale,
+        .width = WALL_THICKNESS * e->client->scale,
+        .height = WALL_THICKNESS * e->client->scale,
     };
-    DrawRectangleLinesEx(rec, e->client.scale / 20.0f, RAYWHITE);
+    DrawRectangleLinesEx(rec, e->client->scale / 20.0f, RAYWHITE);
 
     const int bufferSize = 4;
     char idxStr[bufferSize];
     snprintf(idxStr, bufferSize, "%zu", idx);
-    DrawText(idxStr, rec.x, rec.y, 1.5f * e->client.scale, WHITE);
+    DrawText(idxStr, rec.x, rec.y, 1.5f * e->client->scale, WHITE);
 }
 
 void renderWall(const env *e, const wallEntity *wall)
@@ -124,11 +128,11 @@ void renderWall(const env *e, const wallEntity *wall)
     Rectangle rec = {
         .x = pos.x,
         .y = pos.y,
-        .width = wall->extent.x * e->client.scale * 2.0f,
-        .height = wall->extent.y * e->client.scale * 2.0f,
+        .width = wall->extent.x * e->client->scale * 2.0f,
+        .height = wall->extent.y * e->client->scale * 2.0f,
     };
 
-    Vector2 origin = {.x = wall->extent.x * e->client.scale, .y = wall->extent.y * e->client.scale};
+    Vector2 origin = {.x = wall->extent.x * e->client->scale, .y = wall->extent.y * e->client->scale};
     float angle = 0.0f;
     if (wall->isFloating)
     {
@@ -154,10 +158,10 @@ void renderWeaponPickup(const env *e, const weaponPickupEntity *pickup)
     Rectangle rec = {
         .x = pos.x,
         .y = pos.y,
-        .width = PICKUP_THICKNESS * e->client.scale,
-        .height = PICKUP_THICKNESS * e->client.scale,
+        .width = PICKUP_THICKNESS * e->client->scale,
+        .height = PICKUP_THICKNESS * e->client->scale,
     };
-    Vector2 origin = {.x = (PICKUP_THICKNESS / 2.0f) * e->client.scale, .y = (PICKUP_THICKNESS / 2.0f) * e->client.scale};
+    Vector2 origin = {.x = (PICKUP_THICKNESS / 2.0f) * e->client->scale, .y = (PICKUP_THICKNESS / 2.0f) * e->client->scale};
     DrawRectanglePro(rec, origin, 0.0f, LIME);
 
     char *name = "";
@@ -179,7 +183,7 @@ void renderWeaponPickup(const env *e, const weaponPickupEntity *pickup)
         ERRORF("unknown weapon pickup type %d", pickup->weapon);
     }
 
-    DrawText(name, rec.x - origin.x + (0.1f * e->client.scale), rec.y - origin.y + e->client.scale, e->client.scale, BLACK);
+    DrawText(name, rec.x - origin.x + (0.1f * e->client->scale), rec.y - origin.y + e->client->scale, e->client->scale, BLACK);
 }
 
 Color getDroneColor(const int droneIdx)
@@ -202,36 +206,27 @@ Color getDroneColor(const int droneIdx)
 
 void renderDroneGuides(const env *e, const droneEntity *drone, const int droneIdx)
 {
-    const uint8_t offset = droneIdx * ACTION_SIZE;
-    const b2Vec2 move = {.x = e->actions[offset + 0], .y = e->actions[offset + 1]};
-    b2Vec2 aim = {.x = e->actions[offset + 2], .y = e->actions[offset + 3]};
-
     b2Vec2 pos = b2Body_GetPosition(drone->bodyID);
     const float rayX = b2XToRayX(e->client, pos.x);
     const float rayY = b2YToRayY(e->client, pos.y);
     const Color droneColor = getDroneColor(droneIdx);
 
     // render thruster move guide
-    if (!b2VecEqual(move, b2Vec2_zero))
+    if (!b2VecEqual(drone->lastMove, b2Vec2_zero))
     {
-        float moveMagnitude = b2Length(move);
-        float moveRot = RAD2DEG * b2Rot_GetAngle(b2MakeRot(b2Atan2(-move.y, -move.x)));
+        float moveMagnitude = b2Length(drone->lastMove);
+        float moveRot = RAD2DEG * b2Rot_GetAngle(b2MakeRot(b2Atan2(-drone->lastMove.y, -drone->lastMove.x)));
         Rectangle moveGuide = {
             .x = rayX,
             .y = rayY,
-            .width = ((halfDroneRadius * moveMagnitude) + halfDroneRadius) * e->client.scale * 2.0f,
-            .height = halfDroneRadius * e->client.scale * 2.0f,
+            .width = ((halfDroneRadius * moveMagnitude) + halfDroneRadius) * e->client->scale * 2.0f,
+            .height = halfDroneRadius * e->client->scale * 2.0f,
         };
-        DrawRectanglePro(moveGuide, (Vector2){.x = 0.0f, .y = 0.5f * e->client.scale}, moveRot, droneColor);
+        DrawRectanglePro(moveGuide, (Vector2){.x = 0.0f, .y = 0.5f * e->client->scale}, moveRot, droneColor);
     }
 
     // find length of laser aiming guide by where it touches the nearest shape
-    if (b2VecEqual(aim, b2Vec2_zero))
-    {
-        aim = drone->lastAim;
-    }
-
-    const b2Vec2 rayEnd = b2MulAdd(pos, 150000.0f, aim);
+    const b2Vec2 rayEnd = b2MulAdd(pos, 150000.0f, drone->lastAim);
     const b2Vec2 translation = b2Sub(rayEnd, pos);
     const b2QueryFilter filter = {.categoryBits = PROJECTILE_SHAPE, .maskBits = WALL_SHAPE | FLOATING_WALL_SHAPE | DRONE_SHAPE};
     const b2RayResult rayRes = b2World_CastRayClosest(e->worldID, pos, translation, filter);
@@ -287,19 +282,19 @@ void renderDroneGuides(const env *e, const droneEntity *drone, const int droneId
     Rectangle aimGuide = {
         .x = rayX,
         .y = rayY,
-        .width = aimGuideWidth * e->client.scale,
-        .height = aimGuideHeight * e->client.scale,
+        .width = aimGuideWidth * e->client->scale,
+        .height = aimGuideHeight * e->client->scale,
     };
-    const float aimAngle = RAD2DEG * b2Rot_GetAngle(b2MakeRot(b2Atan2(aim.y, aim.x)));
-    DrawRectanglePro(aimGuide, (Vector2){.x = 0.0f, .y = (aimGuideHeight / 2.0f) * e->client.scale}, aimAngle, droneColor);
+    const float aimAngle = RAD2DEG * b2Rot_GetAngle(b2MakeRot(b2Atan2(drone->lastAim.y, drone->lastAim.x)));
+    DrawRectanglePro(aimGuide, (Vector2){.x = 0.0f, .y = (aimGuideHeight / 2.0f) * e->client->scale}, aimAngle, droneColor);
 }
 
 void renderDrone(const env *e, const droneEntity *drone, const int droneIdx)
 {
     const b2Vec2 pos = b2Body_GetPosition(drone->bodyID);
     const Vector2 raylibPos = b2VecToRayVec(e->client, pos);
-    DrawCircleV(raylibPos, DRONE_RADIUS * e->client.scale, BLACK);
-    DrawCircleLinesV(raylibPos, DRONE_RADIUS * e->client.scale, getDroneColor(droneIdx));
+    DrawCircleV(raylibPos, DRONE_RADIUS * e->client->scale, BLACK);
+    DrawCircleLinesV(raylibPos, DRONE_RADIUS * e->client->scale, getDroneColor(droneIdx));
 }
 
 void renderDroneLabels(const env *e, const droneEntity *drone)
@@ -314,7 +309,7 @@ void renderDroneLabels(const env *e, const droneEntity *drone)
     {
         posX -= 0.25f;
     }
-    DrawText(ammoStr, b2XToRayX(e->client, posX), b2YToRayY(e->client, pos.y + 1.5f), e->client.scale, WHITE);
+    DrawText(ammoStr, b2XToRayX(e->client, posX), b2YToRayY(e->client, pos.y + 1.5f), e->client->scale, WHITE);
 
     const float maxCharge = weaponCharge(drone->weaponInfo->type);
     if (maxCharge == 0.0f)
@@ -327,17 +322,17 @@ void renderDroneLabels(const env *e, const droneEntity *drone)
     Rectangle outlineRec = {
         .x = b2XToRayX(e->client, pos.x - (chargeMeterWidth / 2.0f)),
         .y = b2YToRayY(e->client, pos.y - (chargeMeterHeight / 2.0f) + 3.0f),
-        .width = chargeMeterWidth * e->client.scale,
-        .height = chargeMeterHeight * e->client.scale,
+        .width = chargeMeterWidth * e->client->scale,
+        .height = chargeMeterHeight * e->client->scale,
     };
-    DrawRectangleLinesEx(outlineRec, e->client.scale / 20.0f, RAYWHITE);
+    DrawRectangleLinesEx(outlineRec, e->client->scale / 20.0f, RAYWHITE);
 
     const float fillRecWidth = (drone->charge / maxCharge) * chargeMeterWidth;
     Rectangle fillRec = {
         .x = b2XToRayX(e->client, pos.x - 1.0f),
         .y = b2YToRayY(e->client, pos.y - (chargeMeterHeight / 2.0f) + 3.0f),
-        .width = fillRecWidth * e->client.scale,
-        .height = chargeMeterHeight * e->client.scale,
+        .width = fillRecWidth * e->client->scale,
+        .height = chargeMeterHeight * e->client->scale,
     };
     const Vector2 origin = {.x = 0.0f, .y = 0.0f};
     DrawRectanglePro(fillRec, origin, 0.0f, RAYWHITE);
@@ -347,8 +342,8 @@ void renderProjectiles(env *e)
 {
     if (e->explosionSteps != 0)
     {
-        DrawCircleV(b2VecToRayVec(e->client, e->explosion.position), e->explosion.falloff * 2.0f * e->client.scale, GRAY);
-        DrawCircleV(b2VecToRayVec(e->client, e->explosion.position), e->explosion.radius * e->client.scale, RAYWHITE);
+        DrawCircleV(b2VecToRayVec(e->client, e->explosion.position), e->explosion.falloff * 2.0f * e->client->scale, GRAY);
+        DrawCircleV(b2VecToRayVec(e->client, e->explosion.position), e->explosion.radius * e->client->scale, RAYWHITE);
         e->explosionSteps = fmaxf(e->explosionSteps - 1, 0);
     }
 
@@ -356,7 +351,7 @@ void renderProjectiles(env *e)
     {
         projectileEntity *projectile = (projectileEntity *)cur->data;
         b2Vec2 pos = b2Body_GetPosition(projectile->bodyID);
-        DrawCircleV(b2VecToRayVec(e->client, pos), e->client.scale * projectile->weaponInfo->radius, PURPLE);
+        DrawCircleV(b2VecToRayVec(e->client, pos), e->client->scale * projectile->weaponInfo->radius, PURPLE);
     }
 }
 
@@ -365,7 +360,7 @@ void renderEnv(env *e)
     BeginDrawing();
 
     ClearBackground(BLACK);
-    DrawFPS(e->client.scale, e->client.scale);
+    DrawFPS(e->client->scale, e->client->scale);
 
     renderUI(e);
 

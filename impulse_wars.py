@@ -30,7 +30,18 @@ def transformRawLog(rawLog):
 
 
 class ImpulseWars(pufferlib.PufferEnv):
-    def __init__(self, num_envs: int, seed: int = 0, render: bool = False, report_interval=8, buf=None):
+    def __init__(
+        self,
+        num_envs: int,
+        num_agents: int = 2,
+        seed: int = 0,
+        render: bool = False,
+        report_interval=8,
+        buf=None,
+    ):
+        if num_agents > numDrones() or num_agents <= 0:
+            raise ValueError(f"num_agents must greater than 0 and less than or equal to {numDrones()}")
+
         self.single_observation_space = gymnasium.spaces.Box(
             low=0.0, high=obsHigh(), shape=(obsSize(),), dtype=np.float32
         )
@@ -40,12 +51,12 @@ class ImpulseWars(pufferlib.PufferEnv):
 
         self.report_interval = report_interval
         self.render_mode = "human" if render else None
-        self.num_agents = numDrones() * num_envs
+        self.num_agents = num_agents * num_envs
         self.tick = 0
 
         super().__init__(buf)
         self.c_envs = CyImpulseWars(
-            self.observations, self.actions, self.rewards, self.terminals, num_envs, seed, render
+            num_envs, num_agents, self.observations, self.actions, self.rewards, self.terminals, seed, render
         )
 
     def reset(self, seed=None):

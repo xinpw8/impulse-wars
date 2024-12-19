@@ -21,6 +21,9 @@ from impulse_wars cimport (
     MAX_MAP_ROWS,
     env,
     initEnv,
+    rayClient,
+    createRayClient,
+    destroyRayClient,
     resetEnv,
     stepEnv,
     destroyEnv,
@@ -76,30 +79,42 @@ def obsConstants() -> pufferlib.Namespace:
 
 cdef class CyImpulseWars:
     cdef:
-        int numEnvs
+        unsigned int numEnvs
+        bint render
         env* envs
         logBuffer *logs
+        rayClient* rayClient
 
-    def __init__(self, float[:, :] observations, float[:, :] actions, float[:] rewards, unsigned char[:] terminals, unsigned int numEnvs, uint64_t seed, bint render):
+    def __init__(self, unsigned int numEnvs, unsigned int numAgents, float[:, :] observations, float[:, :] actions, float[:] rewards, unsigned char[:] terminals, uint64_t seed, bint render):
         self.numEnvs = numEnvs
+        self.render = render
         self.envs = <env*>calloc(numEnvs, sizeof(env))
         self.logs = createLogBuffer(LOG_BUFFER_SIZE)
 
-        cdef int inc = NUM_DRONES
+        cdef int inc = numAgents
         cdef int i
         for i in range(self.numEnvs):
             initEnv(
                 &self.envs[i],
+                numAgents,
                 &observations[i * inc, 0],
                 &actions[i * inc, 0],
                 &rewards[i * inc],
                 &terminals[i * inc],
                 self.logs,
                 seed + i,
-                render, 
             )
 
+    cdef _initRaylib(self):
+        self.rayClient = createRayClient()
+        cdef int i
+        for i in range(self.numEnvs):
+            self.envs[i].client = self.rayClient
+
     def reset(self):
+        if self.render and self.rayClient == NULL:
+            self._initRaylib()
+
         cdef int i
         for i in range(self.numEnvs):
             resetEnv(&self.envs[i])
@@ -120,3 +135,6 @@ cdef class CyImpulseWars:
 
         destroyLogBuffer(self.logs)
         free(self.envs)
+
+        if self.rayClient != NULL:
+            destroyRayClient(self.rayClient)
