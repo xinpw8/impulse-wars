@@ -33,14 +33,6 @@ def train(args, shouldStopEarly=None):
     if args.track and args.mode != "sweep":
         args.wandb = init_wandb(args, args.wandb_name, id=args.train.exp_id)
         args.train.__dict__.update(dict(args.wandb.config.train))
-    if args.vec.backend == "serial":
-        backend = pufferlib.vector.Serial
-    elif args.vec.backend == "multiprocessing":
-        backend = pufferlib.vector.Multiprocessing
-    elif args.vec == "ray":
-        backend = pufferlib.vector.Ray
-    else:
-        raise ValueError(f"Invalid --vec.backend (serial/multiprocessing/ray).")
 
     vecenv = pufferlib.vector.make(
         ImpulseWars,
@@ -50,7 +42,7 @@ def train(args, shouldStopEarly=None):
         num_workers=args.vec.num_workers,
         batch_size=args.vec.env_batch_size,
         zero_copy=args.vec.zero_copy,
-        backend=backend,
+        backend=pufferlib.vector.Multiprocessing,
     )
     policy = make_policy(vecenv.driver_env, args.train).to(args.train.device)
 
@@ -108,7 +100,7 @@ def init_wandb(args, name, id=None, resume=True):
 
 
 def eval_policy(
-    env: pufferlib.vector.Serial, policy, device, data=None, bestEval: float = None, printInfo=False
+    env: pufferlib.vector.PufferEnv, policy, device, data=None, bestEval: float = None, printInfo=False
 ):
     steps = 0
     totalReward = 0.0
@@ -119,45 +111,20 @@ def eval_policy(
         with th.no_grad():
             ob = th.from_numpy(ob).to(device)
             if hasattr(policy, "lstm"):
-                actions, value, state = policy.policy(ob, state)
+                actions, _, _, _, state = policy(ob, state)
             else:
-                actions, value = policy.policy(ob)
+                actions, _, _, _ = policy(ob)
 
-            action = th.argmax(actions).cpu().numpy().reshape(env.action_space.shape)
+            action = actions.cpu().numpy().reshape(env.action_space.shape)
 
         ob, reward, done, trunc, info = env.step(action)
         totalReward += reward
         steps += 1
 
-        if printInfo:
-            print(reward[0], action[0], value)
-
-        if done or trunc:
+        if done.any() or trunc.any():
             break
 
-    info = info[-1]
-
-    if data is not None and data.wandb is not None:
-        data.wandb.log(
-            {
-                "overview/agent_steps": data.global_step,
-                "eval/reward": totalReward,
-                "eval/length": steps,
-                "eval/recording": wandb.Video("/tmp/eval.mp4"),
-                **{f"eval/{k}": v for k, v in info.items()},
-            }
-        )
-
-        score = info["progress"] + (100 / sqrt(steps))
-        if bestEval is not None and score >= bestEval:
-            bestEval = score
-            clean_pufferl.save_checkpoint(data)
-            data.msg = f"Checkpoint saved at update {data.epoch} for new best eval {bestEval}"
-
-    info["reward"] = totalReward
-    info["length"] = steps
-
-    return info, bestEval
+    print(f"Steps: {steps}, Reward: {totalReward}")
 
 
 if __name__ == "__main__":
@@ -171,7 +138,7 @@ if __name__ == "__main__":
         "--mode",
         type=str,
         default="train",
-        choices="train eval evaluate playtest autotune sweep".split(),
+        choices="train eval playtest autotune sweep".split(),
     )
     parser.add_argument("--sweep-child", action="store_true")
     parser.add_argument("--eval-model-path", type=str, default=None, help="Path to model to evaluate")
@@ -214,9 +181,6 @@ if __name__ == "__main__":
     parser.add_argument("--train.vf-coef", type=float, default=0.5)
     parser.add_argument("--train.target-kl", type=float, default=0.2)
 
-    parser.add_argument(
-        "--vec.backend", type=str, default="multiprocessing", choices="serial multiprocessing ray".split()
-    )
     parser.add_argument("--vec.num-envs", type=int, default=16)
     parser.add_argument("--vec.num-workers", type=int, default=16)
     parser.add_argument("--vec.env-batch-size", type=int, default=8)
@@ -253,3 +217,20 @@ if __name__ == "__main__":
         except Exception:
             Console().print_exception()
             os._exit(0)
+    elif args.mode == "eval":
+        vecenv = pufferlib.vector.make(
+            ImpulseWars,
+            num_envs=1,
+            env_args=(1,),
+            env_kwargs=dict(render=True, seed=args.train.seed),
+            num_workers=1,
+            batch_size=1,
+            backend=pufferlib.vector.PufferEnv,
+        )
+
+        if args.eval_model_path is None:
+            policy = make_policy(vecenv, args.train).to(args.train.device)
+        else:
+            policy = th.load(args.eval_model_path, map_location=args.train.device)
+
+        eval_policy(vecenv, policy, args.train.device)

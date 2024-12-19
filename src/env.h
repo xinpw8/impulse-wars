@@ -100,7 +100,6 @@ void computeObs(env *e)
     uint16_t offset = 0;
 
     // add scalar observations
-    offset += oneHotEncode(e->obs, offset, 0, NUM_DRONES);
     e->obs[offset++] = scaleValue(e->stepsLeft, ROUND_STEPS, true);
 
     // compute drone observations
@@ -253,15 +252,15 @@ void computeObs(env *e)
     }
     for (size_t i = 0; i < cc_array_size(e->drones); i++)
     {
-        droneEntity *drone = safe_array_get_at(e->drones, i);
+        const droneEntity *drone = safe_array_get_at(e->drones, i);
         const uint16_t cellIdx = entityPosToCellIdx(e, drone->pos.pos);
         e->obs[floatingWallObsOffset + cellIdx] = (float)(DRONE_ENTITY + i);
     }
 
     // copy observations for other agent
     // TODO: handle more than 2 drones
-
-    // reorder drone observation so that the second drone is first
+    // reorder drone observation so that the second drone is first in
+    // drone observations so observations are consistent between agents
     memcpy(
         e->obs + OBS_SIZE + scalarObsOffset,
         e->obs + droneObsOffset,
@@ -276,12 +275,15 @@ void computeObs(env *e)
         e->obs + droneObsOffset,
         (OBS_SIZE - droneObsOffset) * sizeof(float));
 
-    // assert that the observations are the same after the drone reordering
-    ASSERT(
-        memcmp(
-            e->obs + droneObsOffset,
-            e->obs + OBS_SIZE + droneObsOffset,
-            (OBS_SIZE - droneObsOffset) * sizeof(float)) == 0);
+    for (size_t i = 0; i < cc_array_size(e->drones); i++)
+    {
+        const droneEntity *drone = safe_array_get_at(e->drones, i);
+        const uint16_t cellIdx = entityPosToCellIdx(e, drone->pos.pos);
+        // label the second drone as drone 0 so observations are consistent
+        // between agents
+        const uint8_t activeIdx = i == 1 ? 0 : 1;
+        e->obs[OBS_SIZE + floatingWallObsOffset + cellIdx] = (float)(DRONE_ENTITY + activeIdx);
+    }
 }
 
 void setupEnv(env *e)
@@ -421,7 +423,10 @@ void destroyEnv(env *e)
     cc_array_destroy(e->pickups);
     cc_slist_destroy(e->projectiles);
 
-    closeRayClient(e->client);
+    if (e->client.enabled)
+    {
+        closeRayClient(e->client);
+    }
 }
 
 void resetEnv(env *e)

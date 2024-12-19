@@ -231,7 +231,7 @@ void renderDroneGuides(const env *e, const droneEntity *drone, const int droneId
         aim = drone->lastAim;
     }
 
-    const b2Vec2 rayEnd = b2MulAdd(pos, 150.0f, aim);
+    const b2Vec2 rayEnd = b2MulAdd(pos, 150000.0f, aim);
     const b2Vec2 translation = b2Sub(rayEnd, pos);
     const b2QueryFilter filter = {.categoryBits = PROJECTILE_SHAPE, .maskBits = WALL_SHAPE | FLOATING_WALL_SHAPE | DRONE_SHAPE};
     const b2RayResult rayRes = b2World_CastRayClosest(e->worldID, pos, translation, filter);

@@ -17,7 +17,7 @@ from cy_impulse_wars import (
 )
 
 
-weaponTypesEmbeddingDims = 4
+weaponTypesEmbeddingDims = 3
 floatingWallTypesEmbeddingDims = 2
 mapCellsEmbeddingDims = 4
 encoderOutputSize = 256

@@ -99,4 +99,4 @@ def testPerf(timeout, actionCache, numEnvs):
 
 
 if __name__ == "__main__":
-    testPerf(timeout=10, actionCache=10240, numEnvs=1)
+    testPerf(timeout=5, actionCache=1024, numEnvs=1)
