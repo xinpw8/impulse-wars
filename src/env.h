@@ -7,6 +7,16 @@
 #include "settings.h"
 #include "types.h"
 
+// autopdx can't parse raylib's headers for some reason, but that's ok
+// because the Cython code doesn't need to directly use raylib anyway
+// include the full render header if we're compiling C code, otherwise
+// just declare the necessary functions the Cython code needs
+#ifndef AUTOPXD
+#include "render.h"
+#else
+void renderEnv(const env *e);
+#endif
+
 const uint16_t scalarObsOffset = SCALAR_OBS_SIZE;
 const uint16_t droneObsOffset = scalarObsOffset + (NUM_DRONES * DRONE_OBS_SIZE);
 const uint16_t projectileObsOffset = droneObsOffset + (NUM_PROJECTILE_OBS * PROJECTILE_OBS_SIZE);
@@ -319,7 +329,7 @@ void setupEnv(env *e)
     computeObs(e);
 }
 
-env *initEnv(env *e, float *obs, float *actions, float *rewards, unsigned char *terminals, logBuffer *logs, uint64_t seed)
+env *initEnv(env *e, float *obs, float *actions, float *rewards, unsigned char *terminals, logBuffer *logs, uint64_t seed, bool render)
 {
     e->obs = obs;
     e->actions = actions;
@@ -330,6 +340,11 @@ env *initEnv(env *e, float *obs, float *actions, float *rewards, unsigned char *
     e->needsReset = false;
 
     e->logs = logs;
+
+    if (render)
+    {
+        initRayClient(&e->client);
+    }
 
     cc_array_new(&e->cells);
     cc_array_new(&e->walls);
@@ -405,6 +420,8 @@ void destroyEnv(env *e)
     cc_array_destroy(e->drones);
     cc_array_destroy(e->pickups);
     cc_slist_destroy(e->projectiles);
+
+    closeRayClient(e->client);
 }
 
 void resetEnv(env *e)
@@ -549,6 +566,11 @@ void stepEnv(env *e)
         weaponPickupsStep(e, DELTA_TIME);
 
         computeRewards(e);
+
+        if (e->client.enabled)
+        {
+            renderEnv(e);
+        }
 
         if (terminate)
         {

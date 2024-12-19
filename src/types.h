@@ -190,6 +190,16 @@ typedef struct logBuffer
     uint16_t capacity;
 } logBuffer;
 
+typedef struct rayClient
+{
+    bool enabled;
+    float scale;
+    uint16_t width;
+    uint16_t height;
+    uint16_t halfWidth;
+    uint16_t halfHeight;
+} rayClient;
+
 typedef struct env
 {
     float *obs;
@@ -218,17 +228,19 @@ typedef struct env
     CC_Array *pickups;
     CC_SList *projectiles;
 
-    // used for rendering explosions
-    // TODO: use hitInfo
-    uint8_t explosionSteps;
-    b2ExplosionDef explosion;
-
     // steps left until sudden death
     uint16_t stepsLeft;
     // steps left until the next set of sudden death walls are spawned
     uint16_t suddenDeathSteps;
     // the amount of sudden death walls that have been spawned
     uint8_t suddenDeathWallCounter;
+
+    rayClient client;
+
+    // used for rendering explosions
+    // TODO: use hitInfo
+    uint8_t explosionSteps;
+    b2ExplosionDef explosion;
 } env;
 
 #endif

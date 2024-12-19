@@ -53,6 +53,10 @@ FetchContent_Declare(
 	GIT_SHALLOW TRUE
 	GIT_PROGRESS TRUE
 )
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "Statically link raylib" FORCE)
+set(WITH_PIC "Compile static library as position-independent code" ON)
+set(CUSTOMIZE_BUILD ON CACHE BOOL "Customize raylib build settings" FORCE)
+set(USE_AUDIO OFF CACHE BOOL "Don't build unused audio module" FORCE)
 FetchContent_MakeAvailable(raylib)
 
 # if box2d is fetched first installing built python module will fail
@@ -99,7 +103,7 @@ if(DEFINED BUILD_PYTHON_MODULE)
 			-I "${CMAKE_CURRENT_SOURCE_DIR}/src"
 			-I "${CMAKE_CURRENT_SOURCE_DIR}/src/include"
 			-I "${box2d_SOURCE_DIR}/include" 
-			-I "${raylib_SOURCE_DIR}"
+			-I "${raylib_SOURCE_DIR}/src"
 			-D AUTOPXD
 			"${CMAKE_CURRENT_SOURCE_DIR}/src/env.h" impulse_wars.pxd.raw
 		DEPENDS "${HEADERS}"

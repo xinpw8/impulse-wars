@@ -74,7 +74,7 @@ void getPlayerInputs(const env *e, const droneEntity *drone, const int gamepadId
 
     Vector2 mousePos = (Vector2){.x = (float)GetMouseX(), .y = (float)GetMouseY()};
     b2Vec2 dronePos = b2Body_GetPosition(drone->bodyID);
-    const b2Vec2 aim = b2Normalize(b2Sub(rayVecToB2Vec(mousePos), dronePos));
+    const b2Vec2 aim = b2Normalize(b2Sub(rayVecToB2Vec(e->client, mousePos), dronePos));
 
     bool shoot = false;
     if (IsMouseButtonDown(MOUSE_BUTTON_LEFT))
@@ -91,11 +91,6 @@ void getPlayerInputs(const env *e, const droneEntity *drone, const int gamepadId
 
 int main(void)
 {
-    SetConfigFlags(FLAG_MSAA_4X_HINT);
-    InitWindow(width, height, "test");
-
-    SetTargetFPS(FRAME_RATE);
-
     env *e = (env *)fastCalloc(1, sizeof(env));
     float *obs = (float *)fastCalloc(NUM_DRONES * OBS_SIZE, sizeof(float));
     float *rewards = (float *)fastCalloc(NUM_DRONES, sizeof(float));
@@ -103,7 +98,7 @@ int main(void)
     unsigned char *terminals = (unsigned char *)fastCalloc(NUM_DRONES, sizeof(bool));
     logBuffer *logs = createLogBuffer(LOG_BUFFER_SIZE);
 
-    initEnv(e, obs, actions, rewards, terminals, logs, time(NULL));
+    initEnv(e, obs, actions, rewards, terminals, logs, time(NULL), true);
 
     while (true)
     {
@@ -116,7 +111,6 @@ int main(void)
             fastFree(terminals);
             destroyLogBuffer(logs);
             fastFree(e);
-            CloseWindow();
             return 0;
         }
 
@@ -128,7 +122,7 @@ int main(void)
         }
 
         stepEnv(e);
-        renderEnv(e);
+        // renderEnv(e);
 
         // if one drone died, pause the game before resetting so it's clear who won
         // for (size_t i = 0; i < cc_array_size(e->drones); i++)

@@ -80,7 +80,7 @@ cdef class CyImpulseWars:
         env* envs
         logBuffer *logs
 
-    def __init__(self, float[:, :] observations, float[:, :] actions, float[:] rewards, unsigned char[:] terminals, unsigned int numEnvs, uint64_t seed):
+    def __init__(self, float[:, :] observations, float[:, :] actions, float[:] rewards, unsigned char[:] terminals, unsigned int numEnvs, uint64_t seed, bint render):
         self.numEnvs = numEnvs
         self.envs = <env*>calloc(numEnvs, sizeof(env))
         self.logs = createLogBuffer(LOG_BUFFER_SIZE)
@@ -96,6 +96,7 @@ cdef class CyImpulseWars:
                 &terminals[i * inc],
                 self.logs,
                 seed + i,
+                render, 
             )
 
     def reset(self):

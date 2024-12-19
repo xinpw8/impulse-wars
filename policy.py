@@ -20,7 +20,7 @@ from cy_impulse_wars import (
 weaponTypesEmbeddingDims = 4
 floatingWallTypesEmbeddingDims = 2
 mapCellsEmbeddingDims = 4
-encoderOutputSize = 128
+encoderOutputSize = 256
 lstmOutputSize = 256
 
 
@@ -51,7 +51,7 @@ class Policy(nn.Module):
         self.mapCNN = nn.Sequential(
             layer_init(nn.Conv2d(mapCellsEmbeddingDims, 32, kernel_size=5, stride=2)),
             nn.ReLU(),
-            layer_init(nn.Conv2d(32, 32, kernel_size=5, stride=2)),
+            layer_init(nn.Conv2d(32, 32, kernel_size=3, stride=2)),
             nn.ReLU(),
             nn.Flatten(),
         )
@@ -75,18 +75,10 @@ class Policy(nn.Module):
             nn.Tanh(),
         )
 
-        self.actorMean = nn.Sequential(
-            layer_init(nn.Linear(lstmOutputSize, 128)),
-            nn.Tanh(),
-            layer_init(nn.Linear(128, env.single_action_space.shape[0]), std=0.01),
-        )
+        self.actorMean = layer_init(nn.Linear(lstmOutputSize, env.single_action_space.shape[0]), std=0.01)
         self.actorLogStd = nn.Parameter(th.zeros(1, env.single_action_space.shape[0]))
 
-        self.critic = nn.Sequential(
-            layer_init(nn.Linear(lstmOutputSize, 128)),
-            nn.Tanh(),
-            layer_init(nn.Linear(128, 1), std=1.0),
-        )
+        self.critic = layer_init(nn.Linear(lstmOutputSize, 1), std=1.0)
 
     def forward(self, obs: th.Tensor) -> Tuple[th.Tensor, th.Tensor]:
         hidden = self.encode_observations(obs)
