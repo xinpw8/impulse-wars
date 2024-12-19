@@ -72,7 +72,7 @@ const uint8_t ACTION_SIZE = 5;
 
 // drone settings
 #define DRONE_WALL_SPAWN_DISTANCE 7.5f
-#define DRONE_DRONE_SPAWN_DISTANCE 30.0f
+#define DRONE_DRONE_SPAWN_DISTANCE 20.0f
 #define DRONE_RADIUS 1.0f
 #define DRONE_DENSITY 1.25f
 #define DRONE_MOVE_MAGNITUDE 25.0f

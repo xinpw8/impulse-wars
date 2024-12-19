@@ -10,6 +10,40 @@
 
 // clang-format off
 
+const char boringLayout[] = {
+    'D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D',
+    'D','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','D',
+    'D','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','D',
+    'D','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','D',
+    'D','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','D',
+    'D','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','D',
+    'D','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','D',
+    'D','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','D',
+    'D','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','D',
+    'D','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','D',
+    'D','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','D',
+    'D','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','D',
+    'D','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','D',
+    'D','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','D',
+    'D','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','D',
+    'D','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','D',
+    'D','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','D',
+    'D','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','D',
+    'D','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','D',
+    'D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D',
+};
+
+const mapEntry boringMap = {
+    .layout = boringLayout,
+    .columns = 20,
+    .rows = 20,
+    .floatingStandardWalls = 0,
+    .floatingBouncyWalls = 0,
+    .floatingDeathWalls = 0,
+    .weaponPickups = 4,
+    .defaultWeapon = STANDARD_WEAPON,
+};
+
 const char prototypeArenaLayout[] = {
     'D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D',
     'D','O','O','O','O','O','O','O','d','O','O','O','O','O','O','O','O','O','O','D',
@@ -150,10 +184,11 @@ const mapEntry clownHouseMap = {
 
 // clang-format on
 
-#define NUM_MAPS 4
+#define NUM_MAPS 5
 
 #ifndef AUTOPXD
 const mapEntry *maps[] = {
+    (mapEntry *)&boringMap,
     (mapEntry *)&prototypeArenaMap,
     (mapEntry *)&snipersMap,
     (mapEntry *)&roomsMap,

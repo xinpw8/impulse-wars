@@ -127,7 +127,7 @@ void computeObs(env *e)
         e->obs[offset++] = scaleValue(pos.x, MAX_X_POS, false);
         e->obs[offset++] = scaleValue(pos.y, MAX_Y_POS, false);
         e->obs[offset++] = scaleValue(drone->lastVelocity.x, MAX_SPEED, false);
-        e->obs[offset++] = scaleValue(drone->lastVelocity.x, MAX_SPEED, false);
+        e->obs[offset++] = scaleValue(drone->lastVelocity.y, MAX_SPEED, false);
         e->obs[offset++] = scaleValue(drone->lastAim.x, 1.0f, false);
         e->obs[offset++] = scaleValue(drone->lastAim.y, 1.0f, false);
         e->obs[offset++] = scaledAmmo;
@@ -249,7 +249,7 @@ void computeObs(env *e)
     {
         const wallEntity *wall = safe_array_get_at(e->floatingWalls, i);
         const uint16_t cellIdx = entityPosToCellIdx(e, wall->pos.pos);
-        e->obs[floatingWallObsOffset + cellIdx] = wall->type;
+        e->obs[floatingWallObsOffset + cellIdx] = (float)(wall->type + 1);
     }
     for (size_t i = 0; i < cc_array_size(e->drones); i++)
     {
@@ -335,7 +335,7 @@ void setupEnv(env *e)
     computeObs(e);
 }
 
-env *initEnv(env *e, uint8_t numAgents, float *obs, float *actions, float *rewards, unsigned char *terminals, logBuffer *logs, uint64_t seed, bool render)
+env *initEnv(env *e, uint8_t numAgents, float *obs, float *actions, float *rewards, unsigned char *terminals, logBuffer *logs, uint64_t seed)
 {
     e->numAgents = numAgents;
     e->obs = obs;
