@@ -211,6 +211,7 @@ typedef struct env
 
     uint64_t randState;
     // TODO: allow for manual resetting
+    bool manualReset;
     bool needsReset;
 
     float episodeReward[_NUM_DRONES];

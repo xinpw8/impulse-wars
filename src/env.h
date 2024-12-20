@@ -205,7 +205,6 @@ void computeObs(env *e)
     ASSERT(offset == floatingWallObsOffset);
 
     // compute map cell observations
-    // TODO: add discretized positions of drones and maybe projectiles?
     for (size_t i = 0; i < cc_array_size(e->cells); i++)
     {
         const mapCell *cell = safe_array_get_at(e->cells, i);
@@ -335,9 +334,11 @@ void setupEnv(env *e)
     computeObs(e);
 }
 
-env *initEnv(env *e, uint8_t numAgents, float *obs, float *actions, float *rewards, unsigned char *terminals, logBuffer *logs, uint64_t seed)
+env *initEnv(env *e, uint8_t numAgents, float *obs, float *actions, float *rewards, unsigned char *terminals, logBuffer *logs, uint64_t seed, bool manualReset)
 {
     e->numAgents = numAgents;
+    e->manualReset = manualReset;
+
     e->obs = obs;
     e->actions = actions;
     e->rewards = rewards;
@@ -478,7 +479,7 @@ void computeRewards(env *e)
 
 void stepEnv(env *e)
 {
-    if (e->needsReset)
+    if (e->needsReset && !e->manualReset)
     {
         DEBUG_LOG("Resetting environment");
         resetEnv(e);

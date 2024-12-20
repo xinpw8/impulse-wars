@@ -103,6 +103,7 @@ cdef class CyImpulseWars:
                 &terminals[i * inc],
                 self.logs,
                 seed + i,
+                0,
             )
 
     cdef _initRaylib(self):

@@ -98,7 +98,7 @@ int main(void)
     unsigned char *terminals = (unsigned char *)fastCalloc(NUM_DRONES, sizeof(bool));
     logBuffer *logs = createLogBuffer(LOG_BUFFER_SIZE);
 
-    initEnv(e, 2, obs, actions, rewards, terminals, logs, time(NULL));
+    initEnv(e, 2, obs, actions, rewards, terminals, logs, time(NULL), true);
 
     rayClient *client = createRayClient();
     e->client = client;
@@ -126,28 +126,26 @@ int main(void)
         }
 
         stepEnv(e);
-        // renderEnv(e);
 
         // if one drone died, pause the game before resetting so it's clear who won
-        // for (size_t i = 0; i < cc_array_size(e->drones); i++)
-        // {
-        //     const droneEntity *drone = safe_array_get_at(e->drones, i);
-        //     if (!drone->dead)
-        //     {
-        //         continue;
-        //     }
+        for (size_t i = 0; i < cc_array_size(e->drones); i++)
+        {
+            const droneEntity *drone = safe_array_get_at(e->drones, i);
+            if (!drone->dead)
+            {
+                continue;
+            }
 
-        //     // uint8_t offset = i * ACTION_SIZE;
-        //     // memset(e->actions + offset, 0x0, ACTION_SIZE * sizeof(float));
+            uint8_t offset = i * ACTION_SIZE;
+            memset(e->actions + offset, 0x0, ACTION_SIZE * sizeof(float));
 
-        //     // b2Body_Disable(drone->bodyID);
-        //     // for (int i = 0; i < 120; i++)
-        //     // {
-        //     //     stepEnv(e);
-        //     //     renderEnv(e);
-        //     // }
+            b2Body_Disable(drone->bodyID);
+            for (int i = 0; i < 120; i++)
+            {
+                stepEnv(e);
+            }
 
-        //     resetEnv(e);
-        // }
+            resetEnv(e);
+        }
     }
 }
