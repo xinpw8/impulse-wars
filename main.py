@@ -17,6 +17,7 @@ from rich.traceback import install
 install(show_locals=False)
 
 import clean_pufferl
+from sweep import sweep
 
 from policy import Policy, Recurrent
 from impulse_wars import ImpulseWars
@@ -29,7 +30,7 @@ def make_policy(env, config):
     return pufferlib.cleanrl.RecurrentPolicy(policy)
 
 
-def train(args, shouldStopEarly=None):
+def train(args):
     if args.track and args.mode != "sweep":
         args.wandb = init_wandb(args, args.wandb_name, id=args.train.exp_id)
         args.train.__dict__.update(dict(args.wandb.config.train))
@@ -49,26 +50,13 @@ def train(args, shouldStopEarly=None):
     data = clean_pufferl.create(args.train, vecenv, policy, wandb=args.wandb)
 
     try:
-        bestEval = 0.0
-        stopEarly = False
-        nextEvalAt = args.train.eval_interval
-        totalSteps = 0
+        stats = {}
 
         while data.global_step < args.train.total_timesteps:
-            clean_pufferl.evaluate(data)
+            newStats, _ = clean_pufferl.evaluate(data)
+            if newStats:
+                stats = newStats
             clean_pufferl.train(data)
-
-            stepsTaken = data.global_step - totalSteps
-            totalSteps = data.global_step
-            if totalSteps + stepsTaken >= nextEvalAt:
-                # info, bestEval = eval_policy(evalVecenv, data.policy, data.config.device, data, bestEval)
-                # evalInfos.append(info)
-
-                # if shouldStopEarly is not None and shouldStopEarly(evalInfos, data):
-                #     stopEarly = True
-                #     break
-
-                nextEvalAt += args.train.eval_interval
     except KeyboardInterrupt as e:
         clean_pufferl.close(data)
         raise e
@@ -79,7 +67,7 @@ def train(args, shouldStopEarly=None):
 
     clean_pufferl.close(data)
 
-    # return evalInfos, stopEarly
+    return stats
 
 
 def init_wandb(args, name, id=None, resume=True):
@@ -235,3 +223,5 @@ if __name__ == "__main__":
             policy = th.load(args.eval_model_path, map_location=args.train.device)
 
         eval_policy(vecenv, policy, args.train.device)
+    elif args.mode == "sweep":
+        sweep(args, train)
