@@ -5,7 +5,7 @@ import pufferlib
 
 from cy_impulse_wars import (
     obsHigh,
-    numDrones,
+    maxDrones,
     obsSize,
     actionsSize,
     CyImpulseWars,
@@ -39,8 +39,8 @@ class ImpulseWars(pufferlib.PufferEnv):
         report_interval=8,
         buf=None,
     ):
-        if num_agents > numDrones() or num_agents <= 0:
-            raise ValueError(f"num_agents must greater than 0 and less than or equal to {numDrones()}")
+        if num_agents > maxDrones() or num_agents <= 0:
+            raise ValueError(f"num_agents must greater than 0 and less than or equal to {maxDrones()}")
 
         self.single_observation_space = gymnasium.spaces.Box(
             low=0.0, high=obsHigh(), shape=(obsSize(),), dtype=np.float32

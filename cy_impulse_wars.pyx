@@ -4,7 +4,7 @@ from libc.stdlib cimport calloc, free
 import pufferlib
 
 from impulse_wars cimport (
-    NUM_DRONES,
+    MAX_DRONES,
     OBS_SIZE,
     ACTION_SIZE,
     OBS_HIGH,
@@ -39,8 +39,8 @@ from impulse_wars cimport (
 # doesn't seem like you an directly import C or Cython constants 
 # from Python so we have to create wrapper functions
 
-def numDrones() -> int:
-    return NUM_DRONES
+def maxDrones() -> int:
+    return MAX_DRONES
 
 def obsSize() -> int:
     return OBS_SIZE
@@ -85,7 +85,7 @@ cdef class CyImpulseWars:
         logBuffer *logs
         rayClient* rayClient
 
-    def __init__(self, unsigned int numEnvs, unsigned int numAgents, float[:, :] observations, float[:, :] actions, float[:] rewards, unsigned char[:] terminals, uint64_t seed, bint render):
+    def __init__(self, unsigned int numEnvs, unsigned int numDrones, unsigned int numAgents, float[:, :] observations, float[:, :] actions, float[:] rewards, unsigned char[:] terminals, uint64_t seed, bint render):
         self.numEnvs = numEnvs
         self.render = render
         self.envs = <env*>calloc(numEnvs, sizeof(env))

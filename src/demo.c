@@ -91,14 +91,17 @@ void getPlayerInputs(const env *e, const droneEntity *drone, const int gamepadId
 
 int main(void)
 {
+    const int NUM_DRONES = 2;
+    const observationInfo obsInfo = calculateObservationInfo(NUM_DRONES);
+
     env *e = (env *)fastCalloc(1, sizeof(env));
-    float *obs = (float *)fastCalloc(NUM_DRONES * OBS_SIZE, sizeof(float));
+    float *obs = (float *)fastCalloc(obsInfo.obsSize, sizeof(float));
     float *rewards = (float *)fastCalloc(NUM_DRONES, sizeof(float));
     float *actions = (float *)fastCalloc(NUM_DRONES * ACTION_SIZE, sizeof(float));
     unsigned char *terminals = (unsigned char *)fastCalloc(NUM_DRONES, sizeof(bool));
     logBuffer *logs = createLogBuffer(LOG_BUFFER_SIZE);
 
-    initEnv(e, 2, obs, actions, rewards, terminals, logs, time(NULL), true);
+    initEnv(e, 3, 3, obs, actions, rewards, terminals, logs, time(NULL), true);
 
     rayClient *client = createRayClient();
     e->client = client;

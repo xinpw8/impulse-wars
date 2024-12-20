@@ -9,7 +9,7 @@
 
 #include "settings.h"
 
-#define _NUM_DRONES 2
+#define _MAX_DRONES 2
 
 // 1 is added for the invalid entity type
 const uint8_t NUM_WALL_TYPES = 4;
@@ -25,7 +25,7 @@ enum entityType
     DRONE_ENTITY = 5,
     // this needs to be last so map cell type observations can be
     // calculated correctly
-    WEAPON_PICKUP_ENTITY = 5 + _NUM_DRONES,
+    WEAPON_PICKUP_ENTITY = 5 + _MAX_DRONES,
 };
 
 // the category bit that will be set on each entity's shape; this is
@@ -176,11 +176,22 @@ typedef struct droneEntity
     bool dead;
 } droneEntity;
 
+typedef struct observationInfo
+{
+    uint8_t obsHigh;
+    uint16_t obsSize;
+    uint16_t scalarObsOffset;
+    uint16_t droneObsOffset;
+    uint16_t projectileObsOffset;
+    uint16_t floatingWallObsOffset;
+    uint16_t mapCellObsOffset;
+} observationInfo;
+
 typedef struct logEntry
 {
-    float reward[_NUM_DRONES];
+    float reward[_MAX_DRONES];
     float length;
-    droneStats stats[_NUM_DRONES];
+    droneStats stats[_MAX_DRONES];
     uint8_t winner;
 } logEntry;
 
@@ -202,7 +213,9 @@ typedef struct rayClient
 
 typedef struct env
 {
+    uint8_t numDrones;
     uint8_t numAgents;
+    observationInfo obsInfo;
 
     float *obs;
     float *rewards;
@@ -214,10 +227,10 @@ typedef struct env
     bool manualReset;
     bool needsReset;
 
-    float episodeReward[_NUM_DRONES];
+    float episodeReward[_MAX_DRONES];
     uint16_t episodeLength;
     logBuffer *logs;
-    droneStats stats[_NUM_DRONES];
+    droneStats stats[_MAX_DRONES];
 
     b2WorldId worldID;
     uint8_t columns;

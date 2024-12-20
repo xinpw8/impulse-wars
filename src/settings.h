@@ -24,7 +24,7 @@
 #define ROUND_STEPS 91.0f * FRAME_RATE
 #define SUDDEN_DEATH_STEPS 5.0f * FRAME_RATE
 
-const uint8_t NUM_DRONES = _NUM_DRONES;
+const uint8_t MAX_DRONES = _MAX_DRONES;
 
 #define EXPLOSION_STEPS 5
 
@@ -44,14 +44,24 @@ const uint8_t NUM_FLOATING_WALL_OBS = 12;
 const uint8_t FLOATING_WALL_OBS_SIZE = 6;
 const uint8_t MAX_MAP_COLUMNS = _MAX_MAP_COLUMNS;
 const uint8_t MAX_MAP_ROWS = _MAX_MAP_ROWS;
-const uint16_t OBS_SIZE =
-    SCALAR_OBS_SIZE +
-    (NUM_DRONES * DRONE_OBS_SIZE) +
-    (NUM_PROJECTILE_OBS * PROJECTILE_OBS_SIZE) +
-    (NUM_FLOATING_WALL_OBS * FLOATING_WALL_OBS_SIZE) +
-    (MAX_MAP_COLUMNS * MAX_MAP_ROWS);
 
-const uint8_t OBS_HIGH = NUM_ENTITY_TYPES + NUM_DRONES + NUM_WEAPONS;
+observationInfo calculateObservationInfo(uint8_t numDrones)
+{
+    observationInfo info;
+    info.obsHigh = NUM_ENTITY_TYPES + numDrones + NUM_WEAPONS;
+    info.obsSize = SCALAR_OBS_SIZE +
+                   (numDrones * DRONE_OBS_SIZE) +
+                   (NUM_PROJECTILE_OBS * PROJECTILE_OBS_SIZE) +
+                   (NUM_FLOATING_WALL_OBS * FLOATING_WALL_OBS_SIZE) +
+                   (MAX_MAP_COLUMNS * MAX_MAP_ROWS);
+    info.scalarObsOffset = SCALAR_OBS_SIZE;
+    info.droneObsOffset = info.scalarObsOffset + (numDrones * DRONE_OBS_SIZE);
+    info.projectileObsOffset = info.droneObsOffset + (NUM_PROJECTILE_OBS * PROJECTILE_OBS_SIZE);
+    info.floatingWallObsOffset = info.projectileObsOffset + (NUM_FLOATING_WALL_OBS * FLOATING_WALL_OBS_SIZE);
+    info.mapCellObsOffset = info.floatingWallObsOffset + (MAX_MAP_COLUMNS * MAX_MAP_ROWS);
+
+    return info;
+}
 
 #define MAX_X_POS 40.0f
 #define MAX_Y_POS 40.0f
