@@ -60,11 +60,14 @@
 #define ASSERTF(condition, fmt, args...)
 #endif
 
-#define ERRORF(fmt, args...)                                                    \
-    fprintf(stderr, " %s:%s:%d\n" fmt, __FILE__, __FUNCTION__, __LINE__, args); \
-    fflush(stderr);                                                             \
+#define ERRORF(fmt, args...)                                   \
+    fprintf(stderr, fmt " %s:%d\n", args, __FILE__, __LINE__); \
+    fflush(stderr);                                            \
     ON_ERROR
-#define ERROR(msg) ERRORF(msg, NULL)
+#define ERROR(msg)                                       \
+    fprintf(stderr, msg " %s:%d\n", __FILE__, __LINE__); \
+    fflush(stderr);                                      \
+    ON_ERROR
 
 // ignore compiler warnings about unused variables for variables that are
 // only used in debug builds

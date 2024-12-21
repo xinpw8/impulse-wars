@@ -1,4 +1,4 @@
-﻿cmake_minimum_required(VERSION 3.22)
+cmake_minimum_required(VERSION 3.22)
 include(FetchContent)
 
 find_program(CCACHE_FOUND "ccache")
@@ -66,7 +66,7 @@ FetchContent_Declare(
 	box2d
 	GIT_REPOSITORY https://github.com/erincatto/box2d.git
 	GIT_TAG f0763aca7d4dfa8f1c19c2c4a9e66fa6e93ea32e # known good commit on main
-	GIT_SHALLOW TRUE
+	GIT_SHALLOW FALSE
 	GIT_PROGRESS TRUE
 )
 FetchContent_MakeAvailable(box2d)
