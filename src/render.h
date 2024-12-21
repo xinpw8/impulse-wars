@@ -364,7 +364,7 @@ void renderEnv(env *e)
 
     renderUI(e);
 
-    for (size_t i = 0; i < cc_array_size(e->drones); i++)
+    for (uint8_t i = 0; i < e->numDrones; i++)
     {
         const droneEntity *drone = safe_array_get_at(e->drones, i);
         if (drone->dead)
@@ -373,7 +373,7 @@ void renderEnv(env *e)
         }
         renderDroneGuides(e, drone, i);
     }
-    for (size_t i = 0; i < cc_array_size(e->drones); i++)
+    for (uint8_t i = 0; i < e->numDrones; i++)
     {
         const droneEntity *drone = safe_array_get_at(e->drones, i);
         if (drone->dead)
@@ -403,7 +403,7 @@ void renderEnv(env *e)
 
     renderProjectiles(e);
 
-    for (size_t i = 0; i < cc_array_size(e->drones); i++)
+    for (uint8_t i = 0; i < e->numDrones; i++)
     {
         const droneEntity *drone = safe_array_get_at(e->drones, i);
         if (drone->dead)

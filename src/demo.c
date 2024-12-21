@@ -91,17 +91,17 @@ void getPlayerInputs(const env *e, const droneEntity *drone, const int gamepadId
 
 int main(void)
 {
-    const int NUM_DRONES = 2;
+    const int NUM_DRONES = 3;
     const observationInfo obsInfo = calculateObservationInfo(NUM_DRONES);
 
     env *e = (env *)fastCalloc(1, sizeof(env));
-    float *obs = (float *)fastCalloc(obsInfo.obsSize, sizeof(float));
+    float *obs = (float *)fastCalloc(NUM_DRONES * obsInfo.obsSize, sizeof(float));
     float *rewards = (float *)fastCalloc(NUM_DRONES, sizeof(float));
     float *actions = (float *)fastCalloc(NUM_DRONES * ACTION_SIZE, sizeof(float));
     unsigned char *terminals = (unsigned char *)fastCalloc(NUM_DRONES, sizeof(bool));
     logBuffer *logs = createLogBuffer(LOG_BUFFER_SIZE);
 
-    initEnv(e, 3, 3, obs, actions, rewards, terminals, logs, time(NULL), true);
+    initEnv(e, NUM_DRONES, NUM_DRONES, obs, actions, rewards, terminals, logs, time(NULL));
 
     rayClient *client = createRayClient();
     e->client = client;
@@ -121,7 +121,7 @@ int main(void)
             return 0;
         }
 
-        for (size_t i = 0; i < cc_array_size(e->drones); i++)
+        for (uint8_t i = 0; i < e->numDrones; i++)
         {
             droneEntity *drone;
             cc_array_get_at(e->drones, i, (void **)&drone);
@@ -129,26 +129,5 @@ int main(void)
         }
 
         stepEnv(e);
-
-        // if one drone died, pause the game before resetting so it's clear who won
-        for (size_t i = 0; i < cc_array_size(e->drones); i++)
-        {
-            const droneEntity *drone = safe_array_get_at(e->drones, i);
-            if (!drone->dead)
-            {
-                continue;
-            }
-
-            uint8_t offset = i * ACTION_SIZE;
-            memset(e->actions + offset, 0x0, ACTION_SIZE * sizeof(float));
-
-            b2Body_Disable(drone->bodyID);
-            for (int i = 0; i < 120; i++)
-            {
-                stepEnv(e);
-            }
-
-            resetEnv(e);
-        }
     }
 }

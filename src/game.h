@@ -429,7 +429,7 @@ bool explosionOverlapCallback(b2ShapeId shapeId, void *context)
         DEBUG_LOGF("drone %d hit itself with explosion from weapon %d", ctx->drone->idx, ctx->weaponType);
         return true;
     }
-    ctx->drone->hitInfo.explosionHit = true;
+    ctx->drone->hitInfo.explosionHit[hitDrone->idx] = true;
 
     ctx->e->stats[ctx->drone->idx].shotsHit[ctx->weaponType]++;
     DEBUG_LOGF("drone %d hit drone %d with explosion from weapon %d", ctx->drone->idx, hitDrone->idx, ctx->weaponType);
@@ -547,7 +547,7 @@ void handleSuddenDeath(env *e)
 
     // mark drones as dead if they touch a newly placed wall
     bool droneDead = false;
-    for (size_t i = 0; i < cc_array_size(e->drones); i++)
+    for (uint8_t i = 0; i < e->numDrones; i++)
     {
         droneEntity *drone = safe_array_get_at(e->drones, i);
         const b2Vec2 pos = getCachedPos(drone->bodyID, &drone->pos);
@@ -773,7 +773,7 @@ bool handleProjectileBeginContact(env *e, const entity *proj, const entity *ent)
             if (projectile->droneIdx != hitDrone->idx)
             {
                 droneEntity *shooterDrone = safe_array_get_at(e->drones, projectile->droneIdx);
-                shooterDrone->hitInfo.shotHit = true;
+                shooterDrone->hitInfo.shotHit[hitDrone->idx] = true;
 
                 e->stats[shooterDrone->idx].shotsHit[projectile->weaponInfo->type]++;
                 DEBUG_LOGF("drone %d hit drone %d with weapon %d", shooterDrone->idx, hitDrone->idx, projectile->weaponInfo->type);

@@ -9,7 +9,7 @@
 
 #include "settings.h"
 
-#define _MAX_DRONES 2
+#define _MAX_DRONES 4
 
 // 1 is added for the invalid entity type
 const uint8_t NUM_WALL_TYPES = 4;
@@ -140,8 +140,8 @@ typedef struct projectileEntity
 
 typedef struct stepHitInfo
 {
-    bool shotHit;
-    bool explosionHit;
+    bool shotHit[_MAX_DRONES];
+    bool explosionHit[_MAX_DRONES];
 } stepHitInfo;
 
 typedef struct droneStats
@@ -223,8 +223,6 @@ typedef struct env
     unsigned char *terminals;
 
     uint64_t randState;
-    // TODO: allow for manual resetting
-    bool manualReset;
     bool needsReset;
 
     float episodeReward[_MAX_DRONES];

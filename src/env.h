@@ -98,7 +98,7 @@ void computeObs(env *e)
     e->obs[offset++] = scaleValue(e->stepsLeft, ROUND_STEPS, true);
 
     // compute drone observations
-    for (size_t i = 0; i < cc_array_size(e->drones); i++)
+    for (uint8_t i = 0; i < e->numDrones; i++)
     {
         droneEntity *drone = safe_array_get_at(e->drones, i);
         const b2Vec2 pos = getCachedPos(drone->bodyID, &drone->pos);
@@ -247,7 +247,7 @@ void computeObs(env *e)
         ASSERTF(cellType <= e->obsInfo.obsHigh, "cellType %f", cellType);
         e->obs[e->obsInfo.floatingWallObsOffset + cellIdx] = cellType;
     }
-    for (size_t i = 0; i < cc_array_size(e->drones); i++)
+    for (uint8_t i = 0; i < e->numDrones; i++)
     {
         const droneEntity *drone = safe_array_get_at(e->drones, i);
         const uint16_t cellIdx = entityPosToCellIdx(e, drone->pos.pos);
@@ -255,11 +255,6 @@ void computeObs(env *e)
         ASSERTF(cellType <= e->obsInfo.obsHigh, "cellType %f", cellType);
         e->obs[e->obsInfo.floatingWallObsOffset + cellIdx] = cellType;
     }
-
-    // 0 1 2 if 0 is active
-    // -----
-    // 1 0 2 if 1 is active
-    // 1 2 0 if 2 is active
 
     // copy observations for other agents
     for (uint8_t agentIdx = 1; agentIdx < e->numAgents; agentIdx++)
@@ -269,24 +264,29 @@ void computeObs(env *e)
         memcpy(
             e->obs + obsOffset + e->obsInfo.scalarObsOffset,
             e->obs + e->obsInfo.scalarObsOffset + (agentIdx * DRONE_OBS_SIZE),
-            e->obsInfo.droneObsOffset * sizeof(float));
+            DRONE_OBS_SIZE * sizeof(float));
 
         // copy the rest of the observations over unmodified
         memcpy(
             e->obs + obsOffset + e->obsInfo.droneObsOffset,
             e->obs + e->obsInfo.droneObsOffset,
-            (obsOffset - e->obsInfo.droneObsOffset) * sizeof(float));
+            (e->obsInfo.obsSize - e->obsInfo.droneObsOffset) * sizeof(float));
 
         uint8_t newIdx = 1;
         uint16_t droneObsOffset = obsOffset + e->obsInfo.scalarObsOffset + DRONE_OBS_SIZE;
         for (uint8_t curDroneIdx = 0; curDroneIdx < e->numDrones; curDroneIdx++)
         {
-            memcpy(
-                e->obs + droneObsOffset,
-                e->obs + droneObsOffset + (curDroneIdx * DRONE_OBS_SIZE),
-                DRONE_OBS_SIZE * sizeof(float));
+            // copy the rest of the drone observations over in order,
+            // skipping the active agent's drone which is already in the front
+            if (curDroneIdx != agentIdx)
+            {
+                memcpy(
+                    e->obs + droneObsOffset,
+                    e->obs + e->obsInfo.scalarObsOffset + (curDroneIdx * DRONE_OBS_SIZE),
+                    DRONE_OBS_SIZE * sizeof(float));
+                droneObsOffset += DRONE_OBS_SIZE;
+            }
 
-            // add drones to map cells
             const droneEntity *drone = safe_array_get_at(e->drones, curDroneIdx);
             const uint16_t cellIdx = entityPosToCellIdx(e, drone->pos.pos);
             // label the agent's drone as drone 0 so observations are consistent
@@ -348,11 +348,10 @@ void setupEnv(env *e)
     computeObs(e);
 }
 
-env *initEnv(env *e, uint8_t numDrones, uint8_t numAgents, float *obs, float *actions, float *rewards, unsigned char *terminals, logBuffer *logs, uint64_t seed, bool manualReset)
+env *initEnv(env *e, uint8_t numDrones, uint8_t numAgents, float *obs, float *actions, float *rewards, unsigned char *terminals, logBuffer *logs, uint64_t seed)
 {
     e->numDrones = numDrones;
     e->numAgents = numAgents;
-    e->manualReset = manualReset;
     e->obsInfo = calculateObservationInfo(numDrones);
 
     e->obs = obs;
@@ -393,7 +392,7 @@ void clearEnv(env *e)
         destroyWeaponPickup(pickup);
     }
 
-    for (size_t i = 0; i < cc_array_size(e->drones); i++)
+    for (uint8_t i = 0; i < e->numDrones; i++)
     {
         droneEntity *drone = safe_array_get_at(e->drones, i);
         destroyDrone(drone);
@@ -447,39 +446,47 @@ void resetEnv(env *e)
     setupEnv(e);
 }
 
-void computeReward(env *e, const droneEntity *drone)
+void computeShotHitReward(env *e, const droneEntity *drone, const uint8_t enemyIdx)
 {
-    uint8_t enemyID = 1;
-    if (drone->idx == 1)
-    {
-        enemyID = 0;
-    }
-    const droneEntity *enemyDrone = safe_array_get_at(e->drones, enemyID);
-
-    if (enemyDrone->dead)
-    {
-        e->rewards[drone->idx] += KILL_REWARD;
-        return;
-    }
-    if (drone->dead)
-    {
-        e->rewards[drone->idx] += DEATH_REWARD;
-        return;
-    }
-    if (!drone->hitInfo.shotHit && !drone->hitInfo.explosionHit)
-    {
-        return;
-    }
-
     // compute reward based off of how much the projectile(s) or explosion(s)
     // caused the enemy drone to change velocity
+    const droneEntity *enemyDrone = safe_array_get_at(e->drones, enemyIdx);
     const float prevEnemySpeed = b2Length(enemyDrone->lastVelocity);
     const float curEnemySpeed = b2Length(b2Body_GetLinearVelocity(enemyDrone->bodyID));
     e->rewards[drone->idx] += scaleValue(fabsf(curEnemySpeed - prevEnemySpeed), MAX_SPEED, true) * SHOT_HIT_REWARD_COEF;
 }
 
-void computeRewards(env *e)
+void computeReward(env *e, const droneEntity *drone)
 {
+    if (drone->dead)
+    {
+        e->rewards[drone->idx] += DEATH_REWARD;
+    }
+    // TODO: compute kill reward
+    for (uint8_t i = 0; i < e->numDrones; i++)
+    {
+        if (i == drone->idx)
+        {
+            continue;
+        }
+        if (drone->hitInfo.shotHit[i])
+        {
+            computeShotHitReward(e, drone, i);
+        }
+        if (drone->hitInfo.explosionHit[i])
+        {
+            computeShotHitReward(e, drone, i);
+        }
+    }
+}
+
+void computeRewards(env *e, const bool roundOver, const uint8_t winner)
+{
+    if (roundOver)
+    {
+        e->rewards[winner] += WIN_REWARD;
+    }
+
     for (int i = 0; i < e->numAgents; i++)
     {
         const droneEntity *drone = safe_array_get_at(e->drones, i);
@@ -488,14 +495,14 @@ void computeRewards(env *e)
 
         if (e->rewards[i] != 0.0f)
         {
-            DEBUG_LOGF("reward[%d]: %f\n", i, e->rewards[i]);
+            DEBUG_LOGF("reward[%d]: %f", i, e->rewards[i]);
         }
     }
 }
 
 void stepEnv(env *e)
 {
-    if (e->needsReset && !e->manualReset)
+    if (e->needsReset)
     {
         DEBUG_LOG("Resetting environment");
         resetEnv(e);
@@ -509,7 +516,7 @@ void stepEnv(env *e)
         e->episodeLength++;
 
         // handle actions
-        for (size_t i = 0; i < cc_array_size(e->drones); i++)
+        for (uint8_t i = 0; i < e->numDrones; i++)
         {
             droneEntity *drone = safe_array_get_at(e->drones, i);
             drone->lastVelocity = b2Body_GetLinearVelocity(drone->bodyID);
@@ -549,7 +556,7 @@ void stepEnv(env *e)
 
         // mark old positions as invalid now that physics has been stepped
         // projectiles will have their positions correctly updated in projectilesStep
-        for (size_t i = 0; i < cc_array_size(e->drones); i++)
+        for (uint8_t i = 0; i < e->numDrones; i++)
         {
             droneEntity *drone = safe_array_get_at(e->drones, i);
             drone->pos.valid = false;
@@ -578,28 +585,34 @@ void stepEnv(env *e)
         handleContactEvents(e);
         handleSensorEvents(e);
 
-        bool terminate = false;
-        for (size_t i = 0; i < cc_array_size(e->drones); i++)
+        uint8_t lastAlive = 0;
+        uint8_t deadDrones = 0;
+        for (uint8_t i = 0; i < e->numDrones; i++)
         {
             droneEntity *drone = safe_array_get_at(e->drones, i);
             droneStep(e, drone, DELTA_TIME);
             if (drone->dead)
             {
-                memset(e->terminals, 1, e->numAgents * sizeof(bool));
-                terminate = true;
+                deadDrones++;
+                e->terminals[i] = true;
+            }
+            else
+            {
+                lastAlive = i;
             }
         }
 
         weaponPickupsStep(e, DELTA_TIME);
 
-        computeRewards(e);
+        const bool roundOver = deadDrones >= e->numDrones - 1;
+        computeRewards(e, roundOver, lastAlive);
 
         if (e->client != NULL)
         {
             renderEnv(e);
         }
 
-        if (terminate)
+        if (roundOver)
         {
             // add existing projectile distances to stats
             for (SNode *cur = e->projectiles->head; cur != NULL; cur = cur->next)
@@ -614,9 +627,9 @@ void stepEnv(env *e)
             memcpy(log.stats, e->stats, sizeof(e->stats));
             addLogEntry(e->logs, &log);
 
-            for (size_t i = 0; i < cc_array_size(e->drones); i++)
+            for (uint8_t i = 0; i < e->numDrones; i++)
             {
-                DEBUG_LOGF("drone %zu total reward: %f", i, log.reward[i]);
+                DEBUG_LOGF("drone %d total reward: %f", i, log.reward[i]);
             }
 
             e->needsReset = true;
@@ -629,7 +642,7 @@ void stepEnv(env *e)
 
 bool envTerminated(env *e)
 {
-    for (size_t i = 0; i < cc_array_size(e->drones); i++)
+    for (uint8_t i = 0; i < e->numDrones; i++)
     {
         droneEntity *drone = safe_array_get_at(e->drones, i);
         if (drone->dead)
