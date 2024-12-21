@@ -147,7 +147,11 @@ if(DEFINED BUILD_PYTHON_MODULE)
 
 	# build python module
 	python_add_library(cy_impulse_wars MODULE impulse_wars.c WITH_SOABI)
+
 	configure_target(cy_impulse_wars)
+	# disable warnings for generated Cython source file
+	set_source_files_properties(impulse_wars.c PROPERTIES COMPILE_FLAGS "-w")
+
 	install(TARGETS cy_impulse_wars DESTINATION .)
 elseif(DEFINED BUILD_DEMO)
 	add_executable(demo "${CMAKE_CURRENT_SOURCE_DIR}/src/demo.c")
