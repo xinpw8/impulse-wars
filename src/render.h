@@ -232,9 +232,9 @@ void renderDroneGuides(const env *e, const droneEntity *drone, const int droneId
     const b2RayResult rayRes = b2World_CastRayClosest(e->worldID, pos, translation, filter);
     const entity *ent = (entity *)b2Shape_GetUserData(rayRes.shapeId);
 
-    b2DistanceCache cache = {0};
+    b2SimplexCache cache = {0};
     bool shapeIsCircle = false;
-    b2DistanceProxy proxyA = {0};
+    b2ShapeProxy proxyA = {0};
     if (ent->type == DRONE_ENTITY)
     {
         proxyA.radius = DRONE_RADIUS;
@@ -245,7 +245,7 @@ void renderDroneGuides(const env *e, const droneEntity *drone, const int droneId
         proxyA.count = 1;
         proxyA.points[0] = (b2Vec2){.x = 0.0f, .y = 0.0f};
     }
-    const b2DistanceProxy proxyB = makeDistanceProxy(ent->type, &shapeIsCircle);
+    const b2ShapeProxy proxyB = makeDistanceProxy(ent->type, &shapeIsCircle);
     const b2DistanceInput input = {
         .proxyA = proxyA,
         .proxyB = proxyB,

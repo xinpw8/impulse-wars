@@ -208,9 +208,9 @@ void createSuddenDeathWalls(env *e, const b2Vec2 startPos, const b2Vec2 size)
     }
 }
 
-b2DistanceProxy makeDistanceProxy(const enum entityType type, bool *isCircle)
+b2ShapeProxy makeDistanceProxy(const enum entityType type, bool *isCircle)
 {
-    b2DistanceProxy proxy = {0};
+    b2ShapeProxy proxy = {0};
     switch (type)
     {
     case DRONE_ENTITY:

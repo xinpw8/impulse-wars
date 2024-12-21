@@ -35,7 +35,7 @@ void perfTest(const float testTime)
     }
 
     const time_t end = time(NULL);
-    printf("SPS: %f\n", (NUM_DRONES * FRAMESKIP * steps) / (end - start));
+    printf("SPS: %f\n", (float)(NUM_DRONES * FRAMESKIP * steps) / (float)(end - start));
     printf("Steps: %d\n", steps * FRAMESKIP);
 
     destroyEnv(e);
