@@ -1,4 +1,4 @@
-from libc.stdint cimport uint8_t, uint64_t
+from libc.stdint cimport uint8_t, uint16_t, uint64_t
 from libc.stdlib cimport calloc, free
 
 import pufferlib
@@ -84,7 +84,7 @@ cdef class CyImpulseWars:
         logBuffer *logs
         rayClient* rayClient
 
-    def __init__(self, uint8_t numEnvs, uint8_t numDrones, uint8_t numAgents, float[:, :] observations, float[:, :] actions, float[:] rewards, uint8_t[:] terminals, uint64_t seed, bint render):
+    def __init__(self, uint16_t numEnvs, uint8_t numDrones, uint8_t numAgents, float[:, :] observations, float[:, :] actions, float[:] rewards, uint8_t[:] terminals, uint64_t seed, bint render):
         self.numEnvs = numEnvs
         self.numDrones = numDrones
         self.render = render

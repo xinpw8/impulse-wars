@@ -381,7 +381,7 @@ void clearEnv(env *e)
 {
     memset(e->obs, 0x0, e->obsInfo.obsSize * e->numAgents * sizeof(float));
     // rewards get cleared in stepEnv every step
-    memset(e->terminals, 0x0, e->numAgents * sizeof(bool));
+    memset(e->terminals, 0x0, e->numAgents * sizeof(uint8_t));
 
     memset(e->episodeReward, 0x0, e->numAgents * sizeof(float));
     e->episodeLength = 0;
@@ -595,7 +595,7 @@ void stepEnv(env *e)
             if (drone->dead)
             {
                 deadDrones++;
-                e->terminals[i] = true;
+                e->terminals[i] = 1;
             }
             else
             {
@@ -628,7 +628,7 @@ void stepEnv(env *e)
             memcpy(log.stats, e->stats, sizeof(e->stats));
             addLogEntry(e->logs, &log);
 
-            for (uint8_t i = 0; i < e->numDrones; i++)
+            for (uint8_t i = 0; i < e->numAgents; i++)
             {
                 DEBUG_LOGF("drone %d total reward: %f", i, log.reward[i]);
             }
