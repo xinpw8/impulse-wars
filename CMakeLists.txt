@@ -66,7 +66,7 @@ FetchContent_Declare(
 	box2d
 	GIT_REPOSITORY https://github.com/capnspacehook/box2d.git
 	GIT_TAG main
-	GIT_SHALLOW FALSE
+	GIT_SHALLOW TRUE
 	GIT_PROGRESS TRUE
 )
 FetchContent_MakeAvailable(box2d)
