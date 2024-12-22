@@ -17,7 +17,6 @@ from rich.traceback import install
 install(show_locals=False)
 
 import clean_pufferl
-from sweep import sweep
 
 from policy import Policy, Recurrent
 from impulse_wars import ImpulseWars
@@ -25,7 +24,7 @@ from impulse_wars import ImpulseWars
 
 def make_policy(env, config):
     """Make the policy for the environment"""
-    policy = Policy(env)
+    policy = Policy(env, config.num_drones)
     policy = Recurrent(env, policy)
     return pufferlib.cleanrl.RecurrentPolicy(policy)
 
@@ -39,7 +38,9 @@ def train(args):
         ImpulseWars,
         num_envs=args.vec.num_envs,
         env_args=(args.train.num_envs,),
-        env_kwargs=dict(num_agents=args.train.num_agents, seed=args.train.seed),
+        env_kwargs=dict(
+            num_drones=args.train.num_drones, num_agents=args.train.num_agents, seed=args.train.seed
+        ),
         num_workers=args.vec.num_workers,
         batch_size=args.vec.env_batch_size,
         zero_copy=args.vec.zero_copy,
@@ -168,7 +169,8 @@ if __name__ == "__main__":
     parser.add_argument("--train.vf-coef", type=float, default=0.5)
     parser.add_argument("--train.target-kl", type=float, default=0.2)
 
-    parser.add_argument("--train.num_agents", type=int, default=1)
+    parser.add_argument("--train.num-drones", type=int, default=2)
+    parser.add_argument("--train.num-agents", type=int, default=2)
 
     parser.add_argument("--vec.num-envs", type=int, default=16)
     parser.add_argument("--vec.num-workers", type=int, default=16)
@@ -211,7 +213,12 @@ if __name__ == "__main__":
             ImpulseWars,
             num_envs=1,
             env_args=(1,),
-            env_kwargs=dict(num_agents=args.train.num_agents, render=True, seed=args.train.seed),
+            env_kwargs=dict(
+                num_drones=args.train.num_drones,
+                num_agents=args.train.num_agents,
+                render=True,
+                seed=args.train.seed,
+            ),
             num_workers=1,
             batch_size=1,
             backend=pufferlib.PufferEnv,
@@ -224,4 +231,6 @@ if __name__ == "__main__":
 
         eval_policy(vecenv, policy, args.train.device)
     elif args.mode == "sweep":
+        from sweep import sweep
+
         sweep(args, train)

@@ -25,7 +25,7 @@ enum entityType
     DRONE_ENTITY = 5,
     // this needs to be last so map cell type observations can be
     // calculated correctly
-    WEAPON_PICKUP_ENTITY = 5 + _MAX_DRONES,
+    WEAPON_PICKUP_ENTITY = 5 + _MAX_DRONES + 1,
 };
 
 // the category bit that will be set on each entity's shape; this is
@@ -178,7 +178,6 @@ typedef struct droneEntity
 
 typedef struct observationInfo
 {
-    uint8_t obsHigh;
     uint16_t obsSize;
     uint16_t scalarObsOffset;
     uint16_t droneObsOffset;
@@ -220,7 +219,7 @@ typedef struct env
     float *obs;
     float *rewards;
     float *actions;
-    unsigned char *terminals;
+    uint8_t *terminals;
 
     uint64_t randState;
     bool needsReset;

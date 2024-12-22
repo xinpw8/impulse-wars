@@ -12,8 +12,7 @@ from pufferlib.pytorch import layer_init
 
 from cy_impulse_wars import (
     obsConstants,
-    numDrones,
-    obsSize,
+    obsHigh,
 )
 
 
@@ -30,23 +29,17 @@ class Recurrent(LSTMWrapper):
 
 
 class Policy(nn.Module):
-    def __init__(self, env: pufferlib.PufferEnv):
+    def __init__(self, env: pufferlib.PufferEnv, numDrones: int):
         super().__init__()
 
         self.is_continuous = True
 
-        self.obsInfo = obsConstants()
-        self.numDrones = numDrones()
-        self.obsSize = obsSize()
-        self.droneOffset = self.obsInfo.scalarObsSize + (self.numDrones * self.obsInfo.droneObsSize)
-        self.projectileObsTotalSize = self.obsInfo.numProjectileObs * self.obsInfo.projectileObsSize
-        self.projectileOffset = self.droneOffset + self.projectileObsTotalSize
-        self.floatingWallObsTotalSize = self.obsInfo.numFloatingWallObs * self.obsInfo.floatingWallObsSize
-        self.floatingWallOffset = self.projectileOffset + self.floatingWallObsTotalSize
+        self.numDrones = numDrones
+        self.obsInfo = obsConstants(numDrones)
 
-        self.weaponTypeEmbedding = nn.Embedding(self.obsInfo.weaponTypes + 1, weaponTypesEmbeddingDims)
+        self.weaponTypeEmbedding = nn.Embedding(self.obsInfo.weaponTypes, weaponTypesEmbeddingDims)
         self.floatingWallTypeEmbedding = nn.Embedding(self.obsInfo.wallTypes, floatingWallTypesEmbeddingDims)
-        self.mapCellEmbedding = nn.Embedding(self.obsInfo.mapCellTypes + 1, mapCellsEmbeddingDims)
+        self.mapCellEmbedding = nn.Embedding(self.obsInfo.mapCellTypes, mapCellsEmbeddingDims)
 
         self.mapCNN = nn.Sequential(
             layer_init(nn.Conv2d(mapCellsEmbeddingDims, 32, kernel_size=5, stride=2)),
@@ -144,7 +137,7 @@ class Policy(nn.Module):
             offset += self.obsInfo.floatingWallObsSize - 1
 
         # process map cell observations
-        mapCellTypes = obs[:, offset : offset + (self.obsSize - offset)].to(th.int)
+        mapCellTypes = obs[:, offset : offset + (self.obsInfo.obsSize - offset)].to(th.int)
         mapCellTypes = mapCellTypes.view(batchSize, self.obsInfo.maxMapColumns, self.obsInfo.maxMapRows)
         mapCellTypes = self.mapCellEmbedding(mapCellTypes)
         mapCellTypes = mapCellTypes.permute(0, 3, 1, 2)
@@ -174,7 +167,7 @@ class Policy(nn.Module):
     def _computeCNNShape(self) -> int:
         mapSpace = spaces.Box(
             low=0,
-            high=self.obsInfo.mapCellTypes,
+            high=obsHigh(),
             shape=(self.obsInfo.maxMapColumns, self.obsInfo.maxMapRows),
             dtype=np.int,
         )

@@ -45,11 +45,11 @@ const uint8_t NUM_FLOATING_WALL_OBS = 12;
 const uint8_t FLOATING_WALL_OBS_SIZE = 6;
 const uint8_t MAX_MAP_COLUMNS = _MAX_MAP_COLUMNS;
 const uint8_t MAX_MAP_ROWS = _MAX_MAP_ROWS;
+const uint8_t OBS_HIGH = WEAPON_PICKUP_ENTITY + NUM_WEAPONS + 1;
 
 observationInfo calculateObservationInfo(uint8_t numDrones)
 {
     observationInfo info;
-    info.obsHigh = NUM_ENTITY_TYPES + numDrones + NUM_WEAPONS;
     info.obsSize = SCALAR_OBS_SIZE +
                    (numDrones * DRONE_OBS_SIZE) +
                    (NUM_PROJECTILE_OBS * PROJECTILE_OBS_SIZE) +

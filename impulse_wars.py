@@ -4,9 +4,9 @@ import numpy as np
 import pufferlib
 
 from cy_impulse_wars import (
-    obsHigh,
     maxDrones,
-    obsSize,
+    obsHigh,
+    obsConstants,
     actionsSize,
     CyImpulseWars,
 )
@@ -33,17 +33,22 @@ class ImpulseWars(pufferlib.PufferEnv):
     def __init__(
         self,
         num_envs: int,
+        num_drones: int = 2,
         num_agents: int = 2,
         seed: int = 0,
         render: bool = False,
         report_interval=8,
         buf=None,
     ):
-        if num_agents > maxDrones() or num_agents <= 0:
-            raise ValueError(f"num_agents must greater than 0 and less than or equal to {maxDrones()}")
+        if num_drones > maxDrones() or num_drones <= 0:
+            raise ValueError(f"num_drones must greater than 0 and less than or equal to {maxDrones()}")
+        if num_agents > num_drones or num_agents <= 0:
+            raise ValueError(f"num_agents must greater than 0 and less than or equal to num_drones")
+
+        self.obsInfo = obsConstants(num_drones)
 
         self.single_observation_space = gymnasium.spaces.Box(
-            low=0.0, high=obsHigh(), shape=(obsSize(),), dtype=np.float32
+            low=0.0, high=obsHigh(), shape=(self.obsInfo.obsSize,), dtype=np.float32
         )
         self.single_action_space = gymnasium.spaces.Box(
             low=-1.0, high=1.0, shape=(actionsSize(),), dtype=np.float32
@@ -56,7 +61,15 @@ class ImpulseWars(pufferlib.PufferEnv):
 
         super().__init__(buf)
         self.c_envs = CyImpulseWars(
-            num_envs, num_agents, self.observations, self.actions, self.rewards, self.terminals, seed, render
+            num_envs,
+            num_drones,
+            num_agents,
+            self.observations,
+            self.actions,
+            self.rewards,
+            self.terminals,
+            seed,
+            render,
         )
 
     def reset(self, seed=None):

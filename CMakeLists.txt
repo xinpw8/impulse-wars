@@ -64,8 +64,8 @@ FetchContent_MakeAvailable(raylib)
 # maybe due to install prefix schenanigans?
 FetchContent_Declare(
 	box2d
-	GIT_REPOSITORY https://github.com/erincatto/box2d.git
-	GIT_TAG f0763aca7d4dfa8f1c19c2c4a9e66fa6e93ea32e # known good commit on main
+	GIT_REPOSITORY https://github.com/capnspacehook/box2d.git
+	GIT_TAG main
 	GIT_SHALLOW FALSE
 	GIT_PROGRESS TRUE
 )

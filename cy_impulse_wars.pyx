@@ -1,16 +1,16 @@
-from libc.stdint cimport uint64_t
+from libc.stdint cimport uint8_t, uint64_t
 from libc.stdlib cimport calloc, free
 
 import pufferlib
 
 from impulse_wars cimport (
     MAX_DRONES,
-    OBS_SIZE,
-    ACTION_SIZE,
     OBS_HIGH,
+    ACTION_SIZE,
+    observationInfo,
+    calculateObservationInfo,
     NUM_WEAPONS,
     NUM_WALL_TYPES,
-    NUM_ENTITY_TYPES,
     SCALAR_OBS_SIZE,
     DRONE_OBS_SIZE,
     NUM_PROJECTILE_OBS,
@@ -42,30 +42,28 @@ from impulse_wars cimport (
 def maxDrones() -> int:
     return MAX_DRONES
 
-def obsSize() -> int:
-    return OBS_SIZE
-
-def actionsSize() -> int:
-    return ACTION_SIZE
 
 def obsHigh() -> float:
     return OBS_HIGH
 
-def obsConstants() -> pufferlib.Namespace:
-    weaponTypes = NUM_WEAPONS
-    wallTypes = NUM_WALL_TYPES
-    mapCellTypes = NUM_ENTITY_TYPES + NUM_WEAPONS
-    droneObsSize = DRONE_OBS_SIZE
-    numProjectileObs = NUM_PROJECTILE_OBS
-    projectileObsSize = PROJECTILE_OBS_SIZE
-    numFloatingWallObs = NUM_FLOATING_WALL_OBS
-    floatingWallObsSize = FLOATING_WALL_OBS_SIZE
-    maxMapColumns = MAX_MAP_COLUMNS
-    maxMapRows = MAX_MAP_ROWS
+
+def actionsSize() -> int:
+    return ACTION_SIZE
+
+
+def obsConstants(numDrones: int) -> pufferlib.Namespace:
+    cdef observationInfo obsInfo = calculateObservationInfo(numDrones)
+
     return pufferlib.Namespace(
-        weaponTypes=NUM_WEAPONS,
+        obsSize=obsInfo.obsSize,
+        scalarObsOffset=obsInfo.scalarObsOffset,
+        droneObsOffset=obsInfo.droneObsOffset,
+        projectileObsOffset=obsInfo.projectileObsOffset,
+        floatingWallObsOffset=obsInfo.floatingWallObsOffset,
+        mapCellObsOffset=obsInfo.mapCellObsOffset,
+        weaponTypes=NUM_WEAPONS + 1,
         wallTypes=NUM_WALL_TYPES,
-        mapCellTypes=OBS_HIGH,
+        mapCellTypes=OBS_HIGH + 1,
         scalarObsSize=SCALAR_OBS_SIZE,
         droneObsSize=DRONE_OBS_SIZE,
         numProjectileObs=NUM_PROJECTILE_OBS,
@@ -79,14 +77,16 @@ def obsConstants() -> pufferlib.Namespace:
 
 cdef class CyImpulseWars:
     cdef:
-        unsigned int numEnvs
+        uint8_t numEnvs
+        uint8_t numDrones
         bint render
         env* envs
         logBuffer *logs
         rayClient* rayClient
 
-    def __init__(self, unsigned int numEnvs, unsigned int numDrones, unsigned int numAgents, float[:, :] observations, float[:, :] actions, float[:] rewards, unsigned char[:] terminals, uint64_t seed, bint render):
+    def __init__(self, uint8_t numEnvs, uint8_t numDrones, uint8_t numAgents, float[:, :] observations, float[:, :] actions, float[:] rewards, uint8_t[:] terminals, uint64_t seed, bint render):
         self.numEnvs = numEnvs
+        self.numDrones = numDrones
         self.render = render
         self.envs = <env*>calloc(numEnvs, sizeof(env))
         self.logs = createLogBuffer(LOG_BUFFER_SIZE)
@@ -96,6 +96,7 @@ cdef class CyImpulseWars:
         for i in range(self.numEnvs):
             initEnv(
                 &self.envs[i],
+                numDrones,
                 numAgents,
                 &observations[i * inc, 0],
                 &actions[i * inc, 0],
@@ -103,7 +104,6 @@ cdef class CyImpulseWars:
                 &terminals[i * inc],
                 self.logs,
                 seed + i,
-                0,
             )
 
     cdef _initRaylib(self):
@@ -126,7 +126,7 @@ cdef class CyImpulseWars:
             stepEnv(&self.envs[i])
 
     def log(self):
-        cdef logEntry log = aggregateAndClearLogBuffer(self.logs)
+        cdef logEntry log = aggregateAndClearLogBuffer(self.numDrones, self.logs)
         return log
 
     def close(self):

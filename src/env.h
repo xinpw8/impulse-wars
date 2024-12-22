@@ -212,12 +212,12 @@ void computeObs(env *e)
                 // of the weapon pickup can be observed
                 const weaponPickupEntity *pickup = (weaponPickupEntity *)cell->ent->entity;
                 cellType = (float)(cell->ent->type + pickup->weapon + 1);
-                ASSERTF(cellType <= e->obsInfo.obsHigh, "cellType %f", cellType);
+                ASSERTF(cellType <= OBS_HIGH, "cellType %f", cellType);
             }
             else
             {
                 cellType = (float)(cell->ent->type + 1);
-                ASSERTF(cellType <= e->obsInfo.obsHigh, "cellType %f", cellType);
+                ASSERTF(cellType <= OBS_HIGH, "cellType %f", cellType);
             }
         }
         // will be processed in an embedding layer separately
@@ -226,6 +226,7 @@ void computeObs(env *e)
         ASSERT(i < MAX_MAP_COLUMNS * MAX_MAP_ROWS);
         ASSERT(offset <= e->obsInfo.obsSize);
     }
+    // TODO: should only need to do this once after loading a map
     // zero out any remaining map cell observations
     const uint16_t mapCellObsSet = abs(offset - e->obsInfo.floatingWallObsOffset);
     const uint16_t mapCellObsUnset = (MAX_MAP_COLUMNS * MAX_MAP_ROWS) - mapCellObsSet;
@@ -244,7 +245,7 @@ void computeObs(env *e)
         const wallEntity *wall = safe_array_get_at(e->floatingWalls, i);
         const uint16_t cellIdx = entityPosToCellIdx(e, wall->pos.pos);
         const float cellType = (float)(wall->type + 1);
-        ASSERTF(cellType <= e->obsInfo.obsHigh, "cellType %f", cellType);
+        ASSERTF(cellType <= OBS_HIGH, "cellType %f", cellType);
         e->obs[e->obsInfo.floatingWallObsOffset + cellIdx] = cellType;
     }
     for (uint8_t i = 0; i < e->numDrones; i++)
@@ -252,7 +253,7 @@ void computeObs(env *e)
         const droneEntity *drone = safe_array_get_at(e->drones, i);
         const uint16_t cellIdx = entityPosToCellIdx(e, drone->pos.pos);
         const float cellType = (float)(DRONE_ENTITY + i);
-        ASSERTF(cellType <= e->obsInfo.obsHigh, "cellType %f", cellType);
+        ASSERTF(cellType <= OBS_HIGH, "cellType %f", cellType);
         e->obs[e->obsInfo.floatingWallObsOffset + cellIdx] = cellType;
     }
 
@@ -297,7 +298,7 @@ void computeObs(env *e)
                 activeIdx = newIdx++;
             }
             const float cellType = (float)(DRONE_ENTITY + activeIdx);
-            ASSERTF(cellType <= e->obsInfo.obsHigh, "cellType %f", cellType);
+            ASSERTF(cellType <= OBS_HIGH, "cellType %f", cellType);
             e->obs[obsOffset + e->obsInfo.floatingWallObsOffset + cellIdx] = cellType;
         }
     }
@@ -316,7 +317,7 @@ void setupEnv(env *e)
     e->suddenDeathWallCounter = 0;
 
     DEBUG_LOG("creating map");
-    const int mapIdx = 0; // randInt(&e->randState, 0, NUM_MAPS - 1);
+    const int mapIdx = 1; // randInt(&e->randState, 0, NUM_MAPS - 1);
     createMap(e, mapIdx);
 
     mapBounds bounds = {.min = {.x = FLT_MAX, .y = FLT_MAX}, .max = {.x = FLT_MIN, .y = FLT_MIN}};
@@ -348,7 +349,7 @@ void setupEnv(env *e)
     computeObs(e);
 }
 
-env *initEnv(env *e, uint8_t numDrones, uint8_t numAgents, float *obs, float *actions, float *rewards, unsigned char *terminals, logBuffer *logs, uint64_t seed)
+env *initEnv(env *e, uint8_t numDrones, uint8_t numAgents, float *obs, float *actions, float *rewards, uint8_t *terminals, logBuffer *logs, uint64_t seed)
 {
     e->numDrones = numDrones;
     e->numAgents = numAgents;
