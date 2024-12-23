@@ -1,3 +1,5 @@
+from typing import Dict
+
 import gymnasium
 import numpy as np
 
@@ -12,11 +14,18 @@ from cy_impulse_wars import (
 )
 
 
-def transformRawLog(rawLog):
+def transformRawLog(numDrones: int, rawLog: Dict[str, float]):
     log = {"length": rawLog["length"]}
+
+    count = 0
     for i, reward in enumerate(rawLog["reward"]):
         log[f"drone_{i}_reward"] = reward
+        count += 1
+        if count >= numDrones:
+            break
+        
 
+    count = 0
     for i, stats in enumerate(rawLog["stats"]):
         log[f"drone_{i}_distance_traveled"] = stats["distanceTraveled"]
         log[f"drone_{i}_shots_fired"] = sum(stats["shotsFired"])
@@ -25,6 +34,9 @@ def transformRawLog(rawLog):
         log[f"drone_{i}_own_shots_taken"] = sum(stats["ownShotsTaken"])
         log[f"drone_{i}_weapons_picked_up"] = sum(stats["weaponsPickedUp"])
         log[f"drone_{i}_shots_distance"] = sum(stats["shotDistances"])
+        count += 1
+        if count >= numDrones:
+            break
 
     return log
 
@@ -45,6 +57,7 @@ class ImpulseWars(pufferlib.PufferEnv):
         if num_agents > num_drones or num_agents <= 0:
             raise ValueError(f"num_agents must greater than 0 and less than or equal to num_drones")
 
+        self.numDrones = num_drones
         self.obsInfo = obsConstants(num_drones)
 
         self.single_observation_space = gymnasium.spaces.Box(
@@ -86,7 +99,7 @@ class ImpulseWars(pufferlib.PufferEnv):
         if self.tick % self.report_interval == 0:
             rawLog = self.c_envs.log()
             if rawLog["length"] > 0:
-                infos.append(transformRawLog(rawLog))
+                infos.append(transformRawLog(self.numDrones, rawLog))
 
         return self.observations, self.rewards, self.terminals, self.truncations, infos
 

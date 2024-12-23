@@ -39,9 +39,9 @@ def sweep(args, train):
         Param(
             name="total_timesteps",
             space=LinearSpace(
-                min=100_000_000, scale=100_000_000, rounding_factor=10_000_000, is_integer=True
+                min=50_000_000, scale=100_000_000, rounding_factor=10_000_000, is_integer=True
             ),
-            search_center=150_000_000,
+            search_center=100_000_000,
         ),
         # hyperparams
         Param(
@@ -50,8 +50,8 @@ def sweep(args, train):
             search_center=5,
         ),
         Param(name="ent_coef", space=LogSpace(scale=1.0), search_center=0.0005),
-        Param(name="gae_lambda", space=LogitSpace(min=0.0, max=1.0), search_center=0.95),
-        Param(name="gamma", space=LogitSpace(min=0.0, max=1.0), search_center=0.99),
+        Param(name="gae_lambda", space=LogitSpace(min=0.0, max=1.0), search_center=0.90),
+        Param(name="gamma", space=LogitSpace(min=0.0, max=1.0), search_center=0.95),
         Param(name="learning_rate", space=LogSpace(scale=1.0), search_center=0.0001),
         Param(name="max_grad_norm", space=LinearSpace(min=0.0, scale=2.0), search_center=1.0),
         Param(name="vf_coef", space=LogitSpace(min=0.0, max=1.0), search_center=0.5),
@@ -126,5 +126,6 @@ def trainWithSuggestion(args, params, train):
         return
 
     totalTime = time.time() - startTime
-    wandbCarbs.record_observation(objective=stats["drone_0_shots_hit"], cost=totalTime)
+    obj = stats["drone_0_shots_hit"] + stats["drone_1_shots_hit"]
+    wandbCarbs.record_observation(objective=obj, cost=totalTime)
     wandb.finish()
