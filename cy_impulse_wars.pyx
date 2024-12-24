@@ -77,7 +77,7 @@ def obsConstants(numDrones: int) -> pufferlib.Namespace:
 
 cdef class CyImpulseWars:
     cdef:
-        uint8_t numEnvs
+        uint16_t numEnvs
         uint8_t numDrones
         bint render
         env* envs
