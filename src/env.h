@@ -501,6 +501,11 @@ void computeRewards(env *e, const bool roundOver, const uint8_t winner)
     }
 }
 
+static inline float clamp(float f)
+{
+	return fminf(fmaxf(f, -1.0f), 1.0f);
+}
+
 void stepEnv(env *e)
 {
     if (e->needsReset)
@@ -529,10 +534,10 @@ void stepEnv(env *e)
             }
 
             const uint8_t offset = i * ACTION_SIZE;
-            const b2Vec2 rawMove = (b2Vec2){.x = e->actions[offset + 0], .y = e->actions[offset + 1]};
+            const b2Vec2 rawMove = (b2Vec2){.x = clamp(e->actions[offset + 0]), .y = clamp(e->actions[offset + 1])};
             ASSERT_VEC_NORMALIZED(rawMove);
             const b2Vec2 move = b2Normalize(rawMove);
-            const b2Vec2 rawAim = (b2Vec2){.x = e->actions[offset + 2], .y = e->actions[offset + 3]};
+            const b2Vec2 rawAim = (b2Vec2){.x = clamp(e->actions[offset + 2]), .y = clamp(e->actions[offset + 3])};
             ASSERT_VEC_NORMALIZED(rawAim);
             const b2Vec2 aim = b2Normalize(rawAim);
             const bool shoot = e->actions[offset + 4] > 0.0f;
