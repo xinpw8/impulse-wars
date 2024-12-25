@@ -1,35 +1,51 @@
-﻿cmake_minimum_required(VERSION 3.22)
+cmake_minimum_required(VERSION 3.22)
 include(FetchContent)
 
-find_program(CLANG_EXECUTABLE "clang")
-if(CLANG_EXECUTABLE)
+find_program(CCACHE_FOUND "ccache")
+if(CCACHE_FOUND)
+	set(CMAKE_C_COMPILER_LAUNCHER "ccache")
+endif()
+
+find_program(CLANG_FOUND "clang")
+if(CLANG_FOUND)
 	set(CMAKE_C_COMPILER "clang")
-	set(CMAKE_CXX_COMPILER "clang++")
 endif()
 set(CMAKE_C_FLAGS_INIT " -std=c2x")
 
-set (CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -fno-omit-frame-pointer -fsanitize=address,undefined,bounds,pointer-overflow,leak")
-set (CMAKE_LINKER_FLAGS_DEBUG "${CMAKE_LINKER_FLAGS_DEBUG} -fno-omit-frame-pointer -fsanitize=address,undefined,bounds,pointer-overflow,leak")
+if(CMAKE_BUILD_TYPE MATCHES Debug)
+	# leak detection doesn't work correctly when the code is called by
+	# Python, so disable it
+	if(DEFINED BUILD_PYTHON_MODULE)
+		add_compile_options("-fno-omit-frame-pointer" "-fsanitize=address,undefined,bounds,pointer-overflow")
+		add_link_options("-shared-libasan" "-fno-omit-frame-pointer" "-fsanitize=address,undefined,bounds,pointer-overflow")
+	else()
+		add_compile_options("-fno-omit-frame-pointer" "-fsanitize=address,undefined,bounds,pointer-overflow,leak")
+		add_link_options("-fno-omit-frame-pointer" "-fsanitize=address,undefined,bounds,pointer-overflow,leak")
+	endif()
 
-set (CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O3 -flto -march=native -fno-math-errno")
+	# only use mold in debug mode, link time optimization currently doesn't
+	# work with mold and provides large speedups
+	find_program(MOLD_FOUND "mold")
+	if(MOLD_FOUND)
+		add_link_options("-fuse-ld=mold")
+	endif()
+else()
+	add_compile_options("-flto" "-march=native" "-fno-math-errno")
+	# use lld if clang is the compiler so the object files are compatible
+	if(CLANG_FOUND)
+		add_link_options("-fuse-ld=lld")
+	endif()
+endif()
 
-project(env
-	VERSION 1.0.0
+project(
+	impulse-wars
 	DESCRIPTION "Impulse Wars Env"
 	LANGUAGES C
 )
 
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
-FetchContent_Declare(
-	box2d
-	GIT_REPOSITORY https://github.com/erincatto/box2d.git
-	GIT_TAG 2c939c287bfcffcd9ae12ce34db486f6e0bd17e2 # known good commit on main
-	GIT_SHALLOW FALSE
-	GIT_PROGRESS TRUE
-)
-FetchContent_MakeAvailable(box2d)
-
+# fetch and configure dependencies
 FetchContent_Declare(
 	raylib
 	GIT_REPOSITORY https://github.com/raysan5/raylib.git
@@ -37,15 +53,110 @@ FetchContent_Declare(
 	GIT_SHALLOW TRUE
 	GIT_PROGRESS TRUE
 )
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "Statically link raylib" FORCE)
+set(WITH_PIC "Compile static library as position-independent code" ON)
+set(CUSTOMIZE_BUILD ON CACHE BOOL "Customize raylib build settings" FORCE)
+set(USE_AUDIO OFF CACHE BOOL "Don't build unused audio module" FORCE)
 FetchContent_MakeAvailable(raylib)
 
-add_executable(env game.c)
-target_include_directories(env PRIVATE include)
-target_link_libraries(env PRIVATE box2d raylib)
+# if box2d is fetched first installing built python module will fail
+# for reasons unbeknownst to mere mortals
+# maybe due to install prefix schenanigans?
+FetchContent_Declare(
+	box2d
+	GIT_REPOSITORY https://github.com/capnspacehook/box2d.git
+	GIT_TAG main
+	GIT_SHALLOW TRUE
+	GIT_PROGRESS TRUE
+)
+FetchContent_MakeAvailable(box2d)
 
-target_compile_options(env PRIVATE "-Wall" "-Wpedantic" "-Wno-variadic-macros")
+function(configure_target target_name)
+	target_include_directories(
+		${target_name} PRIVATE
+		"${CMAKE_CURRENT_SOURCE_DIR}/src"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src/include"
+	)
+	target_link_libraries(${target_name} PRIVATE raylib box2d)
 
-find_program(MOLD_EXECUTABLE "mold")
-if(MOLD_EXECUTABLE)
-	target_link_options(env PUBLIC "-fuse-ld=mold")
+	target_compile_options(${target_name} PRIVATE
+		"-Werror" "-Wall" "-Wpedantic" "-Wno-variadic-macros"
+	)
+endfunction()
+
+if(DEFINED BUILD_PYTHON_MODULE)
+	# transpile Cython to C
+	find_package(
+		Python
+		COMPONENTS Interpreter Development.Module
+		REQUIRED
+	)
+
+	# add all project headers as a dependency to the autopxd command so
+	# the PXD file will be regenerated if any of the headers change
+	file(GLOB_RECURSE HEADERS RELATIVE ${CMAKE_SOURCE_DIR} "src/*.h")
+
+	add_custom_command(
+		OUTPUT impulse_wars.pxd.raw
+		COMMENT "Converting C headers to Cython PXD file"
+		COMMAND autopxd
+			-I "${CMAKE_CURRENT_SOURCE_DIR}/src"
+			-I "${CMAKE_CURRENT_SOURCE_DIR}/src/include"
+			-I "${box2d_SOURCE_DIR}/include" 
+			-I "${raylib_SOURCE_DIR}/src"
+			-D AUTOPXD
+			"${CMAKE_CURRENT_SOURCE_DIR}/src/env.h" impulse_wars.pxd.raw
+		DEPENDS "${HEADERS}"
+		VERBATIM
+	)
+
+	# workaround for autopxd not setting bools correctly
+	add_custom_command(
+		OUTPUT impulse_wars.pxd
+		COMMENT "Fixing bools in Cython PXD file"
+		COMMAND "${CMAKE_COMMAND}"
+			"-DSOURCE=${CMAKE_CURRENT_BINARY_DIR}/impulse_wars.pxd.raw"
+			"-DTARGET=${CMAKE_CURRENT_BINARY_DIR}/impulse_wars.pxd"
+			-P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/fix-cython-bool.cmake"
+		DEPENDS impulse_wars.pxd.raw
+		VERBATIM
+	)
+
+	# copy Cython file to binary dir to avoid "class is declared but not defined" errors
+	# apparently Cython doesn't like when you aren't compiling a file in the working directory
+	# and that file imports a PXD file
+	configure_file(
+		"${CMAKE_CURRENT_SOURCE_DIR}/cy_impulse_wars.pyx"
+		"${CMAKE_CURRENT_BINARY_DIR}/cy_impulse_wars.pyx"
+		COPYONLY
+	)
+
+	add_custom_command(
+		OUTPUT impulse_wars.c
+		COMMENT "Transpiling Cython to C"
+		COMMAND Python::Interpreter -m cython
+			-3
+			-X boundscheck=false
+			-X initializedcheck=false
+			-X wraparound=false
+			-X cdivision=true
+			cy_impulse_wars.pyx -o impulse_wars.c
+		DEPENDS impulse_wars.pxd cy_impulse_wars.pyx
+		VERBATIM
+	)
+
+	# build python module
+	python_add_library(cy_impulse_wars MODULE impulse_wars.c WITH_SOABI)
+
+	configure_target(cy_impulse_wars)
+	# disable warnings for generated Cython source file
+	set_source_files_properties(impulse_wars.c PROPERTIES COMPILE_FLAGS "-w")
+
+	install(TARGETS cy_impulse_wars DESTINATION .)
+elseif(DEFINED BUILD_DEMO)
+	add_executable(demo "${CMAKE_CURRENT_SOURCE_DIR}/src/demo.c")
+	configure_target(demo)
+elseif(DEFINED BUILD_BENCHMARK)
+	add_executable(benchmark "${CMAKE_CURRENT_SOURCE_DIR}/src/benchmark.c")
+	configure_target(benchmark)
 endif()

@@ -1,4 +1,6 @@
 #pragma once
+#ifndef IMPULSE_WARS_SETTINGS_H
+#define IMPULSE_WARS_SETTINGS_H
 
 #include "helpers.h"
 #include "types.h"
@@ -11,45 +13,69 @@
 
 #define BOX2D_SUBSTEPS 4
 
-#define FRAMESKIP 1
+#define FRAMESKIP 4
 
-#define MAX_CELLS 450
+#define _MAX_MAP_COLUMNS 21
+#define _MAX_MAP_ROWS 21
+#define MAX_CELLS _MAX_MAP_COLUMNS *_MAX_MAP_ROWS + 1
 
 #define MIN_SPAWN_DISTANCE 6.0f
 
 #define ROUND_STEPS 91.0f * FRAME_RATE
-#define SUDDEN_DEATH_STEPS 10.0f * FRAME_RATE
+#define SUDDEN_DEATH_STEPS 5.0f * FRAME_RATE
 
-#define NUM_DRONES 2
+const uint8_t MAX_DRONES = _MAX_DRONES;
 
 #define EXPLOSION_STEPS 5
 
+const uint16_t LOG_BUFFER_SIZE = 1024;
+
+// reward settings
+#define WIN_REWARD 1.0f
+#define KILL_REWARD 0.5f
+#define DEATH_REWARD 0.0f
+#define SHOT_HIT_REWARD_COEF 1.0f
+
 // observation constants
-#define DRONE_OBS_SIZE 10
-#define NUM_PROJECTILE_OBS 50
-#define PROJECTILE_OBS_SIZE 5
-#define NUM_FLOATING_WALL_OBS 12
-#define FLOATING_WALL_OBS_SIZE 6
-#define MAX_MAP_COLUMNS 21
-#define MAX_MAP_ROWS 21
-#define OBS_SIZE                                        \
-    ((NUM_DRONES * DRONE_OBS_SIZE) +                    \
-     (NUM_PROJECTILE_OBS * PROJECTILE_OBS_SIZE) +       \
-     (NUM_FLOATING_WALL_OBS * FLOATING_WALL_OBS_SIZE) + \
-     (MAX_MAP_COLUMNS * MAX_MAP_ROWS))
+const uint8_t SCALAR_OBS_SIZE = 1;
+const uint8_t DRONE_OBS_SIZE = 10;
+const uint8_t NUM_PROJECTILE_OBS = 50;
+const uint8_t PROJECTILE_OBS_SIZE = 5;
+const uint8_t NUM_FLOATING_WALL_OBS = 12;
+const uint8_t FLOATING_WALL_OBS_SIZE = 6;
+const uint8_t MAX_MAP_COLUMNS = _MAX_MAP_COLUMNS;
+const uint8_t MAX_MAP_ROWS = _MAX_MAP_ROWS;
+const uint8_t OBS_HIGH = WEAPON_PICKUP_ENTITY + NUM_WEAPONS + 1;
+
+observationInfo calculateObservationInfo(uint8_t numDrones)
+{
+    observationInfo info;
+    info.obsSize = SCALAR_OBS_SIZE +
+                   (numDrones * DRONE_OBS_SIZE) +
+                   (NUM_PROJECTILE_OBS * PROJECTILE_OBS_SIZE) +
+                   (NUM_FLOATING_WALL_OBS * FLOATING_WALL_OBS_SIZE) +
+                   (MAX_MAP_COLUMNS * MAX_MAP_ROWS);
+    info.scalarObsOffset = SCALAR_OBS_SIZE;
+    info.droneObsOffset = info.scalarObsOffset + (numDrones * DRONE_OBS_SIZE);
+    info.projectileObsOffset = info.droneObsOffset + (NUM_PROJECTILE_OBS * PROJECTILE_OBS_SIZE);
+    info.floatingWallObsOffset = info.projectileObsOffset + (NUM_FLOATING_WALL_OBS * FLOATING_WALL_OBS_SIZE);
+    info.mapCellObsOffset = info.floatingWallObsOffset + (MAX_MAP_COLUMNS * MAX_MAP_ROWS);
+
+    return info;
+}
 
 #define MAX_X_POS 40.0f
 #define MAX_Y_POS 40.0f
-#define MAX_SPEED 200.0f
+#define MAX_SPEED 250.0f
 
-#define ACTION_SIZE 5
+const uint8_t ACTION_SIZE = 5;
 
 // wall settings
 #define WALL_THICKNESS 4.0f
 #define FLOATING_WALL_THICKNESS 3.0f
 #define FLOATING_WALL_DAMPING 0.5f
 #define BOUNCY_WALL_RESTITUTION 1.0f
-#define WALL_DENSITY 2.5f
+#define WALL_DENSITY 4.0f
 
 // weapon pickup settings
 #define PICKUP_THICKNESS 3.0f
@@ -57,7 +83,7 @@
 
 // drone settings
 #define DRONE_WALL_SPAWN_DISTANCE 7.5f
-#define DRONE_DRONE_SPAWN_DISTANCE 30.0f
+#define DRONE_DRONE_SPAWN_DISTANCE 20.0f
 #define DRONE_RADIUS 1.0f
 #define DRONE_DENSITY 1.25f
 #define DRONE_MOVE_MAGNITUDE 25.0f
@@ -65,8 +91,6 @@
 #define DRONE_MOVE_AIM_DIVISOR 10.0f
 
 // weapon projectile settings
-#define NUM_WEAPONS 5
-
 #define STANDARD_AMMO INFINITE
 #define STANDARD_PROJECTILES 1
 #define STANDARD_RECOIL_MAGNITUDE 12.5f
@@ -94,12 +118,12 @@
 #define SNIPER_AMMO 3
 #define SNIPER_PROJECTILES 1
 #define SNIPER_RECOIL_MAGNITUDE 60.0f
-#define SNIPER_FIRE_MAGNITUDE 120.0f
+#define SNIPER_FIRE_MAGNITUDE 200.0f
 #define SNIPER_CHARGE 1.0f
 #define SNIPER_COOL_DOWN 1.5f
 #define SNIPER_MAX_DISTANCE INFINITE
 #define SNIPER_RADIUS 0.5f
-#define SNIPER_DENSITY 1.0f
+#define SNIPER_DENSITY 1.5f
 #define SNIPER_INV_MASS INV_MASS(SNIPER_DENSITY, SNIPER_RADIUS)
 #define SNIPER_BOUNCE 0
 
@@ -118,7 +142,7 @@
 #define IMPLODER_AMMO 1
 #define IMPLODER_PROJECTILES 1
 #define IMPLODER_RECOIL_MAGNITUDE 35.0f
-#define IMPLODER_FIRE_MAGNITUDE 30.0f
+#define IMPLODER_FIRE_MAGNITUDE 25.0f
 #define IMPLODER_CHARGE 2.0f
 #define IMPLODER_COOL_DOWN 0.0f
 #define IMPLODER_MAX_DISTANCE INFINITE
@@ -127,85 +151,80 @@
 #define IMPLODER_INV_MASS INV_MASS(IMPLODER_DENSITY, IMPLODER_RADIUS)
 #define IMPLODER_BOUNCE 0
 
-// TODO: make entries const
-weaponInformation *weaponInfos;
+const weaponInformation standard = {
+    .type = STANDARD_WEAPON,
+    .isPhysicsBullet = true,
+    .numProjectiles = STANDARD_PROJECTILES,
+    .recoilMagnitude = STANDARD_RECOIL_MAGNITUDE,
+    .coolDown = STANDARD_COOL_DOWN,
+    .maxDistance = STANDARD_MAX_DISTANCE,
+    .radius = STANDARD_RADIUS,
+    .density = STANDARD_DENSITY,
+    .invMass = STANDARD_INV_MASS,
+    .maxBounces = STANDARD_BOUNCE + 1,
+};
 
-weaponInformation *createWeaponInfos()
-{
-    weaponInformation *_weaponInfos = (weaponInformation *)fastCalloc(NUM_WEAPONS, sizeof(weaponInformation));
+const weaponInformation machineGun = {
+    .type = MACHINEGUN_WEAPON,
+    .isPhysicsBullet = true,
+    .numProjectiles = MACHINEGUN_PROJECTILES,
+    .recoilMagnitude = MACHINEGUN_RECOIL_MAGNITUDE,
+    .coolDown = MACHINEGUN_COOL_DOWN,
+    .maxDistance = MACHINEGUN_MAX_DISTANCE,
+    .radius = MACHINEGUN_RADIUS,
+    .density = MACHINEGUN_DENSITY,
+    .invMass = MACHINEGUN_INV_MASS,
+    .maxBounces = MACHINEGUN_BOUNCE + 1,
+};
 
-    weaponInformation standard = {
-        .type = STANDARD_WEAPON,
-        .isPhysicsBullet = true,
-        .numProjectiles = STANDARD_PROJECTILES,
-        .recoilMagnitude = STANDARD_RECOIL_MAGNITUDE,
-        .coolDown = STANDARD_COOL_DOWN,
-        .maxDistance = STANDARD_MAX_DISTANCE,
-        .radius = STANDARD_RADIUS,
-        .density = STANDARD_DENSITY,
-        .invMass = STANDARD_INV_MASS,
-        .maxBounces = STANDARD_BOUNCE + 1,
-    };
-    _weaponInfos[STANDARD_WEAPON] = standard;
+const weaponInformation sniper = {
+    .type = SNIPER_WEAPON,
+    .isPhysicsBullet = true,
+    .numProjectiles = SNIPER_PROJECTILES,
+    .recoilMagnitude = SNIPER_RECOIL_MAGNITUDE,
+    .coolDown = SNIPER_COOL_DOWN,
+    .maxDistance = SNIPER_MAX_DISTANCE,
+    .radius = SNIPER_RADIUS,
+    .density = SNIPER_DENSITY,
+    .invMass = SNIPER_INV_MASS,
+    .maxBounces = SNIPER_BOUNCE + 1,
+};
 
-    weaponInformation machineGun = {
-        .type = MACHINEGUN_WEAPON,
-        .isPhysicsBullet = true,
-        .numProjectiles = MACHINEGUN_PROJECTILES,
-        .recoilMagnitude = MACHINEGUN_RECOIL_MAGNITUDE,
-        .coolDown = MACHINEGUN_COOL_DOWN,
-        .maxDistance = MACHINEGUN_MAX_DISTANCE,
-        .radius = MACHINEGUN_RADIUS,
-        .density = MACHINEGUN_DENSITY,
-        .invMass = MACHINEGUN_INV_MASS,
-        .maxBounces = MACHINEGUN_BOUNCE + 1,
-    };
-    _weaponInfos[MACHINEGUN_WEAPON] = machineGun;
+const weaponInformation shotgun = {
+    .type = SHOTGUN_WEAPON,
+    .isPhysicsBullet = true,
+    .numProjectiles = SHOTGUN_PROJECTILES,
+    .recoilMagnitude = SHOTGUN_RECOIL_MAGNITUDE,
+    .coolDown = SHOTGUN_COOL_DOWN,
+    .maxDistance = SHOTGUN_MAX_DISTANCE,
+    .radius = SHOTGUN_RADIUS,
+    .density = SHOTGUN_DENSITY,
+    .invMass = SHOTGUN_INV_MASS,
+    .maxBounces = SHOTGUN_BOUNCE + 1,
+};
 
-    weaponInformation sniper = {
-        .type = SNIPER_WEAPON,
-        .isPhysicsBullet = true,
-        .numProjectiles = SNIPER_PROJECTILES,
-        .recoilMagnitude = SNIPER_RECOIL_MAGNITUDE,
-        .coolDown = SNIPER_COOL_DOWN,
-        .maxDistance = SNIPER_MAX_DISTANCE,
-        .radius = SNIPER_RADIUS,
-        .density = SNIPER_DENSITY,
-        .invMass = SNIPER_INV_MASS,
-        .maxBounces = SNIPER_BOUNCE + 1,
-    };
-    _weaponInfos[SNIPER_WEAPON] = sniper;
+const weaponInformation imploder = {
+    .type = IMPLODER_WEAPON,
+    .isPhysicsBullet = false,
+    .numProjectiles = IMPLODER_PROJECTILES,
+    .recoilMagnitude = IMPLODER_RECOIL_MAGNITUDE,
+    .coolDown = IMPLODER_COOL_DOWN,
+    .maxDistance = IMPLODER_MAX_DISTANCE,
+    .radius = IMPLODER_RADIUS,
+    .density = IMPLODER_DENSITY,
+    .invMass = IMPLODER_INV_MASS,
+    .maxBounces = IMPLODER_BOUNCE + 1,
+};
 
-    weaponInformation shotgun = {
-        .type = SHOTGUN_WEAPON,
-        .isPhysicsBullet = true,
-        .numProjectiles = SHOTGUN_PROJECTILES,
-        .recoilMagnitude = SHOTGUN_RECOIL_MAGNITUDE,
-        .coolDown = SHOTGUN_COOL_DOWN,
-        .maxDistance = SHOTGUN_MAX_DISTANCE,
-        .radius = SHOTGUN_RADIUS,
-        .density = SHOTGUN_DENSITY,
-        .invMass = SHOTGUN_INV_MASS,
-        .maxBounces = SHOTGUN_BOUNCE + 1,
-    };
-    _weaponInfos[SHOTGUN_WEAPON] = shotgun;
-
-    weaponInformation imploder = {
-        .type = IMPLODER_WEAPON,
-        .isPhysicsBullet = false,
-        .numProjectiles = IMPLODER_PROJECTILES,
-        .recoilMagnitude = IMPLODER_RECOIL_MAGNITUDE,
-        .coolDown = IMPLODER_COOL_DOWN,
-        .maxDistance = IMPLODER_MAX_DISTANCE,
-        .radius = IMPLODER_RADIUS,
-        .density = IMPLODER_DENSITY,
-        .invMass = IMPLODER_INV_MASS,
-        .maxBounces = IMPLODER_BOUNCE + 1,
-    };
-    _weaponInfos[IMPLODER_WEAPON] = imploder;
-
-    return _weaponInfos;
-}
+#ifndef AUTOPXD
+weaponInformation *weaponInfos[] = {
+    (weaponInformation *)&standard,
+    (weaponInformation *)&machineGun,
+    (weaponInformation *)&sniper,
+    (weaponInformation *)&shotgun,
+    (weaponInformation *)&imploder,
+};
+#endif
 
 // max ammo of weapon
 int8_t weaponAmmo(const enum weaponType defaultWep, const enum weaponType type)
@@ -232,7 +251,7 @@ int8_t weaponAmmo(const enum weaponType defaultWep, const enum weaponType type)
 }
 
 // amount of force to apply to projectile
-float weaponFire(const enum weaponType type)
+float weaponFire(uint64_t *seed, const enum weaponType type)
 {
     switch (type)
     {
@@ -244,8 +263,8 @@ float weaponFire(const enum weaponType type)
         return SNIPER_FIRE_MAGNITUDE;
     case SHOTGUN_WEAPON:
     {
-        const int maxOffset = 3;  // Declare maxOffset as int
-        const int fireOffset = randInt(-maxOffset, maxOffset);  // Use randInt directly with ints
+        const int maxOffset = 3;
+        const int fireOffset = randInt(seed, -maxOffset, maxOffset);
         return SHOTGUN_FIRE_MAGNITUDE + fireOffset;
     }
     case IMPLODER_WEAPON:
@@ -284,26 +303,28 @@ uint16_t weaponCharge(const enum weaponType type)
     return (uint16_t)(charge * FRAME_RATE);
 }
 
-b2Vec2 weaponAdjustAim(const enum weaponType type, const uint16_t heat, const b2Vec2 normAim)
+b2Vec2 weaponAdjustAim(uint64_t *seed, const enum weaponType type, const uint16_t heat, const b2Vec2 normAim)
 {
     switch (type)
     {
     case STANDARD_WEAPON:
         return normAim;
-    case MACHINEGUN_WEAPON: {
+    case MACHINEGUN_WEAPON:
+    {
         const float swayCoef = logBasef((heat / 5.0f) + 1, 180);
         const float maxSway = 0.15f;
-        const float swayX = randFloat(maxSway * -swayCoef, maxSway * swayCoef);
-        const float swayY = randFloat(maxSway * -swayCoef, maxSway * swayCoef);
+        const float swayX = randFloat(seed, maxSway * -swayCoef, maxSway * swayCoef);
+        const float swayY = randFloat(seed, maxSway * -swayCoef, maxSway * swayCoef);
         b2Vec2 machinegunAim = {.x = normAim.x + swayX, .y = normAim.y + swayY};
         return b2Normalize(machinegunAim);
     }
     case SNIPER_WEAPON:
         return normAim;
-    case SHOTGUN_WEAPON: {
+    case SHOTGUN_WEAPON:
+    {
         const float maxOffset = 0.15f;
-        const float offsetX = randFloat(-maxOffset, maxOffset);
-        const float offsetY = randFloat(-maxOffset, maxOffset);
+        const float offsetX = randFloat(seed, -maxOffset, maxOffset);
+        const float offsetY = randFloat(seed, -maxOffset, maxOffset);
         b2Vec2 shotgunAim = {.x = normAim.x + offsetX, .y = normAim.y + offsetY};
         return b2Normalize(shotgunAim);
     }
@@ -323,9 +344,11 @@ bool weaponExplosion(const enum weaponType type, b2ExplosionDef *explosionDef)
     case IMPLODER_WEAPON:
         explosionDef->radius = 10.0f;
         explosionDef->falloff = 5.0f;
-        explosionDef->impulsePerLength = -100.0f;
+        explosionDef->impulsePerLength = -150.0f;
         return true;
     default:
         return false;
     }
 }
+
+#endif

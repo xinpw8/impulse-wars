@@ -1,29 +1,16 @@
 #pragma once
+#ifndef IMPULSE_WARS_MAP_H
+#define IMPULSE_WARS_MAP_H
 
 #include <errno.h>
 #include <string.h>
 
-#include "box2d/box2d.h"
-#include "cc_deque.h"
-
 #include "env.h"
 #include "settings.h"
 
-typedef struct mapEntry
-{
-    const char *layout;
-    const uint8_t columns;
-    const uint8_t rows;
-    const uint8_t floatingStandardWalls;
-    const uint8_t floatingBouncyWalls;
-    const uint8_t floatingDeathWalls;
-    const uint16_t weaponPickups;
-    const enum weaponType defaultWeapon;
-} mapEntry;
-
 // clang-format off
 
-const char prototypeArenaLayout[] = {
+const char boringLayout[] = {
     'D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D',
     'D','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','D',
     'D','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','D',
@@ -31,12 +18,12 @@ const char prototypeArenaLayout[] = {
     'D','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','D',
     'D','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','D',
     'D','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','D',
-    'D','O','O','O','O','O','O','O','O','W','W','O','O','O','O','O','O','O','O','D',
-    'D','O','O','O','O','O','O','D','D','D','D','D','O','O','O','O','O','O','O','D',
-    'D','O','O','O','O','O','O','D','D','D','D','D','O','O','O','O','O','O','O','D',
-    'D','O','O','O','O','O','O','D','D','D','D','D','O','O','O','O','O','O','O','D',
-    'D','O','O','O','O','O','O','D','D','D','D','D','O','O','O','O','O','O','O','D',
-    'D','O','O','O','O','O','O','O','W','W','O','O','O','O','O','O','O','O','O','D',
+    'D','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','D',
+    'D','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','D',
+    'D','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','D',
+    'D','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','D',
+    'D','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','D',
+    'D','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','D',
     'D','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','D',
     'D','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','D',
     'D','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','D',
@@ -46,13 +33,47 @@ const char prototypeArenaLayout[] = {
     'D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D',
 };
 
-mapEntry prototypeArenaMap = {
+const mapEntry boringMap = {
+    .layout = boringLayout,
+    .columns = 20,
+    .rows = 20,
+    .floatingStandardWalls = 0,
+    .floatingBouncyWalls = 0,
+    .floatingDeathWalls = 0,
+    .weaponPickups = 4,
+    .defaultWeapon = STANDARD_WEAPON,
+};
+
+const char prototypeArenaLayout[] = {
+    'D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D',
+    'D','O','O','O','O','O','O','O','d','O','O','O','O','O','O','O','O','O','O','D',
+    'D','O','w','O','O','O','O','O','O','O','O','O','O','O','O','O','O','d','O','D',
+    'D','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','D',
+    'D','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','D',
+    'D','O','O','O','O','O','O','O','O','O','O','O','O','O','w','O','O','O','O','D',
+    'D','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','D',
+    'D','O','O','O','O','O','O','O','O','W','W','O','O','O','O','O','O','O','O','D',
+    'D','O','O','O','O','O','O','D','D','D','D','D','O','O','O','O','O','O','O','D',
+    'D','O','O','O','O','d','O','D','D','D','D','D','O','O','O','O','O','O','O','D',
+    'D','O','w','O','O','O','O','D','D','D','D','D','O','O','O','O','w','O','O','D',
+    'D','O','O','O','O','O','O','D','D','D','D','D','O','O','O','O','O','O','O','D',
+    'D','O','O','O','O','O','O','O','W','W','O','O','O','d','O','O','O','O','O','D',
+    'D','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','D',
+    'D','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','D',
+    'D','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','D',
+    'D','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','w','O','O','D',
+    'D','O','O','O','w','O','O','O','O','O','O','O','O','O','O','O','O','O','O','D',
+    'D','O','d','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','d','D',
+    'D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D',
+};
+
+const mapEntry prototypeArenaMap = {
     .layout = prototypeArenaLayout,
     .columns = 20,
     .rows = 20,
-    .floatingStandardWalls = 6,
+    .floatingStandardWalls = 0,
     .floatingBouncyWalls = 0,
-    .floatingDeathWalls = 6,
+    .floatingDeathWalls = 0,
     .weaponPickups = 12,
     .defaultWeapon = STANDARD_WEAPON,
 };
@@ -81,7 +102,7 @@ const char snipersLayout[] = {
     'B','B','B','B','B','B','B','B','B','B','B','B','B','B','B','B','B','B','B','B','B',
 };
 
-mapEntry snipersMap = {
+const mapEntry snipersMap = {
     .layout = snipersLayout,
     .columns = 21,
     .rows = 21,
@@ -116,7 +137,7 @@ const char roomsLayout[] = {
     'D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D','D',
 };
 
-mapEntry roomsMap = {
+const mapEntry roomsMap = {
     .layout = roomsLayout,
     .columns = 21,
     .rows = 21,
@@ -127,22 +148,53 @@ mapEntry roomsMap = {
     .defaultWeapon = SHOTGUN_WEAPON,
 };
 
+const char clownHouseLayout[] = {
+    'W','W','W','B','B','W','B','B','W','B','B','W','B','B','W','B','B','W','W','W',
+    'W','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','W',
+    'W','O','d','O','O','O','O','O','O','O','O','O','O','O','O','O','O','d','O','W',
+    'B','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','B',
+    'B','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','B',
+    'W','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','W',
+    'B','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','B',
+    'B','O','O','O','O','O','O','d','O','O','O','O','d','O','O','O','O','O','O','B',
+    'W','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','W',
+    'B','O','O','O','O','O','O','O','O','d','d','O','O','O','O','O','O','O','O','B',
+    'B','O','O','O','O','O','O','O','O','d','d','O','O','O','O','O','O','O','O','B',
+    'W','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','W',
+    'B','O','O','O','O','O','O','d','O','O','O','O','d','O','O','O','O','O','O','B',
+    'B','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','B',
+    'W','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','W',
+    'B','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','B',
+    'B','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','B',
+    'W','O','d','O','O','O','O','O','O','O','O','O','O','O','O','O','O','d','O','W',
+    'W','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','O','W',
+    'W','W','W','B','B','W','B','B','W','B','B','W','B','B','W','B','B','W','W','W',
+};
+
+const mapEntry clownHouseMap = {
+    .layout = clownHouseLayout,
+    .columns = 20,
+    .rows = 20,
+    .floatingStandardWalls = 0,
+    .floatingBouncyWalls = 0,
+    .floatingDeathWalls = 0,
+    .weaponPickups = 8,
+    .defaultWeapon = MACHINEGUN_WEAPON,
+};
+
 // clang-format on
 
-#define NUM_MAPS 3
+#define NUM_MAPS 5
 
-// TODO: find way to make this const
-mapEntry **maps;
-
-mapEntry **createMaps()
-{
-    mapEntry **_maps = (mapEntry **)fastCalloc(NUM_MAPS, sizeof(mapEntry *));
-    _maps[0] = &prototypeArenaMap;
-    _maps[1] = &snipersMap;
-    _maps[2] = &roomsMap;
-
-    return _maps;
-}
+#ifndef AUTOPXD
+const mapEntry *maps[] = {
+    (mapEntry *)&boringMap,
+    (mapEntry *)&prototypeArenaMap,
+    (mapEntry *)&snipersMap,
+    (mapEntry *)&roomsMap,
+    (mapEntry *)&clownHouseMap,
+};
+#endif
 
 void createMap(env *e, const int mapIdx)
 {
@@ -152,7 +204,7 @@ void createMap(env *e, const int mapIdx)
 
     e->columns = columns;
     e->rows = rows;
-    e->defaultWeapon = &weaponInfos[maps[mapIdx]->defaultWeapon];
+    e->defaultWeapon = weaponInfos[maps[mapIdx]->defaultWeapon];
 
     for (int row = 0; row < rows; row++)
     {
@@ -167,18 +219,29 @@ void createMap(env *e, const int mapIdx)
             mapCell *cell = (mapCell *)fastMalloc(sizeof(mapCell));
             cell->ent = NULL;
             cell->pos = pos;
-            cc_deque_add(e->cells, cell);
+            cc_array_add(e->cells, cell);
 
+            bool floating = false;
+            float thickness = WALL_THICKNESS;
             switch (cellType)
             {
             case 'O':
                 continue;
+            case 'w':
+                thickness = FLOATING_WALL_THICKNESS;
+                floating = true;
             case 'W':
                 wallType = STANDARD_WALL_ENTITY;
                 break;
+            case 'b':
+                thickness = FLOATING_WALL_THICKNESS;
+                floating = true;
             case 'B':
                 wallType = BOUNCY_WALL_ENTITY;
                 break;
+            case 'd':
+                thickness = FLOATING_WALL_THICKNESS;
+                floating = true;
             case 'D':
                 wallType = DEATH_WALL_ENTITY;
                 break;
@@ -187,36 +250,39 @@ void createMap(env *e, const int mapIdx)
                 wallType = INVALID_ENTITY;
             }
 
-            entity *ent = createWall(e, x, y, WALL_THICKNESS, WALL_THICKNESS, wallType, false);
-            cell->ent = ent;
+            entity *ent = createWall(e, x, y, thickness, thickness, wallType, floating);
+            if (!floating)
+            {
+                cell->ent = ent;
+            }
         }
     }
 }
 
-void placeFloatingWall(env *e, const enum entityType wallType)
+void placeRandFloatingWall(env *e, const enum entityType wallType)
 {
     b2Vec2 pos;
     if (!findOpenPos(e, FLOATING_WALL_SHAPE, &pos))
     {
         ERROR("failed to find open position for floating wall");
     }
-    entity *ent = createWall(e, pos.x, pos.y, FLOATING_WALL_THICKNESS, FLOATING_WALL_THICKNESS, wallType, true);
-    mapCell *cell = safe_deque_get_at(e->cells, posToCellIdx(e, pos));
-    cell->ent = ent;
+    createWall(e, pos.x, pos.y, FLOATING_WALL_THICKNESS, FLOATING_WALL_THICKNESS, wallType, true);
 }
 
-void placeFloatingWalls(env *e, const int mapIdx)
+void placeRandFloatingWalls(env *e, const int mapIdx)
 {
     for (int i = 0; i < maps[mapIdx]->floatingStandardWalls; i++)
     {
-        placeFloatingWall(e, STANDARD_WALL_ENTITY);
+        placeRandFloatingWall(e, STANDARD_WALL_ENTITY);
     }
     for (int i = 0; i < maps[mapIdx]->floatingBouncyWalls; i++)
     {
-        placeFloatingWall(e, BOUNCY_WALL_ENTITY);
+        placeRandFloatingWall(e, BOUNCY_WALL_ENTITY);
     }
     for (int i = 0; i < maps[mapIdx]->floatingDeathWalls; i++)
     {
-        placeFloatingWall(e, DEATH_WALL_ENTITY);
+        placeRandFloatingWall(e, DEATH_WALL_ENTITY);
     }
 }
+
+#endif

@@ -19,6 +19,8 @@
  */
 
 #pragma once
+#ifndef CC_COMMON_H
+#define CC_COMMON_H
 
 #ifdef __cplusplus
 extern "C"
@@ -71,4 +73,6 @@ extern "C"
 
 #ifdef __cplusplus
 }
+#endif
+
 #endif

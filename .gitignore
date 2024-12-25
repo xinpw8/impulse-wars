@@ -1,5 +1,10 @@
+__pycache__/
 .vscode/
 .vs/
+wandb/
+checkpoints/
 build/
-debug/
-release/
+debug*/
+release*/
+benchmark/
+python-module*/

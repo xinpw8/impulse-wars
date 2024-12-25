@@ -1,4 +1,6 @@
 #pragma once
+#ifndef IMPULSE_WARS_GAME_H
+#define IMPULSE_WARS_GAME_H
 
 #include "helpers.h"
 #include "env.h"
@@ -10,6 +12,18 @@ static inline bool entityTypeIsWall(const enum entityType type)
     return type == STANDARD_WALL_ENTITY || type == BOUNCY_WALL_ENTITY || type == DEATH_WALL_ENTITY;
 }
 
+static inline b2Vec2 getCachedPos(const b2BodyId bodyID, cachedPos *pos)
+{
+    if (pos->valid)
+    {
+        return pos->pos;
+    }
+    pos->pos = b2Body_GetPosition(bodyID);
+    pos->valid = true;
+    return pos->pos;
+}
+
+// returns the index of a map cell that contains the given world position
 static inline uint16_t posToCellIdx(const env *e, const b2Vec2 pos)
 {
     const uint16_t col = ((pos.x / 2.0f) + (float)e->columns - 1.0f) / 2.0f;
@@ -24,6 +38,8 @@ bool overlapCallback(b2ShapeId shapeId, void *context)
     return false;
 }
 
+// returns true if the given position overlaps with a bounding box with
+// a height and width of distance with shape categories specified in maskBits
 bool isOverlapping(env *e, const b2Vec2 pos, const float distance, const enum shapeCategory type, const uint64_t maskBits)
 {
     b2AABB bounds = {
@@ -39,10 +55,12 @@ bool isOverlapping(env *e, const b2Vec2 pos, const float distance, const enum sh
     return overlaps;
 }
 
+// returns true and sets emptyPos to the position of an empty cell
+// that is an appropriate distance away from other entities if one exists
 bool findOpenPos(env *e, const enum shapeCategory type, b2Vec2 *emptyPos)
 {
     uint8_t checkedCells[BITNSLOTS(MAX_CELLS)] = {0};
-    const size_t nCells = cc_deque_size(e->cells);
+    const size_t nCells = cc_array_size(e->cells);
     uint16_t attempts = 0;
 
     while (true)
@@ -51,7 +69,7 @@ bool findOpenPos(env *e, const enum shapeCategory type, b2Vec2 *emptyPos)
         {
             return false;
         }
-        const int cellIdx = randInt(0, nCells - 1);
+        const int cellIdx = randInt(&e->randState, 0, nCells - 1);
         if (bitTest(checkedCells, cellIdx))
         {
             continue;
@@ -59,20 +77,14 @@ bool findOpenPos(env *e, const enum shapeCategory type, b2Vec2 *emptyPos)
         bitSet(checkedCells, cellIdx);
         attempts++;
 
-        const mapCell *cell = safe_deque_get_at(e->cells, cellIdx);
+        const mapCell *cell = safe_array_get_at(e->cells, cellIdx);
         if (cell->ent != NULL)
         {
             continue;
         }
 
-        if (type == WEAPON_PICKUP_SHAPE)
-        {
-            if (isOverlapping(e, cell->pos, PICKUP_THICKNESS / 2.0f, WEAPON_PICKUP_SHAPE, WALL_SHAPE))
-            {
-                continue;
-            }
-        }
-        else if (type == DRONE_SHAPE)
+        // ensure drones don't spawn too close to walls or other drones
+        if (type == DRONE_SHAPE)
         {
             if (isOverlapping(e, cell->pos, DRONE_WALL_SPAWN_DISTANCE, DRONE_SHAPE, WALL_SHAPE | DRONE_SHAPE))
             {
@@ -111,7 +123,7 @@ entity *createWall(env *e, const float posX, const float posY, const float width
     b2Vec2 extent = {.x = width / 2.0f, .y = height / 2.0f};
     b2ShapeDef wallShapeDef = b2DefaultShapeDef();
     wallShapeDef.density = WALL_DENSITY;
-    wallShapeDef.restitution = 0.0f;
+    wallShapeDef.restitution = 0.1f;
     wallShapeDef.filter.categoryBits = WALL_SHAPE;
     wallShapeDef.filter.maskBits = FLOATING_WALL_SHAPE | PROJECTILE_SHAPE | WEAPON_PICKUP_SHAPE | DRONE_SHAPE;
     if (floating)
@@ -132,11 +144,7 @@ entity *createWall(env *e, const float posX, const float posY, const float width
 
     wallEntity *wall = (wallEntity *)fastMalloc(sizeof(wallEntity));
     wall->bodyID = wallBodyID;
-    wall->position = b2Vec2_zero;
-    if (!floating)
-    {
-        wall->position = pos;
-    }
+    wall->pos = (cachedPos){.pos = pos, .valid = true};
     wall->extent = extent;
     wall->isFloating = floating;
     wall->type = type;
@@ -151,11 +159,11 @@ entity *createWall(env *e, const float posX, const float posY, const float width
 
     if (floating)
     {
-        cc_deque_add(e->floatingWalls, wall);
+        cc_array_add(e->floatingWalls, wall);
     }
     else
     {
-        cc_deque_add(e->walls, wall);
+        cc_array_add(e->walls, wall);
     }
 
     return ent;
@@ -170,55 +178,39 @@ void destroyWall(wallEntity *wall)
     fastFree(wall);
 }
 
-void updateCellsWithWall(env *e, entity *wallEnt)
+void createSuddenDeathWalls(env *e, const b2Vec2 startPos, const b2Vec2 size)
 {
-    ASSERT(entityTypeIsWall(wallEnt->type));
-
-    wallEntity *wall = (wallEntity *)wallEnt->entity;
-    ASSERT(!wall->isFloating);
-    ASSERT(wall->extent.x == WALL_THICKNESS / 2.0f || wall->extent.y == WALL_THICKNESS / 2.0f);
-    b2Vec2 pos = wall->position;
-
-    if (wall->extent.y == WALL_THICKNESS / 2.0f)
+    uint16_t endIdx;
+    uint8_t indexIncrement;
+    if (size.y == WALL_THICKNESS)
     {
-        const float originalXPos = pos.x;
-        pos.x -= wall->extent.x;
-        const uint16_t startIdx = posToCellIdx(e, pos);
-        pos.x = originalXPos + (originalXPos - pos.x);
-        const uint16_t endIdx = posToCellIdx(e, pos);
-        for (uint16_t i = startIdx; i <= endIdx; i++)
-        {
-            mapCell *cell = safe_deque_get_at(e->cells, i);
-            if (cell->ent != NULL && cell->ent->type == WEAPON_PICKUP_ENTITY)
-            {
-                weaponPickupEntity *pickup = (weaponPickupEntity *)cell->ent->entity;
-                pickup->respawnWait = PICKUP_RESPAWN_WAIT;
-            }
-            cell->ent = wallEnt;
-        }
+        const b2Vec2 endPos = (b2Vec2){.x = startPos.x + size.x, .y = startPos.y};
+        endIdx = posToCellIdx(e, endPos);
+        indexIncrement = 1;
     }
     else
     {
-        pos.y -= wall->extent.y;
-        uint16_t idx = posToCellIdx(e, pos);
-        const uint16_t cellRows = (wall->extent.y * 2.0f) / WALL_THICKNESS;
-        for (uint16_t i = 0; i < cellRows; i++)
+        const b2Vec2 endPos = (b2Vec2){.x = startPos.x, .y = startPos.y + size.y};
+        endIdx = posToCellIdx(e, endPos);
+        indexIncrement = e->rows;
+    }
+    const uint16_t startIdx = posToCellIdx(e, startPos);
+    for (uint16_t i = startIdx; i <= endIdx; i += indexIncrement)
+    {
+        mapCell *cell = safe_array_get_at(e->cells, i);
+        if (cell->ent != NULL && cell->ent->type == WEAPON_PICKUP_ENTITY)
         {
-            mapCell *cell = safe_deque_get_at(e->cells, idx);
-            if (cell->ent != NULL && cell->ent->type == WEAPON_PICKUP_ENTITY)
-            {
-                weaponPickupEntity *pickup = (weaponPickupEntity *)cell->ent->entity;
-                pickup->respawnWait = PICKUP_RESPAWN_WAIT;
-            }
-            cell->ent = wallEnt;
-            idx += e->rows;
+            weaponPickupEntity *pickup = (weaponPickupEntity *)cell->ent->entity;
+            pickup->respawnWait = PICKUP_RESPAWN_WAIT;
         }
+        entity *ent = createWall(e, cell->pos.x, cell->pos.y, WALL_THICKNESS, WALL_THICKNESS, DEATH_WALL_ENTITY, false);
+        cell->ent = ent;
     }
 }
 
-b2DistanceProxy makeDistanceProxy(const enum entityType type, bool *isCircle)
+b2ShapeProxy makeDistanceProxy(const enum entityType type, bool *isCircle)
 {
-    b2DistanceProxy proxy = {0};
+    b2ShapeProxy proxy = {0};
     switch (type)
     {
     case DRONE_ENTITY:
@@ -248,11 +240,11 @@ b2DistanceProxy makeDistanceProxy(const enum entityType type, bool *isCircle)
     return proxy;
 }
 
-enum weaponType randWeaponPickupType(const env *e)
+enum weaponType randWeaponPickupType(env *e)
 {
     while (true)
     {
-        const enum weaponType type = (enum weaponType)randInt(STANDARD_WEAPON + 1, NUM_WEAPONS - 1);
+        const enum weaponType type = (enum weaponType)randInt(&e->randState, STANDARD_WEAPON + 1, NUM_WEAPONS - 1);
         if (type != e->defaultWeapon->type)
         {
             return type;
@@ -284,14 +276,15 @@ void createWeaponPickup(env *e)
     ent->entity = pickup;
 
     const uint16_t cellIdx = posToCellIdx(e, pickupBodyDef.position);
-    mapCell *cell = safe_deque_get_at(e->cells, cellIdx);
+    pickup->mapCellIdx = cellIdx;
+    mapCell *cell = safe_array_get_at(e->cells, cellIdx);
     cell->ent = ent;
 
     pickupShapeDef.userData = ent;
     const b2Polygon pickupPolygon = b2MakeBox(PICKUP_THICKNESS / 2.0f, PICKUP_THICKNESS / 2.0f);
     pickup->shapeID = b2CreatePolygonShape(pickupBodyID, &pickupShapeDef, &pickupPolygon);
 
-    cc_deque_add(e->pickups, pickup);
+    cc_array_add(e->pickups, pickup);
 }
 
 void destroyWeaponPickup(weaponPickupEntity *pickup)
@@ -303,7 +296,7 @@ void destroyWeaponPickup(weaponPickupEntity *pickup)
     fastFree(pickup);
 }
 
-void createDrone(env *e)
+void createDrone(env *e, const uint8_t idx)
 {
     b2BodyDef droneBodyDef = b2DefaultBodyDef();
     droneBodyDef.type = b2_dynamicBody;
@@ -317,7 +310,7 @@ void createDrone(env *e)
     b2ShapeDef droneShapeDef = b2DefaultShapeDef();
     droneShapeDef.density = DRONE_DENSITY;
     droneShapeDef.friction = 0.0f;
-    droneShapeDef.restitution = 0.2f;
+    droneShapeDef.restitution = 0.3f;
     droneShapeDef.filter.categoryBits = DRONE_SHAPE;
     droneShapeDef.filter.maskBits = WALL_SHAPE | FLOATING_WALL_SHAPE | WEAPON_PICKUP_SHAPE | PROJECTILE_SHAPE | DRONE_SHAPE;
     droneShapeDef.enableContactEvents = true;
@@ -332,8 +325,14 @@ void createDrone(env *e)
     drone->heat = 0;
     drone->charge = 0;
     drone->shotThisStep = false;
+    drone->idx = idx;
+    drone->pos = (cachedPos){.pos = droneBodyDef.position, .valid = true};
+    drone->lastPos = b2Vec2_zero;
+    drone->lastMove = b2Vec2_zero;
     drone->lastAim = (b2Vec2){.x = 0.0f, .y = -1.0f};
+    drone->lastVelocity = b2Vec2_zero;
     drone->dead = false;
+    memset(&drone->hitInfo, 0x0, sizeof(stepHitInfo));
 
     entity *ent = (entity *)fastMalloc(sizeof(entity));
     ent->type = DRONE_ENTITY;
@@ -342,7 +341,7 @@ void createDrone(env *e)
     droneShapeDef.userData = ent;
     drone->shapeID = b2CreateCircleShape(droneBodyID, &droneShapeDef, &droneCircle);
 
-    cc_deque_add(e->drones, drone);
+    cc_array_add(e->drones, drone);
 }
 
 void destroyDrone(droneEntity *drone)
@@ -364,14 +363,14 @@ void droneMove(const droneEntity *drone, const b2Vec2 direction)
 
 void createProjectile(env *e, droneEntity *drone, const b2Vec2 normAim)
 {
-    ASSERT_VEC_NORMALIZED(normAim);
+    ASSERT_VEC_NORMALIZED_STRICT(normAim);
 
     b2BodyDef projectileBodyDef = b2DefaultBodyDef();
     projectileBodyDef.type = b2_dynamicBody;
     projectileBodyDef.fixedRotation = true;
     projectileBodyDef.isBullet = drone->weaponInfo->isPhysicsBullet;
     projectileBodyDef.enableSleep = false;
-    b2Vec2 dronePos = b2Body_GetPosition(drone->bodyID);
+    b2Vec2 dronePos = getCachedPos(drone->bodyID, &drone->pos);
     float radius = drone->weaponInfo->radius;
     projectileBodyDef.position = b2MulAdd(dronePos, 1.0f + (radius * 1.5f), normAim);
     b2BodyId projectileBodyID = b2CreateBody(e->worldID, &projectileBodyDef);
@@ -391,11 +390,12 @@ void createProjectile(env *e, droneEntity *drone, const b2Vec2 normAim)
     b2Vec2 forwardVel = b2MulSV(b2Dot(droneVel, normAim), normAim);
     b2Vec2 lateralVel = b2Sub(droneVel, forwardVel);
     lateralVel = b2MulSV(projectileShapeDef.density / DRONE_MOVE_AIM_DIVISOR, lateralVel);
-    b2Vec2 aim = weaponAdjustAim(drone->weaponInfo->type, drone->heat, normAim);
-    b2Vec2 fire = b2MulAdd(lateralVel, weaponFire(drone->weaponInfo->type), aim);
+    b2Vec2 aim = weaponAdjustAim(&e->randState, drone->weaponInfo->type, drone->heat, normAim);
+    b2Vec2 fire = b2MulAdd(lateralVel, weaponFire(&e->randState, drone->weaponInfo->type), aim);
     b2Body_ApplyLinearImpulseToCenter(projectileBodyID, fire, true);
 
     projectileEntity *projectile = (projectileEntity *)fastMalloc(sizeof(projectileEntity));
+    projectile->droneIdx = drone->idx;
     projectile->bodyID = projectileBodyID;
     projectile->shapeID = projectileShapeID;
     projectile->weaponInfo = drone->weaponInfo;
@@ -411,16 +411,61 @@ void createProjectile(env *e, droneEntity *drone, const b2Vec2 normAim)
     b2Shape_SetUserData(projectile->shapeID, ent);
 }
 
+typedef struct explosionCallbackContext
+{
+    droneEntity *drone;
+    env *e;
+    enum weaponType weaponType;
+} explosionCallbackContext;
+
+bool explosionOverlapCallback(b2ShapeId shapeId, void *context)
+{
+    explosionCallbackContext *ctx = (explosionCallbackContext *)context;
+    entity *ent = (entity *)b2Shape_GetUserData(shapeId);
+    droneEntity *hitDrone = (droneEntity *)ent->entity;
+    if (hitDrone->idx == ctx->drone->idx)
+    {
+        ctx->e->stats[hitDrone->idx].ownShotsTaken[ctx->weaponType]++;
+        DEBUG_LOGF("drone %d hit itself with explosion from weapon %d", ctx->drone->idx, ctx->weaponType);
+        return true;
+    }
+    ctx->drone->hitInfo.explosionHit[hitDrone->idx] = true;
+
+    ctx->e->stats[ctx->drone->idx].shotsHit[ctx->weaponType]++;
+    DEBUG_LOGF("drone %d hit drone %d with explosion from weapon %d", ctx->drone->idx, hitDrone->idx, ctx->weaponType);
+    ctx->e->stats[hitDrone->idx].shotsTaken[ctx->weaponType]++;
+    DEBUG_LOGF("drone %d hit by explosion from drone %d with weapon %d", hitDrone->idx, ctx->drone->idx, ctx->weaponType);
+
+    return true;
+}
+
 void destroyProjectile(env *e, projectileEntity *projectile, const bool full)
 {
     b2ExplosionDef explosion;
     if (weaponExplosion(projectile->weaponInfo->type, &explosion))
     {
-        explosion.position = b2Body_GetPosition(projectile->bodyID);
+        const b2Vec2 pos = getCachedPos(projectile->bodyID, &projectile->pos);
+        explosion.position = pos;
         explosion.maskBits = FLOATING_WALL_SHAPE | DRONE_SHAPE;
         b2World_Explode(e->worldID, &explosion);
         e->explosion = explosion;
         e->explosionSteps = EXPLOSION_STEPS;
+
+        // check if enemy drone is in explosion radius
+        const float totalRadius = explosion.radius + explosion.falloff;
+        const b2Circle cir = {.center = b2Vec2_zero, .radius = totalRadius};
+        const b2Transform transform = {.p = pos, .q = b2Rot_identity};
+        const b2QueryFilter filter = {
+            .categoryBits = PROJECTILE_SHAPE,
+            .maskBits = DRONE_SHAPE,
+        };
+        droneEntity *drone = safe_array_get_at(e->drones, projectile->droneIdx);
+        explosionCallbackContext ctx = {
+            .drone = drone,
+            .e = e,
+            .weaponType = projectile->weaponInfo->type,
+        };
+        b2World_OverlapCircle(e->worldID, &cir, transform, filter, explosionOverlapCallback, &ctx);
     }
 
     entity *ent = (entity *)b2Shape_GetUserData(projectile->shapeID);
@@ -432,6 +477,12 @@ void destroyProjectile(env *e, projectileEntity *projectile, const bool full)
         MAYBE_UNUSED(res);
         ASSERT(res == CC_OK);
         b2DestroyBody(projectile->bodyID);
+    }
+    else
+    {
+        // only add to the stats if we are not clearing the environment,
+        // otherwise this projectile's distance will be counted twice
+        e->stats[projectile->droneIdx].shotDistances[projectile->droneIdx] += projectile->distance;
     }
 
     fastFree(projectile);
@@ -450,51 +501,56 @@ void handleSuddenDeath(env *e)
 {
     ASSERT(e->suddenDeathSteps == 0);
 
+    // create new walls that will close in on the arena
     e->suddenDeathWallCounter++;
-    entity *topWall = createWall(
-        e,
-        e->bounds.min.x + (((e->columns / 2) - 1) * WALL_THICKNESS),
-        e->bounds.min.y + ((WALL_THICKNESS * (e->suddenDeathWallCounter - 1)) + (WALL_THICKNESS / 2)),
-        WALL_THICKNESS * (e->columns - (e->suddenDeathWallCounter * 2)),
-        WALL_THICKNESS,
-        DEATH_WALL_ENTITY,
-        false);
-    entity *bottomWall = createWall(
-        e,
-        e->bounds.max.x - (((e->columns / 2) - 1) * WALL_THICKNESS),
-        e->bounds.max.y - ((WALL_THICKNESS * (e->suddenDeathWallCounter - 1)) + (WALL_THICKNESS / 2)),
-        WALL_THICKNESS * (e->columns - (e->suddenDeathWallCounter * 2)),
-        WALL_THICKNESS,
-        DEATH_WALL_ENTITY,
-        false);
 
-    entity *leftWall = createWall(
+    createSuddenDeathWalls(
         e,
-        e->bounds.max.x - ((WALL_THICKNESS * (e->suddenDeathWallCounter - 1)) + (WALL_THICKNESS / 2)),
-        e->bounds.min.y + (((e->rows / 2) - 1) * WALL_THICKNESS),
-        WALL_THICKNESS,
-        WALL_THICKNESS * (e->rows - (e->suddenDeathWallCounter * 2)),
-        DEATH_WALL_ENTITY,
-        false);
-    entity *rightWall = createWall(
+        (b2Vec2){
+            .x = e->bounds.min.x + ((e->suddenDeathWallCounter + 1) * WALL_THICKNESS),
+            .y = e->bounds.min.y + ((WALL_THICKNESS * (e->suddenDeathWallCounter - 1)) + (WALL_THICKNESS / 2)),
+        },
+        (b2Vec2){
+            .x = WALL_THICKNESS * (e->columns - (e->suddenDeathWallCounter * 2) - 3),
+            .y = WALL_THICKNESS,
+        });
+    createSuddenDeathWalls(
         e,
-        e->bounds.min.x + ((WALL_THICKNESS * (e->suddenDeathWallCounter - 1)) + (WALL_THICKNESS / 2)),
-        e->bounds.max.y - (((e->rows / 2) - 1) * WALL_THICKNESS),
-        WALL_THICKNESS,
-        WALL_THICKNESS * (e->rows - (e->suddenDeathWallCounter * 2)),
-        DEATH_WALL_ENTITY,
-        false);
+        (b2Vec2){
+            .x = e->bounds.min.x + ((e->suddenDeathWallCounter + 1) * WALL_THICKNESS),
+            .y = e->bounds.max.y - ((WALL_THICKNESS * (e->suddenDeathWallCounter - 1)) + (WALL_THICKNESS / 2)),
+        },
+        (b2Vec2){
+            .x = WALL_THICKNESS * (e->columns - (e->suddenDeathWallCounter * 2) - 3),
+            .y = WALL_THICKNESS,
+        });
+    createSuddenDeathWalls(
+        e,
+        (b2Vec2){
+            .x = e->bounds.min.x + (e->suddenDeathWallCounter * WALL_THICKNESS),
+            .y = e->bounds.min.y + (e->suddenDeathWallCounter * WALL_THICKNESS),
+        },
+        (b2Vec2){
+            .x = WALL_THICKNESS,
+            .y = WALL_THICKNESS * (e->rows - (e->suddenDeathWallCounter * 2) - 1),
+        });
+    createSuddenDeathWalls(
+        e,
+        (b2Vec2){
+            .x = e->bounds.min.x + ((e->columns - e->suddenDeathWallCounter - 1) * WALL_THICKNESS),
+            .y = e->bounds.min.y + (e->suddenDeathWallCounter * WALL_THICKNESS),
+        },
+        (b2Vec2){
+            .x = WALL_THICKNESS,
+            .y = WALL_THICKNESS * (e->rows - (e->suddenDeathWallCounter * 2) - 1),
+        });
 
-    updateCellsWithWall(e, topWall);
-    updateCellsWithWall(e, bottomWall);
-    updateCellsWithWall(e, leftWall);
-    updateCellsWithWall(e, rightWall);
-
+    // mark drones as dead if they touch a newly placed wall
     bool droneDead = false;
-    for (size_t i = 0; i < cc_deque_size(e->drones); i++)
+    for (uint8_t i = 0; i < e->numDrones; i++)
     {
-        droneEntity *drone = safe_deque_get_at(e->drones, i);
-        const b2Vec2 pos = b2Body_GetPosition(drone->bodyID);
+        droneEntity *drone = safe_array_get_at(e->drones, i);
+        const b2Vec2 pos = getCachedPos(drone->bodyID, &drone->pos);
         if (isOverlapping(e, pos, DRONE_RADIUS, DRONE_SHAPE, WALL_SHAPE))
         {
             drone->dead = true;
@@ -506,14 +562,34 @@ void handleSuddenDeath(env *e)
         return;
     }
 
-    for (size_t i = 0; i < cc_deque_size(e->floatingWalls); i++)
+    // TODO: not all floating walls are destroyed correctly
+    // make floating walls static bodies if they are now overlapping with
+    // a newly placed wall, but destroy them if they are fully inside a wall
+    CC_ArrayIter iter;
+    cc_array_iter_init(&iter, e->floatingWalls);
+    wallEntity *wall;
+    while (cc_array_iter_next(&iter, (void **)&wall) != CC_ITER_END)
     {
-        const wallEntity *wall = safe_deque_get_at(e->floatingWalls, i);
-        const b2Vec2 pos = b2Body_GetPosition(wall->bodyID);
+        const b2Vec2 pos = getCachedPos(wall->bodyID, &wall->pos);
+        const b2BodyType type = b2Body_GetType(wall->bodyID);
+        if (type == b2_staticBody)
+        {
+            // floating wall was previously partially overlapping with a wall,
+            // now it is fully inside a wall, destroy it
+            const enum cc_stat res = cc_array_iter_remove(&iter, NULL);
+            MAYBE_UNUSED(res);
+            ASSERT(res == CC_OK);
+            destroyWall(wall);
+
+            DEBUG_LOGF("destroyed floating wall at %f, %f", pos.x, pos.y);
+            continue;
+        }
+
         if (isOverlapping(e, pos, FLOATING_WALL_THICKNESS / 2.0f, FLOATING_WALL_SHAPE, WALL_SHAPE))
         {
-            // TODO: destroy floating wall?
-            b2Body_Disable(wall->bodyID);
+            // floating wall is partially overlapping with a wall, make it a static body
+            b2Body_SetType(wall->bodyID, b2_staticBody);
+            DEBUG_LOGF("made floating wall at %f, %f static", pos.x, pos.y);
         }
     }
 }
@@ -527,7 +603,7 @@ void droneChangeWeapon(const env *e, droneEntity *drone, const enum weaponType n
         drone->charge = 0;
         drone->heat = 0;
     }
-    drone->weaponInfo = &weaponInfos[newWeapon];
+    drone->weaponInfo = weaponInfos[newWeapon];
     drone->ammo = weaponAmmo(e->defaultWeapon->type, drone->weaponInfo->type);
 }
 
@@ -561,13 +637,16 @@ void droneShoot(env *e, droneEntity *drone, const b2Vec2 aim)
     {
         normAim = b2Normalize(aim);
     }
-    ASSERT_VEC_NORMALIZED(normAim);
+    ASSERT_VEC_NORMALIZED_STRICT(normAim);
     b2Vec2 recoil = b2MulSV(-drone->weaponInfo->recoilMagnitude, normAim);
     b2Body_ApplyLinearImpulseToCenter(drone->bodyID, recoil, true);
 
     for (int i = 0; i < drone->weaponInfo->numProjectiles; i++)
     {
         createProjectile(e, drone, normAim);
+
+        e->stats[drone->idx].shotsFired[drone->weaponInfo->type]++;
+        DEBUG_LOGF("drone %d fired %d weapon", drone->idx, drone->weaponInfo->type);
     }
 
     if (drone->ammo == 0)
@@ -577,11 +656,9 @@ void droneShoot(env *e, droneEntity *drone, const b2Vec2 aim)
     }
 }
 
-void droneStep(droneEntity *drone, const float frameTime)
+void droneStep(env *e, droneEntity *drone, const float frameTime)
 {
     ASSERT(frameTime != 0.0f);
-
-    // TODO: set drone pos
 
     drone->weaponCooldown = fmaxf(drone->weaponCooldown - frameTime, 0.0f);
     if (!drone->shotThisStep)
@@ -594,6 +671,11 @@ void droneStep(droneEntity *drone, const float frameTime)
         drone->shotThisStep = false;
     }
     ASSERT(drone->shotThisStep == false);
+
+    const b2Vec2 pos = getCachedPos(drone->bodyID, &drone->pos);
+    const float distance = b2Distance(drone->lastPos, pos);
+    e->stats[drone->idx].distanceTraveled += distance;
+    drone->lastPos = pos;
 }
 
 void projectilesStep(env *e)
@@ -604,13 +686,17 @@ void projectilesStep(env *e)
     while (cc_slist_iter_next(&iter, (void **)&projectile) != CC_ITER_END)
     {
         const float maxDistance = projectile->weaponInfo->maxDistance;
+        projectile->pos.valid = false;
+        const b2Vec2 pos = getCachedPos(projectile->bodyID, &projectile->pos);
+        const b2Vec2 distance = b2Sub(pos, projectile->lastPos);
+        projectile->distance += b2Length(distance);
+        projectile->lastPos = pos;
+
         if (maxDistance == INFINITE)
         {
             continue;
         }
-        const b2Vec2 pos = b2Body_GetPosition(projectile->bodyID);
-        const b2Vec2 distance = b2Sub(pos, projectile->lastPos);
-        projectile->distance += b2Length(distance);
+
         if (projectile->distance >= maxDistance)
         {
             // we have to destroy the projectile using the iterator so
@@ -622,34 +708,43 @@ void projectilesStep(env *e)
             b2DestroyBody(bodyID);
             continue;
         }
-
-        projectile->lastPos = pos;
     }
 }
 
-void weaponPickupStep(env *e, weaponPickupEntity *pickup, const float frameTime)
+void weaponPickupsStep(env *e, const float frameTime)
 {
     ASSERT(frameTime != 0.0f);
 
-    if (pickup->respawnWait != 0.0f)
+    CC_ArrayIter iter;
+    cc_array_iter_init(&iter, e->pickups);
+    weaponPickupEntity *pickup;
+    while (cc_array_iter_next(&iter, (void **)&pickup) != CC_ITER_END)
     {
-        pickup->respawnWait = fmaxf(pickup->respawnWait - frameTime, 0.0f);
-        if (pickup->respawnWait == 0.0f)
+        if (pickup->respawnWait != 0.0f)
         {
-            b2Vec2 pos;
-            if (!findOpenPos(e, WEAPON_PICKUP_SHAPE, &pos))
+            pickup->respawnWait = fmaxf(pickup->respawnWait - frameTime, 0.0f);
+            if (pickup->respawnWait == 0.0f)
             {
-                // TODO: destroy weapon pickup
-                pickup->respawnWait = FLT_MAX;
-                return;
-            }
-            b2Body_SetTransform(pickup->bodyID, pos, b2Rot_identity);
-            pickup->weapon = randWeaponPickupType(e);
+                b2Vec2 pos;
+                if (!findOpenPos(e, WEAPON_PICKUP_SHAPE, &pos))
+                {
+                    const enum cc_stat res = cc_array_iter_remove(&iter, NULL);
+                    MAYBE_UNUSED(res);
+                    ASSERT(res == CC_OK);
+                    DEBUG_LOG("destroying weapon pickup");
+                    destroyWeaponPickup(pickup);
+                    continue;
+                }
+                b2Body_SetTransform(pickup->bodyID, pos, b2Rot_identity);
+                pickup->weapon = randWeaponPickupType(e);
 
-            const uint16_t cellIdx = posToCellIdx(e, pos);
-            mapCell *cell = safe_deque_get_at(e->cells, cellIdx);
-            entity *ent = (entity *)b2Shape_GetUserData(pickup->shapeID);
-            cell->ent = ent;
+                DEBUG_LOGF("respawned weapon pickup at %f, %f", pos.x, pos.y);
+                const uint16_t cellIdx = posToCellIdx(e, pos);
+                pickup->mapCellIdx = cellIdx;
+                mapCell *cell = safe_array_get_at(e->cells, cellIdx);
+                entity *ent = (entity *)b2Shape_GetUserData(pickup->shapeID);
+                cell->ent = ent;
+            }
         }
     }
 }
@@ -664,14 +759,33 @@ bool handleProjectileBeginContact(env *e, const entity *proj, const entity *ent)
         // always allow projectiles to bounce off each other
         return false;
     }
-    else if (ent != NULL && ent->type == BOUNCY_WALL_ENTITY)
+    else if (ent->type == BOUNCY_WALL_ENTITY)
     {
         // always allow projectiles to bounce off bouncy walls
         return false;
     }
-    else if (ent != NULL && ent->type != BOUNCY_WALL_ENTITY)
+    else if (ent->type != BOUNCY_WALL_ENTITY)
     {
         projectile->bounces++;
+        if (ent->type == DRONE_ENTITY)
+        {
+            const droneEntity *hitDrone = (droneEntity *)ent->entity;
+            if (projectile->droneIdx != hitDrone->idx)
+            {
+                droneEntity *shooterDrone = safe_array_get_at(e->drones, projectile->droneIdx);
+                shooterDrone->hitInfo.shotHit[hitDrone->idx] = true;
+
+                e->stats[shooterDrone->idx].shotsHit[projectile->weaponInfo->type]++;
+                DEBUG_LOGF("drone %d hit drone %d with weapon %d", shooterDrone->idx, hitDrone->idx, projectile->weaponInfo->type);
+                e->stats[hitDrone->idx].shotsTaken[projectile->weaponInfo->type]++;
+                DEBUG_LOGF("drone %d hit by drone %d with weapon %d", hitDrone->idx, shooterDrone->idx, projectile->weaponInfo->type);
+            }
+            else
+            {
+                e->stats[hitDrone->idx].ownShotsTaken[projectile->weaponInfo->type]++;
+                DEBUG_LOGF("drone %d hit by own weapon %d", hitDrone->idx, projectile->weaponInfo->type);
+            }
+        }
     }
     const uint8_t maxBounces = projectile->weaponInfo->maxBounces;
     if (projectile->bounces == maxBounces)
@@ -683,11 +797,12 @@ bool handleProjectileBeginContact(env *e, const entity *proj, const entity *ent)
     return false;
 }
 
-void handleProjectileEndContact(const entity *p)
+void handleProjectileEndContact(env *e, const entity *p)
 {
+    // ensure the projectile's speed doesn't change after bouncing off of something
     projectileEntity *projectile = (projectileEntity *)p->entity;
     b2Vec2 velocity = b2Body_GetLinearVelocity(projectile->bodyID);
-    b2Vec2 newVel = b2MulSV(weaponFire(projectile->weaponInfo->type) * projectile->weaponInfo->invMass, b2Normalize(velocity));
+    b2Vec2 newVel = b2MulSV(weaponFire(&e->randState, projectile->weaponInfo->type) * projectile->weaponInfo->invMass, b2Normalize(velocity));
     b2Body_SetLinearVelocity(projectile->bodyID, newVel);
 }
 
@@ -759,11 +874,11 @@ void handleContactEvents(env *e)
 
         if (e1 != NULL && e1->type == PROJECTILE_ENTITY)
         {
-            handleProjectileEndContact(e1);
+            handleProjectileEndContact(e, e1);
         }
         if (e2 != NULL && e2->type == PROJECTILE_ENTITY)
         {
-            handleProjectileEndContact(e2);
+            handleProjectileEndContact(e, e2);
         }
     }
 }
@@ -780,8 +895,16 @@ void handleWeaponPickupBeginTouch(env *e, const entity *sensor, entity *visitor)
     {
     case DRONE_ENTITY:
         pickup->respawnWait = PICKUP_RESPAWN_WAIT;
+        mapCell *cell = safe_array_get_at(e->cells, pickup->mapCellIdx);
+        ASSERT(cell->ent != NULL);
+        cell->ent = NULL;
+
         droneEntity *drone = (droneEntity *)visitor->entity;
         droneChangeWeapon(e, drone, pickup->weapon);
+
+        e->stats[drone->idx].weaponsPickedUp[pickup->weapon]++;
+        DEBUG_LOGF("drone %d picked up weapon %d", drone->idx, pickup->weapon);
+
         break;
     case STANDARD_WALL_ENTITY:
     case BOUNCY_WALL_ENTITY:
@@ -860,3 +983,5 @@ void handleSensorEvents(env *e)
         handleWeaponPickupEndTouch(e, s, v);
     }
 }
+
+#endif
