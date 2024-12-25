@@ -169,7 +169,7 @@ class Policy(nn.Module):
             low=0,
             high=obsHigh(),
             shape=(self.obsInfo.maxMapColumns, self.obsInfo.maxMapRows),
-            dtype=np.int,
+            dtype=int,
         )
 
         with th.no_grad():

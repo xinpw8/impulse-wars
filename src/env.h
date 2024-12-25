@@ -128,6 +128,14 @@ void computeObs(env *e)
         e->obs[offset++] = scaleValue(drone->weaponCooldown, drone->weaponInfo->coolDown, true);
         e->obs[offset++] = scaleValue(drone->charge, weaponCharge(drone->weaponInfo->type), true);
 
+        // --------------------------------------------------------------------
+        // NEW OBS: number of lives, scaled to [0..1] if desired
+        // If you want a raw integer instead, you could just do (float)drone->lives
+        // but here we assume you defined DEFAULT_LIVES (e.g. 5).
+        // Make sure you updated DRONE_OBS_SIZE accordingly!
+        e->obs[offset++] = scaleValue((float)drone->lives, (float)DEFAULT_LIVES, false);
+        // --------------------------------------------------------------------
+
         ASSERT(i * DRONE_OBS_SIZE <= e->numDrones * DRONE_OBS_SIZE);
         ASSERT(offset <= e->obsInfo.droneObsOffset);
     }
@@ -226,7 +234,6 @@ void computeObs(env *e)
         ASSERT(i < MAX_MAP_COLUMNS * MAX_MAP_ROWS);
         ASSERT(offset <= e->obsInfo.obsSize);
     }
-    // TODO: should only need to do this once after loading a map
     // zero out any remaining map cell observations
     const uint16_t mapCellObsSet = abs(offset - e->obsInfo.floatingWallObsOffset);
     const uint16_t mapCellObsUnset = (MAX_MAP_COLUMNS * MAX_MAP_ROWS) - mapCellObsSet;
@@ -303,6 +310,7 @@ void computeObs(env *e)
         }
     }
 }
+
 
 void setupEnv(env *e)
 {
@@ -463,7 +471,15 @@ void computeReward(env *e, const droneEntity *drone)
     {
         e->rewards[drone->idx] += DEATH_REWARD;
     }
-    // TODO: compute kill reward
+    // If the drone was killed by someone else, award them the kill reward
+    if (drone->dead && drone->killedBy >= 0 && drone->killedBy < e->numDrones)
+    {
+        // As an example, only award it once
+        e->rewards[drone->killedBy] += KILL_REWARD;
+        // Mark that we won't double-award
+        ((droneEntity *)drone)->killedBy = -1;
+    }
+
     for (uint8_t i = 0; i < e->numDrones; i++)
     {
         if (i == drone->idx)
@@ -517,7 +533,7 @@ void stepEnv(env *e)
     // reset reward buffer
     memset(e->rewards, 0x0, e->numAgents * sizeof(float));
 
-    for (int i = 0; i < FRAMESKIP; i++)
+    for (int frame = 0; frame < FRAMESKIP; frame++)
     {
         e->episodeLength++;
 
@@ -528,25 +544,37 @@ void stepEnv(env *e)
             drone->lastVelocity = b2Body_GetLinearVelocity(drone->bodyID);
             memset(&drone->hitInfo, 0x0, sizeof(stepHitInfo));
 
+            // skip if we have more drones than agents
             if (i >= e->numAgents)
             {
                 break;
             }
 
             const uint8_t offset = i * ACTION_SIZE;
-            const b2Vec2 rawMove = (b2Vec2){.x = clamp(e->actions[offset + 0]), .y = clamp(e->actions[offset + 1])};
+            const b2Vec2 rawMove = (b2Vec2){
+                .x = clamp(e->actions[offset + 0]), 
+                .y = clamp(e->actions[offset + 1])
+            };
             ASSERT_VEC_NORMALIZED(rawMove);
             const b2Vec2 move = b2Normalize(rawMove);
-            const b2Vec2 rawAim = (b2Vec2){.x = clamp(e->actions[offset + 2]), .y = clamp(e->actions[offset + 3])};
+
+            const b2Vec2 rawAim = (b2Vec2){
+                .x = clamp(e->actions[offset + 2]), 
+                .y = clamp(e->actions[offset + 3])
+            };
             ASSERT_VEC_NORMALIZED(rawAim);
             const b2Vec2 aim = b2Normalize(rawAim);
+
             const bool shoot = e->actions[offset + 4] > 0.0f;
 
+            // Movement
             if (!b2VecEqual(move, b2Vec2_zero))
             {
                 droneMove(drone, move);
             }
             drone->lastMove = move;
+
+            // Shooting
             if (shoot)
             {
                 droneShoot(e, drone, aim);
@@ -561,7 +589,6 @@ void stepEnv(env *e)
         b2World_Step(e->worldID, DELTA_TIME, BOX2D_SUBSTEPS);
 
         // mark old positions as invalid now that physics has been stepped
-        // projectiles will have their positions correctly updated in projectilesStep
         for (uint8_t i = 0; i < e->numDrones; i++)
         {
             droneEntity *drone = safe_array_get_at(e->drones, i);
@@ -587,44 +614,70 @@ void stepEnv(env *e)
         }
 
         projectilesStep(e);
-
         handleContactEvents(e);
         handleSensorEvents(e);
 
+        // Step each drone, handle multi-life logic
+        uint8_t dronesWithLives = 0;
         uint8_t lastAlive = 0;
-        uint8_t deadDrones = 0;
         for (uint8_t i = 0; i < e->numDrones; i++)
         {
             droneEntity *drone = safe_array_get_at(e->drones, i);
+
+            // Normal per-drone step
             droneStep(e, drone, DELTA_TIME);
+
             if (drone->dead)
             {
-                deadDrones++;
-                e->terminals[i] = 1;
+                // If the drone is newly dead, decrement a life
+                if (drone->lives > 0)
+                {
+                    drone->lives--;
+                }
+
+                // If it still has lives, respawn it, else it's truly out
+                if (drone->lives > 0)
+                {
+                    respawnDrone(e, drone);
+                }
+                else
+                {
+                    // Permanently mark out
+                    e->terminals[i] = 1;
+                }
             }
-            else
+
+            // If drone still has >0 lives, count it as "in the game"
+            if (!drone->dead || drone->lives > 0)
             {
+                dronesWithLives++;
                 lastAlive = i;
             }
         }
 
         weaponPickupsStep(e, DELTA_TIME);
 
-        const bool roundOver = deadDrones >= e->numDrones - 1;
+        // Round ends if at most 1 drone remains with lives
+        const bool roundOver = (dronesWithLives <= 1);
+
+        // Compute step rewards
         computeRewards(e, roundOver, lastAlive);
 
+        // If we have a renderer, do it now
         if (e->client != NULL)
         {
             renderEnv(e);
         }
 
+        // If round is over, log stats and break
         if (roundOver)
         {
-            // add existing projectile distances to stats
+            // Add projectile distances
             for (SNode *cur = e->projectiles->head; cur != NULL; cur = cur->next)
             {
                 const projectileEntity *projectile = (projectileEntity *)cur->data;
-                e->stats[projectile->droneIdx].shotDistances[projectile->weaponInfo->type] += projectile->distance;
+                e->stats[projectile->droneIdx].shotDistances[projectile->weaponInfo->type]
+                    += projectile->distance;
             }
 
             logEntry log = {0};
@@ -643,6 +696,7 @@ void stepEnv(env *e)
         }
     }
 
+    // Compute observations for the next step
     computeObs(e);
 }
 

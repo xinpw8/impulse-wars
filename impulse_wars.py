@@ -44,7 +44,7 @@ def transformRawLog(numDrones: int, rawLog: Dict[str, float]):
 class ImpulseWars(pufferlib.PufferEnv):
     def __init__(
         self,
-        num_envs: int,
+        num_envs: int = 1,
         num_drones: int = 2,
         num_agents: int = 2,
         seed: int = 0,

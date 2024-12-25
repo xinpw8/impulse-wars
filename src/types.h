@@ -123,8 +123,6 @@ typedef struct weaponPickupEntity
     uint16_t mapCellIdx;
 } weaponPickupEntity;
 
-typedef struct droneEntity droneEntity;
-
 typedef struct projectileEntity
 {
     uint8_t droneIdx;
@@ -174,6 +172,8 @@ typedef struct droneEntity
     b2Vec2 lastVelocity;
     stepHitInfo hitInfo;
     bool dead;
+    int killedBy;
+    int lives;
 } droneEntity;
 
 typedef struct observationInfo

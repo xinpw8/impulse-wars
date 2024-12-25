@@ -332,6 +332,8 @@ void createDrone(env *e, const uint8_t idx)
     drone->lastAim = (b2Vec2){.x = 0.0f, .y = -1.0f};
     drone->lastVelocity = b2Vec2_zero;
     drone->dead = false;
+    drone->killedBy = -1;
+    drone->lives = DEFAULT_LIVES;
     memset(&drone->hitInfo, 0x0, sizeof(stepHitInfo));
 
     entity *ent = (entity *)fastMalloc(sizeof(entity));
@@ -711,6 +713,38 @@ void projectilesStep(env *e)
     }
 }
 
+void respawnDrone(env *e, droneEntity *drone)
+{
+    // We can reuse 'createDrone' logic or do it inline here.
+    // For example, find an open position again:
+    b2Vec2 pos;
+    if (!findOpenPos(e, DRONE_SHAPE, &pos)) {
+        // If you really can't find space, mark drone as truly out
+        // and skip the respawn
+        drone->lives = 0;
+        return;
+    }
+
+    // "Reset" the Box2D body to a valid state
+    b2Body_SetTransform(drone->bodyID, pos, b2Rot_identity);
+    b2Body_SetLinearVelocity(drone->bodyID, (b2Vec2){0.0f, 0.0f});
+    b2Body_SetAngularVelocity(drone->bodyID, 0.0f);
+
+    // Reset any weapon fields
+    drone->weaponInfo = e->defaultWeapon;
+    drone->ammo = weaponAmmo(e->defaultWeapon->type, drone->weaponInfo->type);
+    drone->weaponCooldown = 0.0f;
+    drone->charge = 0;
+    drone->heat = 0;
+    drone->dead = false;
+
+    // Clear out other fields if desired
+    drone->lastPos = pos;
+    drone->lastMove = b2Vec2_zero;
+    drone->lastAim = (b2Vec2){.x = 0.0f, .y = -1.0f};
+    drone->lastVelocity = b2Vec2_zero;
+}
+
 void weaponPickupsStep(env *e, const float frameTime)
 {
     ASSERT(frameTime != 0.0f);
@@ -769,9 +803,16 @@ bool handleProjectileBeginContact(env *e, const entity *proj, const entity *ent)
         projectile->bounces++;
         if (ent->type == DRONE_ENTITY)
         {
-            const droneEntity *hitDrone = (droneEntity *)ent->entity;
+            droneEntity *hitDrone = (droneEntity *)ent->entity;
             if (projectile->droneIdx != hitDrone->idx)
             {
+                if (!hitDrone->dead)
+                {
+                // Mark the shooter as the killer
+                hitDrone->dead = true;
+                hitDrone->killedBy = projectile->droneIdx;
+                }
+
                 droneEntity *shooterDrone = safe_array_get_at(e->drones, projectile->droneIdx);
                 shooterDrone->hitInfo.shotHit[hitDrone->idx] = true;
 
@@ -904,6 +945,13 @@ void handleWeaponPickupBeginTouch(env *e, const entity *sensor, entity *visitor)
 
         e->stats[drone->idx].weaponsPickedUp[pickup->weapon]++;
         DEBUG_LOGF("drone %d picked up weapon %d", drone->idx, pickup->weapon);
+
+
+        // -------------- NEW CODE --------------
+        // Give a small reward for picking up any weapon:
+        e->rewards[drone->idx] += PICKUP_REWARD;
+        // --------------------------------------
+
 
         break;
     case STANDARD_WALL_ENTITY:

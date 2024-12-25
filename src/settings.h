@@ -30,11 +30,15 @@ const uint8_t MAX_DRONES = _MAX_DRONES;
 
 const uint16_t LOG_BUFFER_SIZE = 1024;
 
+// env constants
+#define DEFAULT_LIVES 5
+
 // reward settings
 #define WIN_REWARD 1.0f
 #define KILL_REWARD 0.5f
 #define DEATH_REWARD 0.0f
 #define SHOT_HIT_REWARD_COEF 1.0f
+#define PICKUP_REWARD 0.1f
 
 // observation constants
 const uint8_t SCALAR_OBS_SIZE = 1;

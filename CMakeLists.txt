@@ -45,6 +45,12 @@ project(
 
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
+# Force Raylib to be PIC
+set(BUILD_SHARED_LIBS OFF)  # still building static, but with PIC
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC")
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
+
 # fetch and configure dependencies
 FetchContent_Declare(
 	raylib
