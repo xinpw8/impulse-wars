@@ -247,7 +247,6 @@ void createMap(env *e, const int mapIdx)
                 break;
             default:
                 ERRORF("unknown map layout cell %c", cellType);
-                wallType = INVALID_ENTITY;
             }
 
             entity *ent = createWall(e, x, y, thickness, thickness, wallType, floating);

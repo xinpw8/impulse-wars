@@ -86,11 +86,10 @@ void getPlayerInputs(const env *e, const droneEntity *drone, const int gamepadId
 
 int main(void)
 {
-    const int NUM_DRONES = 3;
-    const observationInfo obsInfo = calculateObservationInfo(NUM_DRONES);
+    const int NUM_DRONES = 2;
 
     env *e = (env *)fastCalloc(1, sizeof(env));
-    float *obs = (float *)fastCalloc(NUM_DRONES * obsInfo.obsSize, sizeof(float));
+    uint8_t *obs = (uint8_t *)fastCalloc(NUM_DRONES * OBS_SIZE, sizeof(uint8_t));
     float *rewards = (float *)fastCalloc(NUM_DRONES, sizeof(float));
     float *actions = (float *)fastCalloc(NUM_DRONES * ACTION_SIZE, sizeof(float));
     uint8_t *terminals = (uint8_t *)fastCalloc(NUM_DRONES, sizeof(uint8_t));

@@ -7,7 +7,6 @@ import pufferlib
 
 from cy_impulse_wars import (
     maxDrones,
-    obsHigh,
     obsConstants,
     actionsSize,
     CyImpulseWars,
@@ -23,7 +22,6 @@ def transformRawLog(numDrones: int, rawLog: Dict[str, float]):
         count += 1
         if count >= numDrones:
             break
-        
 
     count = 0
     for i, stats in enumerate(rawLog["stats"]):
@@ -61,7 +59,7 @@ class ImpulseWars(pufferlib.PufferEnv):
         self.obsInfo = obsConstants(num_drones)
 
         self.single_observation_space = gymnasium.spaces.Box(
-            low=0.0, high=obsHigh(), shape=(self.obsInfo.obsSize,), dtype=np.float32
+            low=0.0, high=255, shape=(self.obsInfo.obsSize,), dtype=np.uint8
         )
         self.single_action_space = gymnasium.spaces.Box(
             low=-1.0, high=1.0, shape=(actionsSize(),), dtype=np.float32

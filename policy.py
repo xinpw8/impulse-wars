@@ -10,15 +10,10 @@ import pufferlib
 from pufferlib.models import LSTMWrapper
 from pufferlib.pytorch import layer_init
 
-from cy_impulse_wars import (
-    obsConstants,
-    obsHigh,
-)
+from cy_impulse_wars import obsConstants
 
 
-weaponTypesEmbeddingDims = 3
-floatingWallTypesEmbeddingDims = 2
-mapCellsEmbeddingDims = 4
+cnnChannels = 32
 encoderOutputSize = 256
 lstmOutputSize = 256
 
@@ -29,7 +24,7 @@ class Recurrent(LSTMWrapper):
 
 
 class Policy(nn.Module):
-    def __init__(self, env: pufferlib.PufferEnv, numDrones: int):
+    def __init__(self, env: pufferlib.PufferEnv, numDrones: int, device: str = "cuda"):
         super().__init__()
 
         self.is_continuous = True
@@ -37,31 +32,29 @@ class Policy(nn.Module):
         self.numDrones = numDrones
         self.obsInfo = obsConstants(numDrones)
 
-        self.weaponTypeEmbedding = nn.Embedding(self.obsInfo.weaponTypes, weaponTypesEmbeddingDims)
-        self.floatingWallTypeEmbedding = nn.Embedding(self.obsInfo.wallTypes, floatingWallTypesEmbeddingDims)
-        self.mapCellEmbedding = nn.Embedding(self.obsInfo.mapCellTypes, mapCellsEmbeddingDims)
+        self.factors = np.array(
+            [
+                self.obsInfo.wallTypes,  # wall types
+                self.obsInfo.weaponTypes,  # weapon pickup types
+                self.obsInfo.weaponTypes,  # projectile types
+                self.obsInfo.wallTypes,  # floating wall types
+                self.obsInfo.weaponTypes,  # drone weapon types
+            ]
+        )
+        self.offsets = th.tensor([0] + list(np.cumsum(self.factors)[:-1])).view(1, -1, 1, 1)
+        self.cumFactors = np.cumsum(self.factors)
+        self.multihotDim = self.factors.sum()
 
         self.mapCNN = nn.Sequential(
-            layer_init(nn.Conv2d(mapCellsEmbeddingDims, 32, kernel_size=5, stride=2)),
+            layer_init(nn.Conv2d(self.multihotDim, cnnChannels, kernel_size=5, stride=2)),
             nn.ReLU(),
-            layer_init(nn.Conv2d(32, 32, kernel_size=3, stride=2)),
+            layer_init(nn.Conv2d(cnnChannels, cnnChannels, kernel_size=3, stride=2)),
             nn.ReLU(),
             nn.Flatten(),
         )
         cnnOutputSize = self._computeCNNShape()
-        featuresSize = (
-            self.obsInfo.scalarObsSize
-            + (self.numDrones * (weaponTypesEmbeddingDims + self.obsInfo.droneObsSize - 1))
-            + (
-                self.obsInfo.numProjectileObs
-                * (weaponTypesEmbeddingDims + self.obsInfo.projectileObsSize - 1)
-            )
-            + (
-                self.obsInfo.numFloatingWallObs
-                * (floatingWallTypesEmbeddingDims + self.obsInfo.floatingWallObsSize - 1)
-            )
-            + cnnOutputSize
-        )
+
+        featuresSize = cnnOutputSize + self.obsInfo.scalarObsSize
 
         self.encoder = nn.Sequential(
             layer_init(nn.Linear(featuresSize, encoderOutputSize)),
@@ -80,77 +73,24 @@ class Policy(nn.Module):
 
     def encode_observations(self, obs: th.Tensor) -> th.Tensor:
         batchSize = obs.shape[0]
-        offset = 0
-
-        # process scalar observations
-        scalarObs = obs[:, offset : self.obsInfo.scalarObsSize]
-        offset += self.obsInfo.scalarObsSize
-
-        # process drone observations
-        droneWeapons = th.zeros(
-            (batchSize, self.numDrones, weaponTypesEmbeddingDims), dtype=th.float32, device=obs.device
+        mapObs = obs[:, : self.obsInfo.mapObsSize].view(
+            batchSize, self.obsInfo.mapColumns, self.obsInfo.mapRows, self.obsInfo.mapCellObsSize
         )
-        droneObs = th.zeros(
-            (batchSize, self.numDrones, self.obsInfo.droneObsSize - 1), dtype=th.float32, device=obs.device
-        )
-        for i in range(self.numDrones):
-            weaponType = obs[:, offset].to(th.int)
-            offset += 1
-            droneWeapons[:, i] = self.weaponTypeEmbedding(weaponType)
-            droneObs[:, i] = obs[:, offset : offset + self.obsInfo.droneObsSize - 1]
-            offset += self.obsInfo.droneObsSize - 1
+        droneObs = obs[:, self.obsInfo.mapObsSize :]
 
-        # process projectile observations
-        projectileWeapons = th.zeros(
-            (batchSize, self.obsInfo.numProjectileObs, weaponTypesEmbeddingDims),
-            dtype=th.float32,
+        mapBuf = th.zeros(
+            batchSize,
+            self.multihotDim,
+            self.obsInfo.maxMapColumns,
+            self.obsInfo.maxMapRows,
             device=obs.device,
-        )
-        projectileObs = th.zeros(
-            (batchSize, self.obsInfo.numProjectileObs, self.obsInfo.projectileObsSize - 1),
             dtype=th.float32,
-            device=obs.device,
         )
-        for i in range(self.obsInfo.numProjectileObs):
-            weaponType = obs[:, offset].to(th.int)
-            offset += 1
-            projectileWeapons[:, i] = self.weaponTypeEmbedding(weaponType)
-            projectileObs[:, i] = obs[:, offset : offset + self.obsInfo.projectileObsSize - 1]
-            offset += self.obsInfo.projectileObsSize - 1
+        codes = mapObs.permute(0, 3, 1, 2) + self.offsets
+        mapBuf.scatter_(1, codes, 1)
+        mapObs = self.mapCNN(mapBuf)
 
-        # process floating wall observations
-        floatingWallTypes = th.zeros(
-            (batchSize, self.obsInfo.numFloatingWallObs, floatingWallTypesEmbeddingDims),
-            dtype=th.float32,
-            device=obs.device,
-        )
-        floatingWallObs = th.zeros(
-            (batchSize, self.obsInfo.numFloatingWallObs, self.obsInfo.floatingWallObsSize - 1),
-            dtype=th.float32,
-            device=obs.device,
-        )
-        for i in range(self.obsInfo.numFloatingWallObs):
-            wallType = obs[:, offset].to(th.int)
-            offset += 1
-            floatingWallTypes[:, i] = self.floatingWallTypeEmbedding(wallType)
-            floatingWallObs[:, i] = obs[:, offset : offset + self.obsInfo.floatingWallObsSize - 1]
-            offset += self.obsInfo.floatingWallObsSize - 1
-
-        # process map cell observations
-        mapCellTypes = obs[:, offset : offset + (self.obsInfo.obsSize - offset)].to(th.int)
-        mapCellTypes = mapCellTypes.view(batchSize, self.obsInfo.maxMapColumns, self.obsInfo.maxMapRows)
-        mapCellTypes = self.mapCellEmbedding(mapCellTypes)
-        mapCellTypes = mapCellTypes.permute(0, 3, 1, 2)
-        mapCells = self.mapCNN(mapCellTypes)
-
-        # encode all observations
-        drones = th.cat((droneWeapons, droneObs), dim=-1)
-        drones = th.flatten(drones, start_dim=-2, end_dim=-1)
-        projectiles = th.cat((projectileWeapons, projectileObs), dim=-1)
-        projectiles = th.flatten(projectiles, start_dim=-2, end_dim=-1)
-        floatingWalls = th.cat((floatingWallTypes, floatingWallObs), dim=-1)
-        floatingWalls = th.flatten(floatingWalls, start_dim=-2, end_dim=-1)
-        features = th.cat((drones, projectiles, floatingWalls, mapCells, scalarObs), dim=-1)
+        features = th.cat((mapObs, droneObs), dim=-1)
 
         return self.encoder(features), None
 
@@ -166,14 +106,9 @@ class Policy(nn.Module):
 
     def _computeCNNShape(self) -> int:
         mapSpace = spaces.Box(
-            low=0,
-            high=obsHigh(),
-            shape=(self.obsInfo.maxMapColumns, self.obsInfo.maxMapRows),
-            dtype=np.int,
+            low=0, high=1, shape=(self.obsInfo.maxMapColumns, self.obsInfo.maxMapRows), dtype=np.float32
         )
 
         with th.no_grad():
             t = th.as_tensor(mapSpace.sample()[None])
-            e = self.mapCellEmbedding(t).to(th.float32)
-            e = e.permute(0, 3, 1, 2)
-            return self.mapCNN(e).shape[1]
+            return self.mapCNN(t).shape[1]

@@ -83,14 +83,14 @@
 
 #define INV_MASS(density, radius) (1.0f / (density * PI * radius * radius))
 
-#define ASSERT_VEC_NORMALIZED(vec)               \
+#define ASSERT_VEC_BOUNDED(vec)                  \
     ASSERTF(vec.x <= 1.0f, "vec.x: %f", vec.x);  \
     ASSERTF(vec.x >= -1.0f, "vec.x: %f", vec.x); \
     ASSERTF(vec.y <= 1.0f, "vec.y: %f", vec.y);  \
     ASSERTF(vec.y >= -1.0f, "vec.y: %f", vec.y)
 
-#define ASSERT_VEC_NORMALIZED_STRICT(vec)                                                                    \
-    ASSERT_VEC_NORMALIZED(vec);                                                                              \
+#define ASSERT_VEC_NORMALIZED(vec)                                                                           \
+    ASSERT_VEC_BOUNDED(vec);                                                                                 \
     do                                                                                                       \
     {                                                                                                        \
         const b2Vec2 norm = b2Normalize(vec);                                                                \
@@ -159,6 +159,11 @@ static inline float logBasef(const float v, const float b)
     return log2f(v) / log2(b);
 }
 
+static inline float clamp(float f)
+{
+    return fminf(fmaxf(f, -1.0f), 1.0f);
+}
+
 // normalize value to be between 0 and max, and clamp to 0 and max;
 // minIsZero determines if the min value is 0 or -max
 static inline float scaleValue(const float v, const float max, const bool minIsZero)
@@ -179,10 +184,10 @@ static inline float scaleValue(const float v, const float max, const bool minIsZ
     return fmaxf(fminf(scaled, max), 0.0f);
 }
 
-static inline uint8_t oneHotEncode(float *obs, const uint16_t offset, const uint8_t val, const uint8_t max)
+static inline uint8_t oneHotEncode(uint8_t *obs, const uint16_t offset, const uint8_t val, const uint8_t max)
 {
     ASSERTF(val < max && val >= 0, "val: %d, max: %d", val, max);
-    memset(obs + offset, 0x0, max * sizeof(float));
+    memset(obs + offset, 0x0, max * sizeof(uint8_t));
     obs[offset + val] = 1;
     return max;
 }
