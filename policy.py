@@ -74,9 +74,9 @@ class Policy(nn.Module):
     def encode_observations(self, obs: th.Tensor) -> th.Tensor:
         batchSize = obs.shape[0]
         mapObs = obs[:, : self.obsInfo.mapObsSize].view(
-            batchSize, self.obsInfo.mapColumns, self.obsInfo.mapRows, self.obsInfo.mapCellObsSize
+            batchSize, self.obsInfo.maxMapColumns, self.obsInfo.maxMapRows, self.obsInfo.mapCellObsSize
         )
-        droneObs = obs[:, self.obsInfo.mapObsSize :]
+        droneObs = obs[:, self.obsInfo.mapObsSize :].float() / 255.0
 
         mapBuf = th.zeros(
             batchSize,
@@ -106,7 +106,10 @@ class Policy(nn.Module):
 
     def _computeCNNShape(self) -> int:
         mapSpace = spaces.Box(
-            low=0, high=1, shape=(self.obsInfo.maxMapColumns, self.obsInfo.maxMapRows), dtype=np.float32
+            low=0,
+            high=1,
+            shape=(self.multihotDim, self.obsInfo.maxMapColumns, self.obsInfo.maxMapRows),
+            dtype=np.float32,
         )
 
         with th.no_grad():
