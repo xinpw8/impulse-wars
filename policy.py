@@ -41,7 +41,7 @@ class Policy(nn.Module):
                 self.obsInfo.weaponTypes,  # drone weapon types
             ]
         )
-        self.offsets = th.tensor([0] + list(np.cumsum(self.factors)[:-1])).view(1, -1, 1, 1)
+        self.offsets = th.tensor([0] + list(np.cumsum(self.factors)[:-1])).view(1, -1, 1, 1).to(device)
         self.cumFactors = np.cumsum(self.factors)
         self.multihotDim = self.factors.sum()
 
@@ -76,7 +76,8 @@ class Policy(nn.Module):
         mapObs = obs[:, : self.obsInfo.mapObsSize].view(
             batchSize, self.obsInfo.maxMapColumns, self.obsInfo.maxMapRows, self.obsInfo.mapCellObsSize
         )
-        droneObs = obs[:, self.obsInfo.mapObsSize :].float() / 255.0
+        droneObs = obs[:, self.obsInfo.mapObsSize : -self.obsInfo.weaponTypes].float() / 255.0
+        droneWeapon = obs[:, -self.obsInfo.weaponTypes :].float()
 
         mapBuf = th.zeros(
             batchSize,
@@ -90,7 +91,7 @@ class Policy(nn.Module):
         mapBuf.scatter_(1, codes, 1)
         mapObs = self.mapCNN(mapBuf)
 
-        features = th.cat((mapObs, droneObs), dim=-1)
+        features = th.cat((mapObs, droneObs, droneWeapon), dim=-1)
 
         return self.encoder(features), None
 

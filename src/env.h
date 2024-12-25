@@ -137,7 +137,9 @@ void computeObs(env *e)
             const projectileEntity *projectile = (projectileEntity *)cur->data;
             const uint16_t cellIdx = entityPosToCellIdx(e, projectile->lastPos);
             const uint8_t projWeapon = projectile->weaponInfo->type + 1;
+            ASSERT(projWeapon <= NUM_WEAPONS + 1);
             const uint16_t offset = obsStart + (cellIdx * MAP_CELL_OBS_SIZE) + PROJECTILE_OBS_OFFSET;
+            ASSERT(offset <= OBS_SIZE * (agent + 1));
             e->obs[offset] = projWeapon;
         }
         // compute floating wall observations
@@ -146,7 +148,9 @@ void computeObs(env *e)
             const wallEntity *wall = safe_array_get_at(e->floatingWalls, i);
             const uint16_t cellIdx = entityPosToCellIdx(e, wall->pos.pos);
             const uint8_t wallType = wall->type + 1;
+            ASSERT(wallType <= NUM_WALL_TYPES + 1);
             const uint16_t offset = obsStart + (cellIdx * MAP_CELL_OBS_SIZE) + FLOATING_WALL_OBS_OFFSET;
+            ASSERT(offset <= OBS_SIZE * (agent + 1));
             e->obs[offset] = wallType;
         }
         // compute drone observations
@@ -155,7 +159,9 @@ void computeObs(env *e)
             const droneEntity *drone = safe_array_get_at(e->drones, i);
             const uint16_t cellIdx = entityPosToCellIdx(e, drone->pos.pos);
             const uint8_t droneWeapon = drone->weaponInfo->type + 1;
+            ASSERT(droneWeapon <= NUM_WEAPONS + 1);
             const uint16_t offset = obsStart + (cellIdx * MAP_CELL_OBS_SIZE) + DRONE_OBS_OFFSET;
+            ASSERT(offset <= OBS_SIZE * (agent + 1));
             e->obs[offset] = droneWeapon;
         }
 
@@ -176,8 +182,8 @@ void computeObs(env *e)
         e->obs[offset++] = scaleValue(pos.y, MAX_Y_POS, false) * 255;
         e->obs[offset++] = scaleValue(vel.x, MAX_SPEED, false) * 255;
         e->obs[offset++] = scaleValue(vel.y, MAX_SPEED, false) * 255;
-        e->obs[offset++] = scaleValue(activeDrone->lastAim.x, 1.0f, false);
-        e->obs[offset++] = scaleValue(activeDrone->lastAim.y, 1.0f, false);
+        e->obs[offset++] = scaleValue(activeDrone->lastAim.x, 1.0f, false) * 255;
+        e->obs[offset++] = scaleValue(activeDrone->lastAim.y, 1.0f, false) * 255;
         e->obs[offset++] = scaledAmmo * 255;
         e->obs[offset++] = scaleValue(activeDrone->weaponCooldown, activeDrone->weaponInfo->coolDown, true) * 255;
         e->obs[offset++] = scaleValue(activeDrone->charge, weaponCharge(activeDrone->weaponInfo->type), true) * 255;
