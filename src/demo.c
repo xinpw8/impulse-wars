@@ -1,10 +1,8 @@
 #include "env.h"
 #include "render.h"
 
-const float lStickDeadzoneX = 0.1f;
-const float lStickDeadzoneY = 0.1f;
-const float rStickDeadzoneX = 0.1f;
-const float rStickDeadzoneY = 0.1f;
+const float lStickDeadzone = 0.1f;
+const float rStickDeadzone = 0.1f;
 
 void getPlayerInputs(const env *e, const droneEntity *drone, const int gamepadIdx)
 {
@@ -16,22 +14,19 @@ void getPlayerInputs(const env *e, const droneEntity *drone, const int gamepadId
         float rStickX = GetGamepadAxisMovement(gamepadIdx, GAMEPAD_AXIS_RIGHT_X);
         float rStickY = GetGamepadAxisMovement(gamepadIdx, GAMEPAD_AXIS_RIGHT_Y);
 
-        if (lStickX > -lStickDeadzoneX && lStickX < lStickDeadzoneX)
+        const float lStickMagnitude = sqrtf((lStickX * lStickX) + (lStickY * lStickY));
+        if (lStickMagnitude < lStickDeadzone)
         {
             lStickX = 0.0f;
-        }
-        if (lStickY > -lStickDeadzoneY && lStickY < lStickDeadzoneY)
-        {
             lStickY = 0.0f;
         }
-        if (rStickX > -rStickDeadzoneX && rStickX < rStickDeadzoneX)
+        const float rStickMagnitude = sqrtf((rStickX * rStickX) + (rStickY * rStickY));
+        if (rStickMagnitude < rStickDeadzone)
         {
             rStickX = 0.0f;
-        }
-        if (rStickY > -rStickDeadzoneY && rStickY < rStickDeadzoneY)
-        {
             rStickY = 0.0f;
         }
+
         const b2Vec2 aim = b2Normalize((b2Vec2){.x = rStickX, .y = rStickY});
 
         bool shoot = IsGamepadButtonDown(gamepadIdx, GAMEPAD_BUTTON_RIGHT_TRIGGER_2);
