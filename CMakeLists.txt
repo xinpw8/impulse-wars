@@ -1,15 +1,17 @@
 cmake_minimum_required(VERSION 3.22)
 include(FetchContent)
 
+project(
+	impulse-wars
+	DESCRIPTION "Impulse Wars"
+	LANGUAGES C
+)
+
 find_program(CCACHE_FOUND "ccache")
 if(CCACHE_FOUND)
 	set(CMAKE_C_COMPILER_LAUNCHER "ccache")
 endif()
 
-find_program(CLANG_FOUND "clang")
-if(CLANG_FOUND)
-	set(CMAKE_C_COMPILER "clang")
-endif()
 set(CMAKE_C_FLAGS_INIT " -std=c2x")
 
 if(CMAKE_BUILD_TYPE MATCHES Debug)
@@ -31,17 +33,14 @@ if(CMAKE_BUILD_TYPE MATCHES Debug)
 	endif()
 else()
 	add_compile_options("-flto" "-march=native" "-fno-math-errno")
-	# use lld if clang is the compiler so the object files are compatible
-	if(CLANG_FOUND)
+	# ensure the linker used is from the same compiler toolchain, or else
+	# link time optimization will probably fail
+	if(CMAKE_C_COMILER_ID MATCHES "Clang")
 		add_link_options("-fuse-ld=lld")
+	elseif(CMAKE_C_COMILER_ID MATCHES "GNU")
+		add_link_options("-fuse-ld=ld")
 	endif()
 endif()
-
-project(
-	impulse-wars
-	DESCRIPTION "Impulse Wars Env"
-	LANGUAGES C
-)
 
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
