@@ -326,6 +326,7 @@ void createDrone(env *e, const uint8_t idx)
     drone->charge = 0;
     drone->shotThisStep = false;
     drone->idx = idx;
+    drone->initalPos = droneBodyDef.position;
     drone->pos = (cachedPos){.pos = droneBodyDef.position, .valid = true};
     drone->lastPos = b2Vec2_zero;
     drone->lastMove = b2Vec2_zero;
@@ -357,7 +358,7 @@ void destroyDrone(droneEntity *drone)
 
 void droneMove(const droneEntity *drone, const b2Vec2 direction)
 {
-    ASSERT_VEC_NORMALIZED(direction);
+    ASSERT_VEC_BOUNDED(direction);
 
     b2Vec2 force = b2MulSV(DRONE_MOVE_MAGNITUDE, direction);
     b2Body_ApplyForceToCenter(drone->bodyID, force, true);
@@ -365,7 +366,7 @@ void droneMove(const droneEntity *drone, const b2Vec2 direction)
 
 void createProjectile(env *e, droneEntity *drone, const b2Vec2 normAim)
 {
-    ASSERT_VEC_NORMALIZED_STRICT(normAim);
+    ASSERT_VEC_NORMALIZED(normAim);
 
     b2BodyDef projectileBodyDef = b2DefaultBodyDef();
     projectileBodyDef.type = b2_dynamicBody;
@@ -639,7 +640,7 @@ void droneShoot(env *e, droneEntity *drone, const b2Vec2 aim)
     {
         normAim = b2Normalize(aim);
     }
-    ASSERT_VEC_NORMALIZED_STRICT(normAim);
+    ASSERT_VEC_NORMALIZED(normAim);
     b2Vec2 recoil = b2MulSV(-drone->weaponInfo->recoilMagnitude, normAim);
     b2Body_ApplyLinearImpulseToCenter(drone->bodyID, recoil, true);
 

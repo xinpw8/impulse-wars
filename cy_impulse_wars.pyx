@@ -5,18 +5,14 @@ import pufferlib
 
 from impulse_wars cimport (
     MAX_DRONES,
-    OBS_HIGH,
     ACTION_SIZE,
-    observationInfo,
-    calculateObservationInfo,
-    NUM_WEAPONS,
+    OBS_SIZE,
     NUM_WALL_TYPES,
+    NUM_WEAPONS,
+    MAP_OBS_SIZE,
     SCALAR_OBS_SIZE,
     DRONE_OBS_SIZE,
-    NUM_PROJECTILE_OBS,
-    PROJECTILE_OBS_SIZE,
-    NUM_FLOATING_WALL_OBS,
-    FLOATING_WALL_OBS_SIZE,
+    MAP_CELL_OBS_SIZE,
     MAX_MAP_COLUMNS,
     MAX_MAP_ROWS,
     env,
@@ -43,33 +39,19 @@ def maxDrones() -> int:
     return MAX_DRONES
 
 
-def obsHigh() -> float:
-    return OBS_HIGH
-
-
 def actionsSize() -> int:
     return ACTION_SIZE
 
 
 def obsConstants(numDrones: int) -> pufferlib.Namespace:
-    cdef observationInfo obsInfo = calculateObservationInfo(numDrones)
-
     return pufferlib.Namespace(
-        obsSize=obsInfo.obsSize,
-        scalarObsOffset=obsInfo.scalarObsOffset,
-        droneObsOffset=obsInfo.droneObsOffset,
-        projectileObsOffset=obsInfo.projectileObsOffset,
-        floatingWallObsOffset=obsInfo.floatingWallObsOffset,
-        mapCellObsOffset=obsInfo.mapCellObsOffset,
-        weaponTypes=NUM_WEAPONS + 1,
-        wallTypes=NUM_WALL_TYPES,
-        mapCellTypes=OBS_HIGH + 1,
+        obsSize=OBS_SIZE,
+        mapObsSize=MAP_OBS_SIZE,
         scalarObsSize=SCALAR_OBS_SIZE,
         droneObsSize=DRONE_OBS_SIZE,
-        numProjectileObs=NUM_PROJECTILE_OBS,
-        projectileObsSize=PROJECTILE_OBS_SIZE,
-        numFloatingWallObs=NUM_FLOATING_WALL_OBS,
-        floatingWallObsSize=FLOATING_WALL_OBS_SIZE,
+        wallTypes=NUM_WALL_TYPES + 1,
+        weaponTypes=NUM_WEAPONS + 1,
+        mapCellObsSize=MAP_CELL_OBS_SIZE,
         maxMapColumns=MAX_MAP_COLUMNS,
         maxMapRows=MAX_MAP_ROWS,
     )
@@ -84,7 +66,7 @@ cdef class CyImpulseWars:
         logBuffer *logs
         rayClient* rayClient
 
-    def __init__(self, uint16_t numEnvs, uint8_t numDrones, uint8_t numAgents, float[:, :] observations, float[:, :] actions, float[:] rewards, uint8_t[:] terminals, uint64_t seed, bint render):
+    def __init__(self, uint16_t numEnvs, uint8_t numDrones, uint8_t numAgents, uint8_t[:, :] observations, float[:, :] actions, float[:] rewards, uint8_t[:] terminals, uint64_t seed, bint render):
         self.numEnvs = numEnvs
         self.numDrones = numDrones
         self.render = render

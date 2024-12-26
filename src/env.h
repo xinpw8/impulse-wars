@@ -66,6 +66,7 @@ logEntry aggregateAndClearLogBuffer(uint8_t numDrones, logBuffer *logs)
             for (uint8_t k = 0; k < NUM_WEAPONS; k++)
             {
                 log.stats[j].distanceTraveled += logs->logs[i].stats[j].distanceTraveled / logSize;
+                log.stats[j].absDistanceTraveled += logs->logs[i].stats[j].absDistanceTraveled / logSize;
                 log.stats[j].shotsFired[k] += logs->logs[i].stats[j].shotsFired[k] / logSize;
                 log.stats[j].shotsHit[k] += logs->logs[i].stats[j].shotsHit[k] / logSize;
                 log.stats[j].shotsTaken[k] += logs->logs[i].stats[j].shotsTaken[k] / logSize;
@@ -92,222 +93,102 @@ static inline uint16_t entityPosToCellIdx(const env *e, const b2Vec2 pos)
 
 void computeObs(env *e)
 {
-    uint16_t offset = 0;
+    memset(e->obs, 0x0, OBS_SIZE * e->numAgents * sizeof(uint8_t));
 
-    // add scalar observations
-    e->obs[offset++] = scaleValue(e->stepsLeft, ROUND_STEPS, true);
-
-    // compute drone observations
-    for (uint8_t i = 0; i < e->numDrones; i++)
+    for (uint8_t agent = 0; agent < e->numAgents; agent++)
     {
-        droneEntity *drone = safe_array_get_at(e->drones, i);
-        const b2Vec2 pos = getCachedPos(drone->bodyID, &drone->pos);
+        uint16_t offset = OBS_SIZE * agent;
+        const uint16_t obsStart = offset;
 
-        int8_t ammo = drone->ammo;
-        int8_t maxAmmo = weaponAmmo(e->defaultWeapon->type, drone->weaponInfo->type);
-        float scaledAmmo;
-        if (ammo == INFINITE)
+        // compute map wall observations
+        for (size_t i = 0; i < cc_array_size(e->cells); i++)
         {
-            scaledAmmo = 0.0f;
-        }
-        else
-        {
-            scaledAmmo = scaleValue(ammo, maxAmmo, true);
-        }
+            const mapCell *cell = safe_array_get_at(e->cells, i);
 
-        // will be processed in an embedding layer separately
-        // add 1 so 0 can be used to represent no weapon
-        e->obs[offset++] = (float)(drone->weaponInfo->type + 1);
-        e->obs[offset++] = scaleValue(pos.x, MAX_X_POS, false);
-        e->obs[offset++] = scaleValue(pos.y, MAX_Y_POS, false);
-        e->obs[offset++] = scaleValue(drone->lastVelocity.x, MAX_SPEED, false);
-        e->obs[offset++] = scaleValue(drone->lastVelocity.y, MAX_SPEED, false);
-        e->obs[offset++] = scaleValue(drone->lastAim.x, 1.0f, false);
-        e->obs[offset++] = scaleValue(drone->lastAim.y, 1.0f, false);
-        e->obs[offset++] = scaledAmmo;
-        e->obs[offset++] = scaleValue(drone->weaponCooldown, drone->weaponInfo->coolDown, true);
-        e->obs[offset++] = scaleValue(drone->charge, weaponCharge(drone->weaponInfo->type), true);
-
-        // --------------------------------------------------------------------
-        // NEW OBS: number of lives, scaled to [0..1] if desired
-        // If you want a raw integer instead, you could just do (float)drone->lives
-        // but here we assume you defined DEFAULT_LIVES (e.g. 5).
-        // Make sure you updated DRONE_OBS_SIZE accordingly!
-        e->obs[offset++] = scaleValue((float)drone->lives, (float)DEFAULT_LIVES, false);
-        // --------------------------------------------------------------------
-
-        ASSERT(i * DRONE_OBS_SIZE <= e->numDrones * DRONE_OBS_SIZE);
-        ASSERT(offset <= e->obsInfo.droneObsOffset);
-    }
-    ASSERT(offset == e->obsInfo.droneObsOffset);
-
-    //  compute projectile observations
-    uint16_t projIdx = 0;
-    for (SNode *cur = e->projectiles->head; cur != NULL; cur = cur->next)
-    {
-        if (projIdx > NUM_PROJECTILE_OBS)
-        {
-            DEBUG_LOGF("Too many projectiles %zu, truncating", cc_slist_size(e->projectiles));
-            break;
-        }
-
-        const projectileEntity *projectile = (projectileEntity *)cur->data;
-        const b2Vec2 vel = b2Body_GetLinearVelocity(projectile->bodyID);
-
-        // will be processed in an embedding layer separately
-        // add 1 so 0 can be used to represent no weapon
-        e->obs[offset++] = (float)(projectile->weaponInfo->type + 1);
-        e->obs[offset++] = scaleValue(projectile->lastPos.x, MAX_X_POS, false);
-        e->obs[offset++] = scaleValue(projectile->lastPos.y, MAX_Y_POS, false);
-        e->obs[offset++] = scaleValue(vel.x, MAX_SPEED, false);
-        e->obs[offset++] = scaleValue(vel.y, MAX_SPEED, false);
-
-        ASSERT(projIdx * PROJECTILE_OBS_SIZE <= NUM_PROJECTILE_OBS * PROJECTILE_OBS_SIZE);
-        ASSERT(offset <= e->obsInfo.projectileObsOffset);
-        projIdx++;
-    }
-    // zero out any remaining projectile observations
-    const uint16_t projectileObsSet = abs(offset - e->obsInfo.droneObsOffset);
-    const uint16_t projectileObsUnset = (NUM_PROJECTILE_OBS * PROJECTILE_OBS_SIZE) - projectileObsSet;
-    if (projectileObsUnset != 0)
-    {
-        memset(e->obs + offset, 0x0, projectileObsUnset * sizeof(float));
-        offset += projectileObsUnset;
-    }
-    ASSERT(offset == e->obsInfo.projectileObsOffset);
-
-    // compute floating wall observations
-    for (size_t i = 0; i < cc_array_size(e->floatingWalls); i++)
-    {
-        wallEntity *wall = safe_array_get_at(e->floatingWalls, i);
-        const b2Vec2 pos = getCachedPos(wall->bodyID, &wall->pos);
-        const b2Vec2 vel = b2Body_GetLinearVelocity(wall->bodyID);
-        const float angle = b2Rot_GetAngle(b2Body_GetRotation(wall->bodyID)) * RAD2DEG;
-
-        // will be processed in an embedding layer separately
-        // 1 doesn't need to be added here as the first valid wall type is 1 already
-        e->obs[offset++] = wall->type;
-        e->obs[offset++] = scaleValue(pos.x, MAX_X_POS, false);
-        e->obs[offset++] = scaleValue(pos.y, MAX_Y_POS, false);
-        e->obs[offset++] = scaleValue(vel.x, MAX_SPEED, false);
-        e->obs[offset++] = scaleValue(vel.y, MAX_SPEED, false);
-        e->obs[offset++] = scaleValue(angle, 180.0f, false);
-
-        ASSERT(i * FLOATING_WALL_OBS_SIZE <= NUM_FLOATING_WALL_OBS * FLOATING_WALL_OBS_SIZE);
-        ASSERT(offset <= e->obsInfo.floatingWallObsOffset);
-    }
-    // zero out any remaining floating wall observations
-    const uint16_t floatingWallObsSet = abs(offset - e->obsInfo.projectileObsOffset);
-    const uint16_t floatingWallObsUnset = (NUM_FLOATING_WALL_OBS * FLOATING_WALL_OBS_SIZE) - floatingWallObsSet;
-    if (floatingWallObsUnset != 0)
-    {
-        memset(e->obs + offset, 0x0, floatingWallObsUnset * sizeof(float));
-        offset += floatingWallObsUnset;
-    }
-    ASSERT(offset == e->obsInfo.floatingWallObsOffset);
-
-    // compute map cell observations
-    for (size_t i = 0; i < cc_array_size(e->cells); i++)
-    {
-        const mapCell *cell = safe_array_get_at(e->cells, i);
-        // empty cells are set as 1 so 0 can be used to represent the end of the map
-        float cellType = 1.0f;
-        if (cell->ent != NULL)
-        {
-            if (cell->ent->type == WEAPON_PICKUP_ENTITY)
+            if (cell->ent != NULL)
             {
-                // add weapon pickup type to cell type so that the type
-                // of the weapon pickup can be observed
-                const weaponPickupEntity *pickup = (weaponPickupEntity *)cell->ent->entity;
-                cellType = (float)(cell->ent->type + pickup->weapon + 1);
-                ASSERTF(cellType <= OBS_HIGH, "cellType %f", cellType);
+                uint8_t wallType = 0;
+                if (entityTypeIsWall(cell->ent->type))
+                {
+                    wallType = cell->ent->type + 1;
+                }
+                e->obs[offset++] = wallType;
+
+                uint8_t pickupWeaponType = 0;
+                if (cell->ent->type == WEAPON_PICKUP_ENTITY)
+                {
+                    weaponPickupEntity *pickup = (weaponPickupEntity *)cell->ent->entity;
+                    pickupWeaponType = pickup->weapon + 1;
+                }
+                e->obs[offset++] = pickupWeaponType;
+                offset += MAP_CELL_OBS_SIZE - 2;
             }
             else
             {
-                cellType = (float)(cell->ent->type + 1);
-                ASSERTF(cellType <= OBS_HIGH, "cellType %f", cellType);
+                offset += MAP_CELL_OBS_SIZE;
             }
+
+            ASSERT(i < MAX_MAP_COLUMNS * MAX_MAP_ROWS);
+            ASSERT(offset <= MAP_OBS_SIZE * (agent + 1));
         }
-        // will be processed in an embedding layer separately
-        e->obs[offset++] = cellType;
 
-        ASSERT(i < MAX_MAP_COLUMNS * MAX_MAP_ROWS);
-        ASSERT(offset <= e->obsInfo.obsSize);
-    }
-    // zero out any remaining map cell observations
-    const uint16_t mapCellObsSet = abs(offset - e->obsInfo.floatingWallObsOffset);
-    const uint16_t mapCellObsUnset = (MAX_MAP_COLUMNS * MAX_MAP_ROWS) - mapCellObsSet;
-    if (mapCellObsUnset != 0)
-    {
-        memset(e->obs + offset, 0x0, mapCellObsUnset * sizeof(float));
-        offset += mapCellObsUnset;
-    }
-    ASSERT(offset == e->obsInfo.obsSize);
-
-    // add drones and floating walls to map cells
-    // add floating walls first so that we can ensure drones will
-    // always be present in the map cell observation
-    for (size_t i = 0; i < cc_array_size(e->floatingWalls); i++)
-    {
-        const wallEntity *wall = safe_array_get_at(e->floatingWalls, i);
-        const uint16_t cellIdx = entityPosToCellIdx(e, wall->pos.pos);
-        const float cellType = (float)(wall->type + 1);
-        ASSERTF(cellType <= OBS_HIGH, "cellType %f", cellType);
-        e->obs[e->obsInfo.floatingWallObsOffset + cellIdx] = cellType;
-    }
-    for (uint8_t i = 0; i < e->numDrones; i++)
-    {
-        const droneEntity *drone = safe_array_get_at(e->drones, i);
-        const uint16_t cellIdx = entityPosToCellIdx(e, drone->pos.pos);
-        const float cellType = (float)(DRONE_ENTITY + i);
-        ASSERTF(cellType <= OBS_HIGH, "cellType %f", cellType);
-        e->obs[e->obsInfo.floatingWallObsOffset + cellIdx] = cellType;
-    }
-
-    // copy observations for other agents
-    for (uint8_t agentIdx = 1; agentIdx < e->numAgents; agentIdx++)
-    {
-        const uint16_t obsOffset = e->obsInfo.obsSize * agentIdx;
-        // move the active agent's drone observation to the front
-        memcpy(
-            e->obs + obsOffset + e->obsInfo.scalarObsOffset,
-            e->obs + e->obsInfo.scalarObsOffset + (agentIdx * DRONE_OBS_SIZE),
-            DRONE_OBS_SIZE * sizeof(float));
-
-        // copy the rest of the observations over unmodified
-        memcpy(
-            e->obs + obsOffset + e->obsInfo.droneObsOffset,
-            e->obs + e->obsInfo.droneObsOffset,
-            (e->obsInfo.obsSize - e->obsInfo.droneObsOffset) * sizeof(float));
-
-        uint8_t newIdx = 1;
-        uint16_t droneObsOffset = obsOffset + e->obsInfo.scalarObsOffset + DRONE_OBS_SIZE;
-        for (uint8_t curDroneIdx = 0; curDroneIdx < e->numDrones; curDroneIdx++)
+        // compute projectile observations
+        for (SNode *cur = e->projectiles->head; cur != NULL; cur = cur->next)
         {
-            // copy the rest of the drone observations over in order,
-            // skipping the active agent's drone which is already in the front
-            if (curDroneIdx != agentIdx)
-            {
-                memcpy(
-                    e->obs + droneObsOffset,
-                    e->obs + e->obsInfo.scalarObsOffset + (curDroneIdx * DRONE_OBS_SIZE),
-                    DRONE_OBS_SIZE * sizeof(float));
-                droneObsOffset += DRONE_OBS_SIZE;
-            }
-
-            const droneEntity *drone = safe_array_get_at(e->drones, curDroneIdx);
-            const uint16_t cellIdx = entityPosToCellIdx(e, drone->pos.pos);
-            // label the agent's drone as drone 0 so observations are consistent
-            // between agents
-            uint8_t activeIdx = 0;
-            if (curDroneIdx != agentIdx)
-            {
-                activeIdx = newIdx++;
-            }
-            const float cellType = (float)(DRONE_ENTITY + activeIdx);
-            ASSERTF(cellType <= OBS_HIGH, "cellType %f", cellType);
-            e->obs[obsOffset + e->obsInfo.floatingWallObsOffset + cellIdx] = cellType;
+            const projectileEntity *projectile = (projectileEntity *)cur->data;
+            const uint16_t cellIdx = entityPosToCellIdx(e, projectile->lastPos);
+            const uint8_t projWeapon = projectile->weaponInfo->type + 1;
+            ASSERT(projWeapon <= NUM_WEAPONS + 1);
+            const uint16_t offset = obsStart + (cellIdx * MAP_CELL_OBS_SIZE) + PROJECTILE_OBS_OFFSET;
+            ASSERT(offset <= OBS_SIZE * (agent + 1));
+            e->obs[offset] = projWeapon;
         }
+        // compute floating wall observations
+        for (size_t i = 0; i < cc_array_size(e->floatingWalls); i++)
+        {
+            const wallEntity *wall = safe_array_get_at(e->floatingWalls, i);
+            const uint16_t cellIdx = entityPosToCellIdx(e, wall->pos.pos);
+            const uint8_t wallType = wall->type + 1;
+            ASSERT(wallType <= NUM_WALL_TYPES + 1);
+            const uint16_t offset = obsStart + (cellIdx * MAP_CELL_OBS_SIZE) + FLOATING_WALL_OBS_OFFSET;
+            ASSERT(offset <= OBS_SIZE * (agent + 1));
+            e->obs[offset] = wallType;
+        }
+        // compute drone observations
+        for (uint8_t i = 0; i < e->numDrones; i++)
+        {
+            const droneEntity *drone = safe_array_get_at(e->drones, i);
+            const uint16_t cellIdx = entityPosToCellIdx(e, drone->pos.pos);
+            const uint8_t droneWeapon = drone->weaponInfo->type + 1;
+            ASSERT(droneWeapon <= NUM_WEAPONS + 1);
+            const uint16_t offset = obsStart + (cellIdx * MAP_CELL_OBS_SIZE) + DRONE_OBS_OFFSET;
+            ASSERT(offset <= OBS_SIZE * (agent + 1));
+            e->obs[offset] = droneWeapon;
+        }
+
+        // compute active drone observations
+        offset = obsStart + MAP_OBS_SIZE;
+        droneEntity *activeDrone = safe_array_get_at(e->drones, agent);
+        const b2Vec2 pos = getCachedPos(activeDrone->bodyID, &activeDrone->pos);
+        const b2Vec2 vel = b2Body_GetLinearVelocity(activeDrone->bodyID);
+
+        int8_t maxAmmo = weaponAmmo(e->defaultWeapon->type, activeDrone->weaponInfo->type);
+        uint8_t scaledAmmo = 0;
+        if (activeDrone->ammo != INFINITE)
+        {
+            scaledAmmo = scaleValue(activeDrone->ammo, maxAmmo, true);
+        }
+
+        e->obs[offset++] = scaleValue(pos.x, MAX_X_POS, false) * 255;
+        e->obs[offset++] = scaleValue(pos.y, MAX_Y_POS, false) * 255;
+        e->obs[offset++] = scaleValue(vel.x, MAX_SPEED, false) * 255;
+        e->obs[offset++] = scaleValue(vel.y, MAX_SPEED, false) * 255;
+        e->obs[offset++] = scaleValue(activeDrone->lastAim.x, 1.0f, false) * 255;
+        e->obs[offset++] = scaleValue(activeDrone->lastAim.y, 1.0f, false) * 255;
+        e->obs[offset++] = scaledAmmo * 255;
+        e->obs[offset++] = scaleValue(activeDrone->weaponCooldown, activeDrone->weaponInfo->coolDown, true) * 255;
+        e->obs[offset++] = scaleValue(activeDrone->charge, weaponCharge(activeDrone->weaponInfo->type), true) * 255;
+        oneHotEncode(e->obs, offset, activeDrone->weaponInfo->type + 1, NUM_WEAPONS + 1);
     }
 }
 
@@ -357,11 +238,10 @@ void setupEnv(env *e)
     computeObs(e);
 }
 
-env *initEnv(env *e, uint8_t numDrones, uint8_t numAgents, float *obs, float *actions, float *rewards, uint8_t *terminals, logBuffer *logs, uint64_t seed)
+env *initEnv(env *e, uint8_t numDrones, uint8_t numAgents, uint8_t *obs, float *actions, float *rewards, uint8_t *terminals, logBuffer *logs, uint64_t seed)
 {
     e->numDrones = numDrones;
     e->numAgents = numAgents;
-    e->obsInfo = calculateObservationInfo(numDrones);
 
     e->obs = obs;
     e->actions = actions;
@@ -387,7 +267,6 @@ env *initEnv(env *e, uint8_t numDrones, uint8_t numAgents, float *obs, float *ac
 
 void clearEnv(env *e)
 {
-    memset(e->obs, 0x0, e->obsInfo.obsSize * e->numAgents * sizeof(float));
     // rewards get cleared in stepEnv every step
     memset(e->terminals, 0x0, e->numAgents * sizeof(uint8_t));
 
@@ -517,11 +396,6 @@ void computeRewards(env *e, const bool roundOver, const uint8_t winner)
     }
 }
 
-static inline float clamp(float f)
-{
-	return fminf(fmaxf(f, -1.0f), 1.0f);
-}
-
 void stepEnv(env *e)
 {
     if (e->needsReset)
@@ -551,18 +425,9 @@ void stepEnv(env *e)
             }
 
             const uint8_t offset = i * ACTION_SIZE;
-            const b2Vec2 rawMove = (b2Vec2){
-                .x = clamp(e->actions[offset + 0]), 
-                .y = clamp(e->actions[offset + 1])
-            };
-            ASSERT_VEC_NORMALIZED(rawMove);
-            const b2Vec2 move = b2Normalize(rawMove);
-
-            const b2Vec2 rawAim = (b2Vec2){
-                .x = clamp(e->actions[offset + 2]), 
-                .y = clamp(e->actions[offset + 3])
-            };
-            ASSERT_VEC_NORMALIZED(rawAim);
+            const b2Vec2 rawMove = (b2Vec2){.x = clamp(e->actions[offset + 0]), .y = clamp(e->actions[offset + 1])};
+            const b2Vec2 move = rawMove; // b2Normalize(rawMove);
+            const b2Vec2 rawAim = (b2Vec2){.x = clamp(e->actions[offset + 2]), .y = clamp(e->actions[offset + 3])};
             const b2Vec2 aim = b2Normalize(rawAim);
 
             const bool shoot = e->actions[offset + 4] > 0.0f;
@@ -672,7 +537,14 @@ void stepEnv(env *e)
         // If round is over, log stats and break
         if (roundOver)
         {
-            // Add projectile distances
+            // set absolute distance traveled of agent drones
+            for (uint8_t i = 0; i < e->numAgents; i++)
+            {
+                const droneEntity *drone = safe_array_get_at(e->drones, i);
+                e->stats[i].absDistanceTraveled = b2Distance(drone->initalPos, drone->pos.pos);
+            }
+
+            // add existing projectile distances to stats
             for (SNode *cur = e->projectiles->head; cur != NULL; cur = cur->next)
             {
                 const projectileEntity *projectile = (projectileEntity *)cur->data;
@@ -685,11 +557,6 @@ void stepEnv(env *e)
             log.length = e->episodeLength;
             memcpy(log.stats, e->stats, sizeof(e->stats));
             addLogEntry(e->logs, &log);
-
-            for (uint8_t i = 0; i < e->numAgents; i++)
-            {
-                DEBUG_LOGF("drone %d total reward: %f", i, log.reward[i]);
-            }
 
             e->needsReset = true;
             break;

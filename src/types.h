@@ -11,21 +11,16 @@
 
 #define _MAX_DRONES 4
 
-// 1 is added for the invalid entity type
-const uint8_t NUM_WALL_TYPES = 4;
-const uint8_t NUM_ENTITY_TYPES = NUM_WALL_TYPES + 2;
+const uint8_t NUM_WALL_TYPES = 3;
 
 enum entityType
 {
-    INVALID_ENTITY = 0,
-    STANDARD_WALL_ENTITY = 1,
-    BOUNCY_WALL_ENTITY = 2,
-    DEATH_WALL_ENTITY = 3,
-    PROJECTILE_ENTITY = 4,
-    DRONE_ENTITY = 5,
-    // this needs to be last so map cell type observations can be
-    // calculated correctly
-    WEAPON_PICKUP_ENTITY = 5 + _MAX_DRONES + 1,
+    STANDARD_WALL_ENTITY,
+    BOUNCY_WALL_ENTITY,
+    DEATH_WALL_ENTITY,
+    WEAPON_PICKUP_ENTITY,
+    PROJECTILE_ENTITY,
+    DRONE_ENTITY,
 };
 
 // the category bit that will be set on each entity's shape; this is
@@ -145,6 +140,7 @@ typedef struct stepHitInfo
 typedef struct droneStats
 {
     float distanceTraveled;
+    float absDistanceTraveled;
     float shotsFired[_NUM_WEAPONS];
     float shotsHit[_NUM_WEAPONS];
     float shotsTaken[_NUM_WEAPONS];
@@ -165,6 +161,7 @@ typedef struct droneEntity
     bool shotThisStep;
 
     uint8_t idx;
+    b2Vec2 initalPos;
     cachedPos pos;
     b2Vec2 lastPos;
     b2Vec2 lastMove;
@@ -175,16 +172,6 @@ typedef struct droneEntity
     int killedBy;
     int lives;
 } droneEntity;
-
-typedef struct observationInfo
-{
-    uint16_t obsSize;
-    uint16_t scalarObsOffset;
-    uint16_t droneObsOffset;
-    uint16_t projectileObsOffset;
-    uint16_t floatingWallObsOffset;
-    uint16_t mapCellObsOffset;
-} observationInfo;
 
 typedef struct logEntry
 {
@@ -214,9 +201,8 @@ typedef struct env
 {
     uint8_t numDrones;
     uint8_t numAgents;
-    observationInfo obsInfo;
 
-    float *obs;
+    uint8_t *obs;
     float *rewards;
     float *actions;
     uint8_t *terminals;

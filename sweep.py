@@ -39,22 +39,15 @@ def sweep(args, train):
         Param(
             name="total_timesteps",
             space=LinearSpace(
-                min=50_000_000, scale=100_000_000, rounding_factor=10_000_000, is_integer=True
+                min=50_000_000, scale=150_000_000, rounding_factor=10_000_000, is_integer=True
             ),
             search_center=100_000_000,
         ),
         # hyperparams
-        Param(
-            name="bptt_horizon",
-            space=LinearSpace(min=4, max=8, scale=3, is_integer=True),
-            search_center=5,
-        ),
         Param(name="ent_coef", space=LogSpace(scale=1.0), search_center=0.0005),
         Param(name="gae_lambda", space=LogitSpace(min=0.0, max=1.0), search_center=0.90),
         Param(name="gamma", space=LogitSpace(min=0.0, max=1.0), search_center=0.95),
         Param(name="learning_rate", space=LogSpace(scale=1.0), search_center=0.0001),
-        Param(name="max_grad_norm", space=LinearSpace(min=0.0, scale=2.0), search_center=1.0),
-        Param(name="vf_coef", space=LogitSpace(min=0.0, max=1.0), search_center=0.5),
     ]
 
     sweepID = args.wandb_sweep
@@ -101,7 +94,7 @@ def trainWithSuggestion(args, params, train):
         )
         carbs = CARBS(config=config, params=params)
 
-        wandbCarbs = CustomWandbCarbs(carbs=carbs)
+        wandbCarbs = WandbCarbs(carbs=carbs)
         resampling = not carbs._is_random_sampling() and len(carbs.success_observations) > (
             (carbs.resample_count + 1) * carbs.config.resample_frequency
         )
