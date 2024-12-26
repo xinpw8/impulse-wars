@@ -326,6 +326,7 @@ void createDrone(env *e, const uint8_t idx)
     drone->charge = 0;
     drone->shotThisStep = false;
     drone->idx = idx;
+    drone->initalPos = droneBodyDef.position;
     drone->pos = (cachedPos){.pos = droneBodyDef.position, .valid = true};
     drone->lastPos = b2Vec2_zero;
     drone->lastMove = b2Vec2_zero;

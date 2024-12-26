@@ -26,6 +26,7 @@ def transformRawLog(numDrones: int, rawLog: Dict[str, float]):
     count = 0
     for i, stats in enumerate(rawLog["stats"]):
         log[f"drone_{i}_distance_traveled"] = stats["distanceTraveled"]
+        log[f"drone_{i}_abs_distance_traveled"] = stats["absDistanceTraveled"]
         log[f"drone_{i}_shots_fired"] = sum(stats["shotsFired"])
         log[f"drone_{i}_shots_hit"] = sum(stats["shotsHit"])
         log[f"drone_{i}_shots_taken"] = sum(stats["shotsTaken"])

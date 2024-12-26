@@ -142,6 +142,7 @@ typedef struct stepHitInfo
 typedef struct droneStats
 {
     float distanceTraveled;
+    float absDistanceTraveled;
     float shotsFired[_NUM_WEAPONS];
     float shotsHit[_NUM_WEAPONS];
     float shotsTaken[_NUM_WEAPONS];
@@ -162,6 +163,7 @@ typedef struct droneEntity
     bool shotThisStep;
 
     uint8_t idx;
+    b2Vec2 initalPos;
     cachedPos pos;
     b2Vec2 lastPos;
     b2Vec2 lastMove;

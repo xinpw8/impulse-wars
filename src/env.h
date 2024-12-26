@@ -66,6 +66,7 @@ logEntry aggregateAndClearLogBuffer(uint8_t numDrones, logBuffer *logs)
             for (uint8_t k = 0; k < NUM_WEAPONS; k++)
             {
                 log.stats[j].distanceTraveled += logs->logs[i].stats[j].distanceTraveled / logSize;
+                log.stats[j].absDistanceTraveled += logs->logs[i].stats[j].absDistanceTraveled / logSize;
                 log.stats[j].shotsFired[k] += logs->logs[i].stats[j].shotsFired[k] / logSize;
                 log.stats[j].shotsHit[k] += logs->logs[i].stats[j].shotsHit[k] / logSize;
                 log.stats[j].shotsTaken[k] += logs->logs[i].stats[j].shotsTaken[k] / logSize;
@@ -498,6 +499,13 @@ void stepEnv(env *e)
 
         if (roundOver)
         {
+            // set absolute distance traveled of agent drones
+            for (uint8_t i = 0; i < e->numAgents; i++)
+            {
+                const droneEntity *drone = safe_array_get_at(e->drones, i);
+                e->stats[i].absDistanceTraveled = b2Distance(drone->initalPos, drone->pos.pos);
+            }
+
             // add existing projectile distances to stats
             for (SNode *cur = e->projectiles->head; cur != NULL; cur = cur->next)
             {
@@ -510,11 +518,6 @@ void stepEnv(env *e)
             log.length = e->episodeLength;
             memcpy(log.stats, e->stats, sizeof(e->stats));
             addLogEntry(e->logs, &log);
-
-            for (uint8_t i = 0; i < e->numAgents; i++)
-            {
-                DEBUG_LOGF("drone %d total reward: %f", i, log.reward[i]);
-            }
 
             e->needsReset = true;
             break;
