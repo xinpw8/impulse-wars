@@ -14,8 +14,9 @@ from cy_impulse_wars import obsConstants
 
 
 cnnChannels = 32
-encoderOutputSize = 256
-lstmOutputSize = 256
+droneEncOutputSize = 64
+encoderOutputSize = 128
+lstmOutputSize = 128
 
 
 class Recurrent(LSTMWrapper):
@@ -47,18 +48,23 @@ class Policy(nn.Module):
 
         self.mapCNN = nn.Sequential(
             layer_init(nn.Conv2d(self.multihotDim, cnnChannels, kernel_size=5, stride=2)),
-            nn.ReLU(),
+            nn.LeakyReLU(),
             layer_init(nn.Conv2d(cnnChannels, cnnChannels, kernel_size=3, stride=2)),
-            nn.ReLU(),
+            nn.LeakyReLU(),
             nn.Flatten(),
         )
         cnnOutputSize = self._computeCNNShape()
 
-        featuresSize = cnnOutputSize + self.obsInfo.scalarObsSize
+        self.droneEncoder = nn.Sequential(
+            layer_init(nn.Linear(self.obsInfo.scalarObsSize, droneEncOutputSize)),
+            nn.LeakyReLU(),
+        )
+
+        featuresSize = cnnOutputSize + droneEncOutputSize
 
         self.encoder = nn.Sequential(
             layer_init(nn.Linear(featuresSize, encoderOutputSize)),
-            nn.Tanh(),
+            nn.LeakyReLU(),
         )
 
         self.actorMean = layer_init(nn.Linear(lstmOutputSize, env.single_action_space.shape[0]), std=0.01)
@@ -91,7 +97,10 @@ class Policy(nn.Module):
         mapBuf.scatter_(1, codes, 1)
         mapObs = self.mapCNN(mapBuf)
 
-        features = th.cat((mapObs, droneObs, droneWeapon), dim=-1)
+        droneObs = th.cat((droneObs, droneWeapon), dim=-1)
+        droneObs = self.droneEncoder(droneObs)
+
+        features = th.cat((mapObs, droneObs), dim=-1)
 
         return self.encoder(features), None
 
