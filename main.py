@@ -1,6 +1,5 @@
 from pdb import set_trace as T
 import argparse
-from math import sqrt
 import os
 
 import numpy as np
@@ -73,7 +72,7 @@ def train(args):
 
 def init_wandb(args, name, id=None, resume=True):
     wandb.init(
-        id=id or wandb.util.generate_id(),
+        id=id,
         project=args.wandb_project,
         entity=args.wandb_entity,
         group=args.wandb_group,
@@ -146,14 +145,14 @@ if __name__ == "__main__":
     parser.add_argument("--train.cpu-offload", action="store_true")
     parser.add_argument("--train.device", type=str, default="cuda" if th.cuda.is_available() else "cpu")
     parser.add_argument("--train.total-timesteps", type=int, default=250_000_000)
-    parser.add_argument("--train.checkpoint-interval", type=int, default=0)
+    parser.add_argument("--train.checkpoint-interval", type=int, default=25)
     parser.add_argument("--train.eval-interval", type=int, default=1_000_000)
     parser.add_argument("--train.compile", action="store_true")
     parser.add_argument("--train.compile-mode", type=str, default="reduce-overhead")
 
     parser.add_argument("--train.num-envs", type=int, default=256)
     parser.add_argument("--train.batch-size", type=int, default=262_144)
-    parser.add_argument("--train.bptt-horizon", type=int, default=64)
+    parser.add_argument("--train.bptt-horizon", type=int, default=32)
     parser.add_argument("--train.clip-coef", type=float, default=0.2)
     parser.add_argument("--train.clip-vloss", action="store_false")
     parser.add_argument("--train.ent-coef", type=float, default=0.0005)
@@ -161,8 +160,8 @@ if __name__ == "__main__":
     parser.add_argument("--train.gamma", type=float, default=0.99)
     parser.add_argument("--train.learning-rate", type=float, default=0.0003)
     parser.add_argument("--train.anneal-lr", action="store_true")
-    parser.add_argument("--train.max-grad-norm", type=float, default=1.0)
-    parser.add_argument("--train.minibatch-size", type=int, default=65_536)
+    parser.add_argument("--train.max-grad-norm", type=float, default=0.5)
+    parser.add_argument("--train.minibatch-size", type=int, default=32_768)
     parser.add_argument("--train.norm-adv", action="store_false")
     parser.add_argument("--train.update-epochs", type=int, default=1)
     parser.add_argument("--train.vf-clip-coef", type=float, default=0.1)
@@ -194,8 +193,11 @@ if __name__ == "__main__":
     args = pufferlib.namespace(**args)
 
     args.train.env = "impulse_wars"
+
     if args.train.seed == -1:
         args.train.seed = np.random.randint(2**32 - 1, dtype="int64").item()
+    if args.train.exp_id is None:
+        args.train.exp_id = wandb.util.generate_id()
 
     if args.mode == "train":
         try:
