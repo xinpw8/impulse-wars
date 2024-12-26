@@ -42,8 +42,8 @@ class Policy(nn.Module):
                 self.obsInfo.weaponTypes,  # drone weapon types
             ]
         )
-        self.offsets = th.tensor([0] + list(np.cumsum(self.factors)[:-1])).view(1, -1, 1, 1).to(device)
-        self.cumFactors = np.cumsum(self.factors)
+        offsets = th.tensor([0] + list(np.cumsum(self.factors)[:-1])).view(1, -1, 1, 1)
+        self.register_buffer("offsets", offsets)
         self.multihotDim = self.factors.sum()
 
         self.mapCNN = nn.Sequential(
