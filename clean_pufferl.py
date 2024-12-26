@@ -1,6 +1,7 @@
 from pdb import set_trace as T
 import numpy as np
 
+import gc
 import os
 import random
 import psutil
@@ -291,26 +292,32 @@ def mean_and_log(data):
 
     data.last_log_time = time.time()
     data.wandb.log({
-        '0verview/SPS': data.profile.SPS,
-        '0verview/agent_steps': data.global_step,
-        '0verview/epoch': data.epoch,
-        '0verview/learning_rate': data.optimizer.param_groups[0]["lr"],
-        **{f'environment/{k}': v for k, v in data.stats.items()},
+        'overview/SPS': data.profile.SPS,
+        'overview/agent_steps': data.global_step,
+        'overview/epoch': data.epoch,
+        'overview/learning_rate': data.optimizer.param_groups[0]["lr"],
+        **{f'train/{k}': v for k, v in data.stats.items()},
         **{f'losses/{k}': v for k, v in data.losses.items()},
         **{f'performance/{k}': v for k, v in data.profile},
     })
 
 def close(data):
-    data.vecenv.close()
-    data.utilization.stop()
-    config = data.config
-    if data.wandb is not None:
-        artifact_name = f"{config.exp_id}_model"
-        artifact = data.wandb.Artifact(artifact_name, type="model")
+    try:
+        data.vecenv.close()
+        data.utilization.stop()
+        config = data.config
         model_path = save_checkpoint(data)
-        artifact.add_file(model_path)
-        data.wandb.run.log_artifact(artifact)
-        data.wandb.finish()
+        if data.wandb is not None:
+            artifact_name = f"{config.exp_id}_model"
+            artifact = data.wandb.Artifact(artifact_name, type="model")
+            artifact.add_file(model_path)
+            data.wandb.run.log_artifact(artifact)
+    except Exception:
+        Console().print_exception()
+
+    del data
+    gc.collect()
+    torch.cuda.empty_cache()
 
 class Profile:
     SPS: ... = 0
