@@ -43,6 +43,9 @@ else()
 endif()
 
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
+# uncomment if the build seems to hang early on to confirm there's an 
+# issue other than your internet being extremely slow
+#set(FETCHCONTENT_QUIET FALSE)
 
 # Force Raylib to be PIC
 set(BUILD_SHARED_LIBS OFF)  # still building static, but with PIC
