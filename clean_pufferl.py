@@ -128,10 +128,6 @@ def evaluate(data):
 
     with profile.eval_misc:
         for k, v in infos.items():
-            if '_map' in k and data.wandb is not None:
-                data.stats[f'Media/{k}'] = data.wandb.Image(v[0])
-                continue
-
             if isinstance(v, np.ndarray):
                 v = v.tolist()
             try:
@@ -527,7 +523,10 @@ class Utilization(Thread):
 
 def save_checkpoint(data):
     config = data.config
-    path = os.path.join(config.data_dir, config.exp_id)
+    exp_id = config.exp_id
+    if data.wandb is not None:
+        exp_id = data.wandb.run.id
+    path = os.path.join(config.data_dir, exp_id)
     if not os.path.exists(path):
         os.makedirs(path)
 
