@@ -442,6 +442,7 @@ bool explosionOverlapCallback(b2ShapeId shapeId, void *context)
 
 void destroyProjectile(env *e, projectileEntity *projectile, const bool full)
 {
+    // explode projectile if necessary
     b2ExplosionDef explosion;
     if (weaponExplosion(projectile->weaponInfo->type, &explosion))
     {
@@ -750,6 +751,8 @@ void weaponPickupsStep(env *e, const float frameTime)
     }
 }
 
+// destroy the projectile if it has traveled enough or has bounced enough
+// times, and update drone stats if a drone was hit
 bool handleProjectileBeginContact(env *e, const entity *proj, const entity *ent)
 {
     projectileEntity *projectile = (projectileEntity *)proj->entity;
@@ -884,6 +887,8 @@ void handleContactEvents(env *e)
     }
 }
 
+// set pickup to respawn somewhere else randomly if a drone touched it,
+// mark the pickup as disabled if a floating wall is touching it
 void handleWeaponPickupBeginTouch(env *e, const entity *sensor, entity *visitor)
 {
     weaponPickupEntity *pickup = (weaponPickupEntity *)sensor->entity;
@@ -917,6 +922,7 @@ void handleWeaponPickupBeginTouch(env *e, const entity *sensor, entity *visitor)
     }
 }
 
+// mark the pickup as enabled if no floating walls are touching it
 void handleWeaponPickupEndTouch(env *e, const entity *sensor, entity *visitor)
 {
     weaponPickupEntity *pickup = (weaponPickupEntity *)sensor->entity;

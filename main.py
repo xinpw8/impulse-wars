@@ -38,7 +38,7 @@ def train(args):
     vecenv = pufferlib.vector.make(
         ImpulseWars,
         num_envs=args.vec.num_envs,
-        env_args=(args.train.num_envs,),
+        env_args=(args.train.num_internal_envs,),
         env_kwargs=dict(
             num_drones=args.train.num_drones, num_agents=args.train.num_agents, seed=args.train.seed
         ),
@@ -152,7 +152,7 @@ if __name__ == "__main__":
     parser.add_argument("--train.compile", action="store_true")
     parser.add_argument("--train.compile-mode", type=str, default="reduce-overhead")
 
-    parser.add_argument("--train.num-envs", type=int, default=256)
+    parser.add_argument("--train.num-internal-envs", type=int, default=256)
     parser.add_argument("--train.batch-size", type=int, default=262_144)
     parser.add_argument("--train.bptt-horizon", type=int, default=32)
     parser.add_argument("--train.clip-coef", type=float, default=0.2)
@@ -170,8 +170,8 @@ if __name__ == "__main__":
     parser.add_argument("--train.vf-coef", type=float, default=0.5)
     parser.add_argument("--train.target-kl", type=float, default=0.2)
 
-    parser.add_argument("--train.num-drones", type=int, default=2)
-    parser.add_argument("--train.num-agents", type=int, default=2)
+    parser.add_argument("--train.num-drones", type=int, default=2, help="Number of drones in the environment")
+    parser.add_argument("--train.num-agents", type=int, default=2, help="Number of agents controlling drones, if this is less than --train.num-drones the other drones will do nothing")
 
     parser.add_argument("--vec.num-envs", type=int, default=8)
     parser.add_argument("--vec.num-workers", type=int, default=8)

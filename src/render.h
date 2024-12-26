@@ -39,15 +39,18 @@ static inline b2Vec2 rayVecToB2Vec(const rayClient *c, const Vector2 v)
 
 rayClient *createRayClient()
 {
+    InitWindow(DEFAULT_WIDTH, DEFAULT_HEIGHT, "Impulse Wars");
+    const int monitor = GetCurrentMonitor();
+
     rayClient *client = (rayClient *)fastCalloc(1, sizeof(rayClient));
 
     if (client->height == 0)
     {
-        client->height = DEFAULT_HEIGHT; // GetMonitorHeight(0) - HEIGHT_LEEWAY;
+        client->height = GetMonitorHeight(monitor) - HEIGHT_LEEWAY;
     }
     if (client->width == 0)
     {
-        client->width = DEFAULT_WIDTH; //(float)GetMonitorWidth(0) * (float)(DEFAULT_WIDTH / DEFAULT_HEIGHT);
+        client->width = (uint16_t)((float)GetMonitorWidth(monitor) * ((float)DEFAULT_HEIGHT / (float)DEFAULT_WIDTH));
     }
     client->scale = (float)client->height * (float)(DEFAULT_SCALE / DEFAULT_HEIGHT);
 
@@ -55,7 +58,7 @@ rayClient *createRayClient()
     client->halfHeight = client->height / 2.0f;
 
     SetConfigFlags(FLAG_MSAA_4X_HINT);
-    InitWindow(client->width, client->height, "Impulse Wars");
+    SetWindowSize(client->width, client->height);
 
     SetTargetFPS(FRAME_RATE);
 
