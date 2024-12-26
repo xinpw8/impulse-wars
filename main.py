@@ -32,6 +32,8 @@ def train(args):
     if args.track and args.mode != "sweep":
         args.wandb = init_wandb(args, args.wandb_name, id=args.train.exp_id)
         args.train.__dict__.update(dict(args.wandb.config.train))
+    elif not args.track and args.train.exp_id is None:
+        args.train.exp_id = wandb.util.generate_id()
 
     vecenv = pufferlib.vector.make(
         ImpulseWars,
@@ -72,7 +74,7 @@ def train(args):
 
 def init_wandb(args, name, id=None, resume=True):
     wandb.init(
-        id=id,
+        id=id or wandb.util.generate_id(),
         project=args.wandb_project,
         entity=args.wandb_entity,
         group=args.wandb_group,
@@ -196,8 +198,6 @@ if __name__ == "__main__":
 
     if args.train.seed == -1:
         args.train.seed = np.random.randint(2**32 - 1, dtype="int64").item()
-    if args.train.exp_id is None:
-        args.train.exp_id = wandb.util.generate_id()
 
     if args.mode == "train":
         try:
