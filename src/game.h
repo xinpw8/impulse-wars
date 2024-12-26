@@ -947,7 +947,8 @@ void handleSensorEvents(env *e)
         const b2SensorBeginTouchEvent *event = events.beginEvents + i;
         if (!b2Shape_IsValid(event->sensorShapeId))
         {
-            ERROR("could not find sensor shape for begin touch event");
+            DEBUG_LOG("could not find sensor shape for begin touch event");
+            continue;
         }
         entity *s = (entity *)b2Shape_GetUserData(event->sensorShapeId);
         ASSERT(s != NULL);
@@ -955,7 +956,8 @@ void handleSensorEvents(env *e)
 
         if (!b2Shape_IsValid(event->visitorShapeId))
         {
-            ERROR("could not find visitor shape for begin touch event");
+            DEBUG_LOG("could not find visitor shape for begin touch event");
+            continue;
         }
         entity *v = (entity *)b2Shape_GetUserData(event->visitorShapeId);
         ASSERT(v != NULL);
@@ -968,7 +970,8 @@ void handleSensorEvents(env *e)
         const b2SensorEndTouchEvent *event = events.endEvents + i;
         if (!b2Shape_IsValid(event->sensorShapeId))
         {
-            ERROR("could not find sensor shape for end touch event");
+            DEBUG_LOG("could not find sensor shape for end touch event");
+            continue;
         }
         entity *s = (entity *)b2Shape_GetUserData(event->sensorShapeId);
         ASSERT(s != NULL);
@@ -976,7 +979,8 @@ void handleSensorEvents(env *e)
 
         if (!b2Shape_IsValid(event->visitorShapeId))
         {
-            ERROR("could not find visitor shape for end touch event");
+            DEBUG_LOG("could not find visitor shape for end touch event");
+            continue;
         }
         entity *v = (entity *)b2Shape_GetUserData(event->visitorShapeId);
         ASSERT(v != NULL);
