@@ -197,8 +197,7 @@ const mapEntry *maps[] = {
 };
 #endif
 
-void createMap(env *e, const int mapIdx)
-{
+void createMap(env *e, const int mapIdx) {
     const uint8_t columns = maps[mapIdx]->columns;
     const uint8_t rows = maps[mapIdx]->rows;
     const char *layout = maps[mapIdx]->layout;
@@ -207,10 +206,8 @@ void createMap(env *e, const int mapIdx)
     e->rows = rows;
     e->defaultWeapon = weaponInfos[maps[mapIdx]->defaultWeapon];
 
-    for (int row = 0; row < rows; row++)
-    {
-        for (int col = 0; col < columns; col++)
-        {
+    for (int row = 0; row < rows; row++) {
+        for (int col = 0; col < columns; col++) {
             char cellType = layout[col + (row * columns)];
             enum entityType wallType;
             float x = (col - (columns / 2.0f) + 0.5) * WALL_THICKNESS;
@@ -224,8 +221,7 @@ void createMap(env *e, const int mapIdx)
 
             bool floating = false;
             float thickness = WALL_THICKNESS;
-            switch (cellType)
-            {
+            switch (cellType) {
             case 'O':
                 continue;
             case 'w':
@@ -251,36 +247,29 @@ void createMap(env *e, const int mapIdx)
             }
 
             entity *ent = createWall(e, x, y, thickness, thickness, wallType, floating);
-            if (!floating)
-            {
+            if (!floating) {
                 cell->ent = ent;
             }
         }
     }
 }
 
-void placeRandFloatingWall(env *e, const enum entityType wallType)
-{
+void placeRandFloatingWall(env *e, const enum entityType wallType) {
     b2Vec2 pos;
-    if (!findOpenPos(e, FLOATING_WALL_SHAPE, &pos))
-    {
+    if (!findOpenPos(e, FLOATING_WALL_SHAPE, &pos)) {
         ERROR("failed to find open position for floating wall");
     }
     createWall(e, pos.x, pos.y, FLOATING_WALL_THICKNESS, FLOATING_WALL_THICKNESS, wallType, true);
 }
 
-void placeRandFloatingWalls(env *e, const int mapIdx)
-{
-    for (int i = 0; i < maps[mapIdx]->floatingStandardWalls; i++)
-    {
+void placeRandFloatingWalls(env *e, const int mapIdx) {
+    for (int i = 0; i < maps[mapIdx]->floatingStandardWalls; i++) {
         placeRandFloatingWall(e, STANDARD_WALL_ENTITY);
     }
-    for (int i = 0; i < maps[mapIdx]->floatingBouncyWalls; i++)
-    {
+    for (int i = 0; i < maps[mapIdx]->floatingBouncyWalls; i++) {
         placeRandFloatingWall(e, BOUNCY_WALL_ENTITY);
     }
-    for (int i = 0; i < maps[mapIdx]->floatingDeathWalls; i++)
-    {
+    for (int i = 0; i < maps[mapIdx]->floatingDeathWalls; i++) {
         placeRandFloatingWall(e, DEATH_WALL_ENTITY);
     }
 }

@@ -18,35 +18,29 @@
     struct tm *_timeinfo;     \
     _timeinfo = localtime(&_t)
 #define DEBUG_LOGF(fmt, args...)                                                                                             \
-    do                                                                                                                       \
-    {                                                                                                                        \
+    do {                                                                                                                     \
         _DEBUG_GET_TIMEINFO();                                                                                               \
         printf(fmt " %d:%d:%d %s:%d\n", args, _timeinfo->tm_hour, _timeinfo->tm_min, _timeinfo->tm_sec, __FILE__, __LINE__); \
         fflush(stdout);                                                                                                      \
     } while (0)
 #define DEBUG_LOG(msg)                                                                                                 \
-    do                                                                                                                 \
-    {                                                                                                                  \
+    do {                                                                                                               \
         _DEBUG_GET_TIMEINFO();                                                                                         \
         printf(msg " %d:%d:%d %s:%d\n", _timeinfo->tm_hour, _timeinfo->tm_min, _timeinfo->tm_sec, __FILE__, __LINE__); \
         fflush(stdout);                                                                                                \
     } while (0)
 
 #define ASSERT(condition)                                                                  \
-    do                                                                                     \
-    {                                                                                      \
-        if (!(condition))                                                                  \
-        {                                                                                  \
+    do {                                                                                   \
+        if (!(condition)) {                                                                \
             printf("\nASSERTION FAILED: %s at %s:%d\n\n", #condition, __FILE__, __LINE__); \
             fflush(stdout);                                                                \
             ON_ERROR;                                                                      \
         }                                                                                  \
     } while (0)
 #define ASSERTF(condition, fmt, args...)                                                                   \
-    do                                                                                                     \
-    {                                                                                                      \
-        if (!(condition))                                                                                  \
-        {                                                                                                  \
+    do {                                                                                                   \
+        if (!(condition)) {                                                                                \
             printf("\nASSERTION FAILED: %s; " fmt "; at %s:%d\n\n", #condition, args, __FILE__, __LINE__); \
             fflush(stdout);                                                                                \
             ON_ERROR;                                                                                      \
@@ -91,8 +85,7 @@
 
 #define ASSERT_VEC_NORMALIZED(vec)                                                                           \
     ASSERT_VEC_BOUNDED(vec);                                                                                 \
-    do                                                                                                       \
-    {                                                                                                        \
+    do {                                                                                                     \
         const b2Vec2 norm = b2Normalize(vec);                                                                \
         MAYBE_UNUSED(norm);                                                                                  \
         ASSERTF(fabs(vec.x - norm.x) < 0.000001f, "vec: %f, %f norm: %f, %f", vec.x, vec.y, norm.x, norm.y); \
@@ -114,8 +107,7 @@
 
 // automatically checks that the index is valid and returns the value
 // so callers can use it as a constant expression
-static inline void *safe_array_get_at(const CC_Array *const array, size_t index)
-{
+static inline void *safe_array_get_at(const CC_Array *const array, size_t index) {
     void *val;
     const enum cc_stat res = cc_array_get_at(array, index, &val);
     ASSERT(res == CC_OK);
@@ -123,16 +115,14 @@ static inline void *safe_array_get_at(const CC_Array *const array, size_t index)
     return val;
 }
 
-static inline bool b2VecEqual(const b2Vec2 v1, const b2Vec2 v2)
-{
+static inline bool b2VecEqual(const b2Vec2 v1, const b2Vec2 v2) {
     return v1.x == v2.x && v1.y == v2.y;
 }
 
 #ifndef AUTOPXD
 // from https://lemire.me/blog/2019/03/19/the-fastest-conventional-random-number-generator-that-can-pass-big-crush/
 // see also https://github.com/lemire/testingRNG
-uint64_t wyhash64(uint64_t *state)
-{
+uint64_t wyhash64(uint64_t *state) {
     *state += 0x60bee2bee120fc15;
     __uint128_t tmp;
     tmp = (__uint128_t)(*state) * 0xa3b195354a39b70d;
@@ -143,49 +133,40 @@ uint64_t wyhash64(uint64_t *state)
 }
 #endif
 
-static inline float randFloat(uint64_t *state, const float min, const float max)
-{
+static inline float randFloat(uint64_t *state, const float min, const float max) {
     float n = wyhash64(state) / (float)UINT64_MAX;
     return min + n * (max - min);
 }
 
-static inline int randInt(uint64_t *state, const int min, const int max)
-{
+static inline int randInt(uint64_t *state, const int min, const int max) {
     return min + wyhash64(state) % (max - min + 1);
 }
 
-static inline float logBasef(const float v, const float b)
-{
+static inline float logBasef(const float v, const float b) {
     return log2f(v) / log2(b);
 }
 
-static inline float clamp(float f)
-{
+static inline float clamp(float f) {
     return fminf(fmaxf(f, -1.0f), 1.0f);
 }
 
 // normalize value to be between 0 and max, and clamp to 0 and max;
 // minIsZero determines if the min value is 0 or -max
-static inline float scaleValue(const float v, const float max, const bool minIsZero)
-{
+static inline float scaleValue(const float v, const float max, const bool minIsZero) {
     ASSERTF(v <= max, "v: %f, max: %f", v, max);
     ASSERTF(!minIsZero || v >= 0, "v: %f", v);
     ASSERTF(minIsZero || v >= -max, "v: %f, -max: %f", v, -max);
 
     float scaled = 0.0f;
-    if (minIsZero)
-    {
+    if (minIsZero) {
         scaled = v / max;
-    }
-    else
-    {
+    } else {
         scaled = (v + max) / (max * 2.0f);
     }
     return fmaxf(fminf(scaled, max), 0.0f);
 }
 
-static inline uint8_t oneHotEncode(uint8_t *obs, const uint16_t offset, const uint8_t val, const uint8_t max)
-{
+static inline uint8_t oneHotEncode(uint8_t *obs, const uint16_t offset, const uint8_t val, const uint8_t max) {
     ASSERTF(val < max && val >= 0, "val: %d, max: %d", val, max);
     memset(obs + offset, 0x0, max * sizeof(uint8_t));
     obs[offset + val] = 1;
@@ -194,23 +175,19 @@ static inline uint8_t oneHotEncode(uint8_t *obs, const uint16_t offset, const ui
 
 #define BITNSLOTS(nb) ((nb + sizeof(uint8_t) - 1) / sizeof(uint8_t))
 
-static inline uint16_t bitMask(const uint16_t n)
-{
+static inline uint16_t bitMask(const uint16_t n) {
     return 1 << (n % sizeof(uint8_t));
 }
 
-static inline uint16_t bitSlot(const uint16_t n)
-{
+static inline uint16_t bitSlot(const uint16_t n) {
     return n / sizeof(uint8_t);
 }
 
-static inline void bitSet(uint8_t *b, const uint16_t n)
-{
+static inline void bitSet(uint8_t *b, const uint16_t n) {
     b[bitSlot(n)] |= bitMask(n);
 }
 
-static inline bool bitTest(const uint8_t *b, const uint16_t n)
-{
+static inline bool bitTest(const uint8_t *b, const uint16_t n) {
     return b[bitSlot(n)] & bitMask(n);
 }
 

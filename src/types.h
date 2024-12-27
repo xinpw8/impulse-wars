@@ -13,8 +13,7 @@
 
 const uint8_t NUM_WALL_TYPES = 3;
 
-enum entityType
-{
+enum entityType {
     STANDARD_WALL_ENTITY,
     BOUNCY_WALL_ENTITY,
     DEATH_WALL_ENTITY,
@@ -25,8 +24,7 @@ enum entityType
 
 // the category bit that will be set on each entity's shape; this is
 // used to control what entities can collide with each other
-enum shapeCategory
-{
+enum shapeCategory {
     WALL_SHAPE = 1,
     FLOATING_WALL_SHAPE = 2,
     PROJECTILE_SHAPE = 4,
@@ -35,8 +33,7 @@ enum shapeCategory
 };
 
 // general purpose entity object
-typedef struct entity
-{
+typedef struct entity {
     enum entityType type;
     void *entity;
 } entity;
@@ -44,8 +41,7 @@ typedef struct entity
 #define _NUM_WEAPONS 5
 const uint8_t NUM_WEAPONS = _NUM_WEAPONS;
 
-enum weaponType
-{
+enum weaponType {
     STANDARD_WEAPON,
     MACHINEGUN_WEAPON,
     SNIPER_WEAPON,
@@ -53,8 +49,7 @@ enum weaponType
     IMPLODER_WEAPON,
 };
 
-typedef struct mapEntry
-{
+typedef struct mapEntry {
     const char *layout;
     const uint8_t columns;
     const uint8_t rows;
@@ -66,26 +61,22 @@ typedef struct mapEntry
 } mapEntry;
 
 // a cell in the map; ent will be NULL if the cell is empty
-typedef struct mapCell
-{
+typedef struct mapCell {
     entity *ent;
     b2Vec2 pos;
 } mapCell;
 
-typedef struct mapBounds
-{
+typedef struct mapBounds {
     b2Vec2 min;
     b2Vec2 max;
 } mapBounds;
 
-typedef struct cachedPos
-{
+typedef struct cachedPos {
     b2Vec2 pos;
     bool valid;
 } cachedPos;
 
-typedef struct wallEntity
-{
+typedef struct wallEntity {
     b2BodyId bodyID;
     b2ShapeId shapeID;
     cachedPos pos;
@@ -94,8 +85,7 @@ typedef struct wallEntity
     enum entityType type;
 } wallEntity;
 
-typedef struct weaponInformation
-{
+typedef struct weaponInformation {
     const enum weaponType type;
     const bool isPhysicsBullet;
     const uint8_t numProjectiles;
@@ -108,8 +98,7 @@ typedef struct weaponInformation
     const uint8_t maxBounces;
 } weaponInformation;
 
-typedef struct weaponPickupEntity
-{
+typedef struct weaponPickupEntity {
     b2BodyId bodyID;
     b2ShapeId shapeID;
     enum weaponType weapon;
@@ -120,8 +109,7 @@ typedef struct weaponPickupEntity
 
 typedef struct droneEntity droneEntity;
 
-typedef struct projectileEntity
-{
+typedef struct projectileEntity {
     uint8_t droneIdx;
 
     b2BodyId bodyID;
@@ -133,14 +121,12 @@ typedef struct projectileEntity
     uint8_t bounces;
 } projectileEntity;
 
-typedef struct stepHitInfo
-{
+typedef struct stepHitInfo {
     bool shotHit[_MAX_DRONES];
     bool explosionHit[_MAX_DRONES];
 } stepHitInfo;
 
-typedef struct droneStats
-{
+typedef struct droneStats {
     float distanceTraveled;
     float absDistanceTraveled;
     float shotsFired[_NUM_WEAPONS];
@@ -151,8 +137,7 @@ typedef struct droneStats
     float shotDistances[_NUM_WEAPONS];
 } droneStats;
 
-typedef struct droneEntity
-{
+typedef struct droneEntity {
     b2BodyId bodyID;
     b2ShapeId shapeID;
     weaponInformation *weaponInfo;
@@ -173,23 +158,20 @@ typedef struct droneEntity
     bool dead;
 } droneEntity;
 
-typedef struct logEntry
-{
+typedef struct logEntry {
     float reward[_MAX_DRONES];
     float length;
     droneStats stats[_MAX_DRONES];
     uint8_t winner;
 } logEntry;
 
-typedef struct logBuffer
-{
+typedef struct logBuffer {
     logEntry *logs;
     uint16_t size;
     uint16_t capacity;
 } logBuffer;
 
-typedef struct rayClient
-{
+typedef struct rayClient {
     float scale;
     uint16_t width;
     uint16_t height;
@@ -197,8 +179,7 @@ typedef struct rayClient
     uint16_t halfHeight;
 } rayClient;
 
-typedef struct env
-{
+typedef struct env {
     uint8_t numDrones;
     uint8_t numAgents;
 

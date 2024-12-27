@@ -1,7 +1,6 @@
 #include "env.h"
 
-void perfTest(const float testTime)
-{
+void perfTest(const float testTime) {
     const uint8_t NUM_DRONES = 2;
 
     env *e = (env *)fastCalloc(1, sizeof(env));
@@ -15,11 +14,9 @@ void perfTest(const float testTime)
 
     const time_t start = time(NULL);
     int steps = 0;
-    while (time(NULL) - start < testTime)
-    {
+    while (time(NULL) - start < testTime) {
         uint8_t actionOffset = 0;
-        for (uint8_t i = 0; i < e->numDrones; i++)
-        {
+        for (uint8_t i = 0; i < e->numDrones; i++) {
             e->actions[actionOffset + 0] = randFloat(&e->randState, -1.0f, 1.0f);
             e->actions[actionOffset + 1] = randFloat(&e->randState, -1.0f, 1.0f);
             e->actions[actionOffset + 2] = randFloat(&e->randState, -1.0f, 1.0f);
@@ -47,8 +44,7 @@ void perfTest(const float testTime)
     fastFree(e);
 }
 
-int main(void)
-{
+int main(void) {
     perfTest(5.0f);
     return 0;
 }

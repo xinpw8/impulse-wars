@@ -4,25 +4,21 @@
 const float lStickDeadzone = 0.1f;
 const float rStickDeadzone = 0.1f;
 
-void getPlayerInputs(const env *e, const droneEntity *drone, const int gamepadIdx)
-{
+void getPlayerInputs(const env *e, const droneEntity *drone, const int gamepadIdx) {
     uint8_t offset = gamepadIdx * ACTION_SIZE;
-    if (IsGamepadAvailable(gamepadIdx))
-    {
+    if (IsGamepadAvailable(gamepadIdx)) {
         float lStickX = GetGamepadAxisMovement(gamepadIdx, GAMEPAD_AXIS_LEFT_X);
         float lStickY = GetGamepadAxisMovement(gamepadIdx, GAMEPAD_AXIS_LEFT_Y);
         float rStickX = GetGamepadAxisMovement(gamepadIdx, GAMEPAD_AXIS_RIGHT_X);
         float rStickY = GetGamepadAxisMovement(gamepadIdx, GAMEPAD_AXIS_RIGHT_Y);
 
         const float lStickMagnitude = sqrtf((lStickX * lStickX) + (lStickY * lStickY));
-        if (lStickMagnitude < lStickDeadzone)
-        {
+        if (lStickMagnitude < lStickDeadzone) {
             lStickX = 0.0f;
             lStickY = 0.0f;
         }
         const float rStickMagnitude = sqrtf((rStickX * rStickX) + (rStickY * rStickY));
-        if (rStickMagnitude < rStickDeadzone)
-        {
+        if (rStickMagnitude < rStickDeadzone) {
             rStickX = 0.0f;
             rStickY = 0.0f;
         }
@@ -30,8 +26,7 @@ void getPlayerInputs(const env *e, const droneEntity *drone, const int gamepadId
         const b2Vec2 aim = b2Normalize((b2Vec2){.x = rStickX, .y = rStickY});
 
         bool shoot = IsGamepadButtonDown(gamepadIdx, GAMEPAD_BUTTON_RIGHT_TRIGGER_2);
-        if (!shoot)
-        {
+        if (!shoot) {
             shoot = IsGamepadButtonDown(gamepadIdx, GAMEPAD_BUTTON_RIGHT_TRIGGER_1);
         }
 
@@ -43,26 +38,21 @@ void getPlayerInputs(const env *e, const droneEntity *drone, const int gamepadId
 
         return;
     }
-    if (gamepadIdx != 0)
-    {
+    if (gamepadIdx != 0) {
         return;
     }
 
     b2Vec2 move = b2Vec2_zero;
-    if (IsKeyDown(KEY_W))
-    {
+    if (IsKeyDown(KEY_W)) {
         move.y += -1.0f;
     }
-    if (IsKeyDown(KEY_S))
-    {
+    if (IsKeyDown(KEY_S)) {
         move.y += 1.0f;
     }
-    if (IsKeyDown(KEY_A))
-    {
+    if (IsKeyDown(KEY_A)) {
         move.x += -1.0f;
     }
-    if (IsKeyDown(KEY_D))
-    {
+    if (IsKeyDown(KEY_D)) {
         move.x += 1.0f;
     }
     move = b2Normalize(move);
@@ -72,8 +62,7 @@ void getPlayerInputs(const env *e, const droneEntity *drone, const int gamepadId
     const b2Vec2 aim = b2Normalize(b2Sub(rayVecToB2Vec(e->client, mousePos), dronePos));
 
     bool shoot = false;
-    if (IsMouseButtonDown(MOUSE_BUTTON_LEFT))
-    {
+    if (IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
         shoot = true;
     }
 
@@ -84,8 +73,7 @@ void getPlayerInputs(const env *e, const droneEntity *drone, const int gamepadId
     e->actions[offset++] = shoot;
 }
 
-int main(void)
-{
+int main(void) {
     const int NUM_DRONES = 2;
 
     env *e = (env *)fastCalloc(1, sizeof(env));
@@ -100,10 +88,8 @@ int main(void)
     rayClient *client = createRayClient();
     e->client = client;
 
-    while (true)
-    {
-        if (WindowShouldClose())
-        {
+    while (true) {
+        if (WindowShouldClose()) {
             destroyEnv(e);
             fastFree(obs);
             fastFree(actions);
@@ -115,8 +101,7 @@ int main(void)
             return 0;
         }
 
-        for (uint8_t i = 0; i < e->numDrones; i++)
-        {
+        for (uint8_t i = 0; i < e->numDrones; i++) {
             droneEntity *drone;
             cc_array_get_at(e->drones, i, (void **)&drone);
             getPlayerInputs(e, drone, i);
