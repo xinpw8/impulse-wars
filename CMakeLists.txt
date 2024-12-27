@@ -35,9 +35,9 @@ else()
 	add_compile_options("-flto" "-march=native" "-fno-math-errno")
 	# ensure the linker used is from the same compiler toolchain, or else
 	# link time optimization will probably fail
-	if(CMAKE_C_COMILER_ID MATCHES "Clang")
+	if(CMAKE_C_COMPILER_ID MATCHES "Clang")
 		add_link_options("-fuse-ld=lld")
-	elseif(CMAKE_C_COMILER_ID MATCHES "GNU")
+	elseif(CMAKE_C_COMPILER_ID MATCHES "GNU")
 		add_link_options("-fuse-ld=ld")
 	endif()
 endif()
@@ -149,8 +149,8 @@ if(DEFINED BUILD_PYTHON_MODULE)
 	python_add_library(cy_impulse_wars MODULE impulse_wars.c WITH_SOABI)
 
 	configure_target(cy_impulse_wars)
-	# disable warnings for generated Cython source file
-	set_source_files_properties(impulse_wars.c PROPERTIES COMPILE_FLAGS "-w")
+	# disable false positive warnings for generated Cython source file
+	set_source_files_properties(impulse_wars.c PROPERTIES COMPILE_FLAGS "-Wno-strict-prototypes")
 
 	install(TARGETS cy_impulse_wars DESTINATION .)
 elseif(DEFINED BUILD_DEMO)
