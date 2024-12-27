@@ -82,13 +82,20 @@ logEntry aggregateAndClearLogBuffer(uint8_t numDrones, logBuffer *logs)
 }
 
 // TODO: can posToCellIdx be replaced with this?
-static inline uint16_t entityPosToCellIdx(const env *e, const b2Vec2 pos)
+static inline int16_t entityPosToCellIdx(const env *e, const b2Vec2 pos)
 {
-    float cellX = pos.x + (((float)e->columns * WALL_THICKNESS) / 2.0f);
-    float cellY = pos.y + (((float)e->rows * WALL_THICKNESS) / 2.0f);
-    uint16_t cellCol = cellX / WALL_THICKNESS;
-    uint16_t cellRow = cellY / WALL_THICKNESS;
-    return cellCol + (cellRow * e->columns);
+    const float cellX = pos.x + (((float)e->columns * WALL_THICKNESS) / 2.0f);
+    const float cellY = pos.y + (((float)e->rows * WALL_THICKNESS) / 2.0f);
+    const int16_t cellCol = cellX / WALL_THICKNESS;
+    const int16_t cellRow = cellY / WALL_THICKNESS;
+    const int16_t cell = cellCol + (cellRow * e->columns);
+    // set the cell to -1 if it's out of bounds
+    // TODO: this is a box2d issue, investigate more
+    if (cell < 0 || cell >= cc_array_size(e->cells))
+    {
+        return -1;
+    }
+    return cell;
 }
 
 void computeObs(env *e)
@@ -101,6 +108,7 @@ void computeObs(env *e)
         const uint16_t obsStart = offset;
 
         // compute map wall observations
+        // TODO: needs to be padded for smaller maps then max size
         for (size_t i = 0; i < cc_array_size(e->cells); i++)
         {
             const mapCell *cell = safe_array_get_at(e->cells, i);
@@ -136,18 +144,26 @@ void computeObs(env *e)
         for (SNode *cur = e->projectiles->head; cur != NULL; cur = cur->next)
         {
             const projectileEntity *projectile = (projectileEntity *)cur->data;
-            const uint16_t cellIdx = entityPosToCellIdx(e, projectile->lastPos);
+            const int16_t cellIdx = entityPosToCellIdx(e, projectile->lastPos);
+            if (cellIdx == -1)
+            {
+                continue;
+            }
             const uint8_t projWeapon = projectile->weaponInfo->type + 1;
             ASSERT(projWeapon <= NUM_WEAPONS + 1);
             const uint16_t offset = obsStart + (cellIdx * MAP_CELL_OBS_SIZE) + PROJECTILE_OBS_OFFSET;
-            ASSERT(offset <= OBS_SIZE * (agent + 1));
+            ASSERTF(offset <= OBS_SIZE * (agent + 1), "offset: %d, max offset: %d, last pos: %f %f", offset, OBS_SIZE * (agent + 1), projectile->lastPos.x, projectile->lastPos.y);
             e->obs[offset] = projWeapon;
         }
         // compute floating wall observations
         for (size_t i = 0; i < cc_array_size(e->floatingWalls); i++)
         {
             const wallEntity *wall = safe_array_get_at(e->floatingWalls, i);
-            const uint16_t cellIdx = entityPosToCellIdx(e, wall->pos.pos);
+            const int16_t cellIdx = entityPosToCellIdx(e, wall->pos.pos);
+            if (cellIdx == -1)
+            {
+                continue;
+            }
             const uint8_t wallType = wall->type + 1;
             ASSERT(wallType <= NUM_WALL_TYPES + 1);
             const uint16_t offset = obsStart + (cellIdx * MAP_CELL_OBS_SIZE) + FLOATING_WALL_OBS_OFFSET;
@@ -158,7 +174,11 @@ void computeObs(env *e)
         for (uint8_t i = 0; i < e->numDrones; i++)
         {
             const droneEntity *drone = safe_array_get_at(e->drones, i);
-            const uint16_t cellIdx = entityPosToCellIdx(e, drone->pos.pos);
+            const int16_t cellIdx = entityPosToCellIdx(e, drone->pos.pos);
+            if (cellIdx == -1)
+            {
+                continue;
+            }
             const uint8_t droneWeapon = drone->weaponInfo->type + 1;
             ASSERT(droneWeapon <= NUM_WEAPONS + 1);
             const uint16_t offset = obsStart + (cellIdx * MAP_CELL_OBS_SIZE) + DRONE_OBS_OFFSET;

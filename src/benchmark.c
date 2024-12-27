@@ -3,16 +3,15 @@
 void perfTest(const float testTime)
 {
     const uint8_t NUM_DRONES = 2;
-    const observationInfo obsInfo = calculateObservationInfo(NUM_DRONES);
 
     env *e = (env *)fastCalloc(1, sizeof(env));
-    float *obs = (float *)fastCalloc(NUM_DRONES * obsInfo.obsSize, sizeof(float));
+    uint8_t *obs = (uint8_t *)fastCalloc(NUM_DRONES * OBS_SIZE, sizeof(uint8_t));
     float *rewards = (float *)fastCalloc(NUM_DRONES, sizeof(float));
     float *actions = (float *)fastCalloc(NUM_DRONES * ACTION_SIZE, sizeof(float));
     unsigned char *terminals = (unsigned char *)fastCalloc(NUM_DRONES, sizeof(bool));
     logBuffer *logs = createLogBuffer(1);
 
-    initEnv(e, 2, 2, obs, actions, rewards, terminals, logs, 0);
+    initEnv(e, NUM_DRONES, NUM_DRONES, obs, actions, rewards, terminals, logs, 0);
 
     const time_t start = time(NULL);
     int steps = 0;
@@ -50,6 +49,6 @@ void perfTest(const float testTime)
 
 int main(void)
 {
-    perfTest(10.0f);
+    perfTest(5.0f);
     return 0;
 }
