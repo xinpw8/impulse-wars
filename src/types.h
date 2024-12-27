@@ -127,6 +127,7 @@ typedef struct stepHitInfo {
 } stepHitInfo;
 
 typedef struct droneStats {
+    float reward;
     float distanceTraveled;
     float absDistanceTraveled;
     float shotsFired[_NUM_WEAPONS];
@@ -135,6 +136,7 @@ typedef struct droneStats {
     float ownShotsTaken[_NUM_WEAPONS];
     float weaponsPickedUp[_NUM_WEAPONS];
     float shotDistances[_NUM_WEAPONS];
+    float wins;
 } droneStats;
 
 typedef struct droneEntity {
@@ -159,10 +161,8 @@ typedef struct droneEntity {
 } droneEntity;
 
 typedef struct logEntry {
-    float reward[_MAX_DRONES];
     float length;
     droneStats stats[_MAX_DRONES];
-    uint8_t winner;
 } logEntry;
 
 typedef struct logBuffer {
@@ -191,7 +191,6 @@ typedef struct env {
     uint64_t randState;
     bool needsReset;
 
-    float episodeReward[_MAX_DRONES];
     uint16_t episodeLength;
     logBuffer *logs;
     droneStats stats[_MAX_DRONES];

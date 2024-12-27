@@ -50,10 +50,10 @@ logEntry aggregateAndClearLogBuffer(uint8_t numDrones, logBuffer *logs) {
     const float logSize = logs->size;
     for (uint16_t i = 0; i < logs->size; i++) {
         log.length += logs->logs[i].length / logSize;
-        log.winner += logs->logs[i].winner / logSize;
 
         for (uint8_t j = 0; j < numDrones; j++) {
-            log.reward[j] += logs->logs[i].reward[j] / logSize;
+            log.stats[j].reward += logs->logs[i].stats[j].reward / logSize;
+            log.stats[j].wins += logs->logs[i].stats[j].wins / logSize;
 
             for (uint8_t k = 0; k < NUM_WEAPONS; k++) {
                 log.stats[j].distanceTraveled += logs->logs[i].stats[j].distanceTraveled / logSize;
@@ -242,7 +242,6 @@ void clearEnv(env *e) {
     // rewards get cleared in stepEnv every step
     memset(e->terminals, 0x0, e->numAgents * sizeof(uint8_t));
 
-    memset(e->episodeReward, 0x0, e->numAgents * sizeof(float));
     e->episodeLength = 0;
     memset(e->stats, 0x0, sizeof(e->stats));
 
@@ -299,18 +298,19 @@ void resetEnv(env *e) {
     setupEnv(e);
 }
 
-void computeShotHitReward(env *e, const droneEntity *drone, const uint8_t enemyIdx) {
+float computeShotHitReward(env *e, const uint8_t enemyIdx) {
     // compute reward based off of how much the projectile(s) or explosion(s)
     // caused the enemy drone to change velocity
     const droneEntity *enemyDrone = safe_array_get_at(e->drones, enemyIdx);
     const float prevEnemySpeed = b2Length(enemyDrone->lastVelocity);
     const float curEnemySpeed = b2Length(b2Body_GetLinearVelocity(enemyDrone->bodyID));
-    e->rewards[drone->idx] += scaleValue(fabsf(curEnemySpeed - prevEnemySpeed), MAX_SPEED, true) * SHOT_HIT_REWARD_COEF;
+    return scaleValue(fabsf(curEnemySpeed - prevEnemySpeed), MAX_SPEED, true) * SHOT_HIT_REWARD_COEF;
 }
 
-void computeReward(env *e, const droneEntity *drone) {
+float computeReward(env *e, const droneEntity *drone) {
+    float reward = 0.0f;
     if (drone->dead) {
-        e->rewards[drone->idx] += DEATH_REWARD;
+        reward += DEATH_REWARD;
     }
     // TODO: compute kill reward
     for (uint8_t i = 0; i < e->numDrones; i++) {
@@ -318,26 +318,34 @@ void computeReward(env *e, const droneEntity *drone) {
             continue;
         }
         if (drone->hitInfo.shotHit[i]) {
-            computeShotHitReward(e, drone, i);
+            reward += computeShotHitReward(e, i);
         }
         if (drone->hitInfo.explosionHit[i]) {
-            computeShotHitReward(e, drone, i);
+            reward += computeShotHitReward(e, i);
         }
     }
+
+    return reward;
 }
 
 void computeRewards(env *e, const bool roundOver, const uint8_t winner) {
     if (roundOver) {
-        e->rewards[winner] += WIN_REWARD;
+        if (winner < e->numAgents) {
+            e->rewards[winner] += WIN_REWARD;
+        }
+        e->stats[winner].reward += WIN_REWARD;
     }
 
-    for (int i = 0; i < e->numAgents; i++) {
+    for (int i = 0; i < e->numDrones; i++) {
         const droneEntity *drone = safe_array_get_at(e->drones, i);
-        computeReward(e, drone);
-        e->episodeReward[i] += e->rewards[i];
+        const float reward = computeReward(e, drone);
+        if (i < e->numAgents) {
+            e->rewards[i] += reward;
+        }
+        e->stats[i].reward += reward;
 
-        if (e->rewards[i] != 0.0f) {
-            DEBUG_LOGF("reward[%d]: %f", i, e->rewards[i]);
+        if (reward != 0.0f) {
+            DEBUG_LOGF("reward[%d]: %f", i, reward);
         }
     }
 }
@@ -436,8 +444,10 @@ void stepEnv(env *e) {
         }
 
         if (roundOver) {
+            e->stats[lastAlive].wins = 1.0f;
+
             // set absolute distance traveled of agent drones
-            for (uint8_t i = 0; i < e->numAgents; i++) {
+            for (uint8_t i = 0; i < e->numDrones; i++) {
                 const droneEntity *drone = safe_array_get_at(e->drones, i);
                 e->stats[i].absDistanceTraveled = b2Distance(drone->initalPos, drone->pos.pos);
             }
@@ -449,7 +459,6 @@ void stepEnv(env *e) {
             }
 
             logEntry log = {0};
-            memcpy(log.reward, e->episodeReward, sizeof(e->episodeReward));
             log.length = e->episodeLength;
             memcpy(log.stats, e->stats, sizeof(e->stats));
             addLogEntry(e->logs, &log);
