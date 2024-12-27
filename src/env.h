@@ -128,8 +128,8 @@ void computeObs(env *e)
                 offset += MAP_CELL_OBS_SIZE;
             }
 
-            ASSERT(i < MAX_MAP_COLUMNS * MAX_MAP_ROWS);
-            ASSERT(offset <= MAP_OBS_SIZE * (agent + 1));
+            ASSERT(i <= MAX_MAP_COLUMNS * MAX_MAP_ROWS);
+            ASSERT(offset <= (OBS_SIZE * agent) + MAP_OBS_SIZE);
         }
 
         // compute projectile observations
@@ -205,7 +205,7 @@ void setupEnv(env *e)
     e->suddenDeathWallCounter = 0;
 
     DEBUG_LOG("creating map");
-    const int mapIdx = 1; // randInt(&e->randState, 0, NUM_MAPS - 1);
+    const int mapIdx = 0; // randInt(&e->randState, 0, NUM_MAPS - 1);
     createMap(e, mapIdx);
 
     mapBounds bounds = {.min = {.x = FLT_MAX, .y = FLT_MAX}, .max = {.x = FLT_MIN, .y = FLT_MIN}};
