@@ -7,6 +7,8 @@ project(
 	LANGUAGES C
 )
 
+message(INFO " C Compiler: ${CMAKE_C_COMPILER} ${CMAKE_C_COMPILER_VERSION}")
+
 find_program(CCACHE_FOUND "ccache")
 if(CCACHE_FOUND)
 	set(CMAKE_C_COMPILER_LAUNCHER "ccache")
@@ -48,10 +50,7 @@ set(FETCHCONTENT_QUIET FALSE)
 # fetch and configure dependencies
 FetchContent_Declare(
 	raylib
-	GIT_REPOSITORY https://github.com/raysan5/raylib.git
-	GIT_TAG c1ab645ca298a2801097931d1079b10ff7eb9df8 # 5.5
-	GIT_SHALLOW TRUE
-	GIT_PROGRESS TRUE
+	URL https://github.com/raysan5/raylib/archive/c1ab645ca298a2801097931d1079b10ff7eb9df8.zip # 5.5
 )
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "Statically link raylib" FORCE)
 set(WITH_PIC "Compile static library as position-independent code" ON)
@@ -64,10 +63,7 @@ FetchContent_MakeAvailable(raylib)
 # maybe due to install prefix schenanigans?
 FetchContent_Declare(
 	box2d
-	GIT_REPOSITORY https://github.com/capnspacehook/box2d.git
-	GIT_TAG main
-	GIT_SHALLOW TRUE
-	GIT_PROGRESS TRUE
+	URL https://github.com/capnspacehook/box2d/archive/refs/heads/main.zip
 )
 FetchContent_MakeAvailable(box2d)
 
