@@ -72,21 +72,6 @@ logEntry aggregateAndClearLogBuffer(uint8_t numDrones, logBuffer *logs) {
     return log;
 }
 
-// TODO: can posToCellIdx be replaced with this?
-static inline int16_t entityPosToCellIdx(const env *e, const b2Vec2 pos) {
-    const float cellX = pos.x + (((float)e->columns * WALL_THICKNESS) / 2.0f);
-    const float cellY = pos.y + (((float)e->rows * WALL_THICKNESS) / 2.0f);
-    const int16_t cellCol = cellX / WALL_THICKNESS;
-    const int16_t cellRow = cellY / WALL_THICKNESS;
-    const int16_t cell = cellCol + (cellRow * e->columns);
-    // set the cell to -1 if it's out of bounds
-    // TODO: this is a box2d issue, investigate more
-    if (cell < 0 || cell >= cc_array_size(e->cells)) {
-        return -1;
-    }
-    return cell;
-}
-
 void computeObs(env *e) {
     memset(e->obs, 0x0, OBS_SIZE * e->numAgents * sizeof(uint8_t));
 
