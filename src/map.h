@@ -41,7 +41,7 @@ const mapEntry boringMap = {
     .floatingStandardWalls = 0,
     .floatingBouncyWalls = 0,
     .floatingDeathWalls = 0,
-    .weaponPickups = 4,
+    .weaponPickups = 8,
     .defaultWeapon = STANDARD_WEAPON,
 };
 

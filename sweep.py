@@ -8,6 +8,7 @@ import time
 from rich.console import Console
 
 from carbs import CARBS, CARBSParams, LinearSpace, LogitSpace, LogSpace, Param, WandbLoggingParams
+import numpy as np
 import wandb
 from wandb_carbs import WandbCarbs, create_sweep
 
@@ -38,15 +39,13 @@ def sweep(args, train):
     params = [
         Param(
             name="total_timesteps",
-            space=LinearSpace(
-                min=50_000_000, scale=150_000_000, rounding_factor=10_000_000, is_integer=True
-            ),
+            space=LinearSpace(min=50_000_000, scale=150_000_000, rounding_factor=10_000_000, is_integer=True),
             search_center=100_000_000,
         ),
         # hyperparams
         Param(name="ent_coef", space=LogSpace(scale=1.0), search_center=0.0005),
-        Param(name="gae_lambda", space=LogitSpace(min=0.0, max=1.0), search_center=0.90),
-        Param(name="gamma", space=LogitSpace(min=0.0, max=1.0), search_center=0.95),
+        Param(name="gae_lambda", space=LogitSpace(min=0.0, max=1.0), search_center=0.95),
+        Param(name="gamma", space=LogitSpace(min=0.0, max=1.0), search_center=0.99),
         Param(name="learning_rate", space=LogSpace(scale=1.0), search_center=0.0001),
     ]
 
@@ -89,7 +88,6 @@ def trainWithSuggestion(args, params, train):
             max_suggestion_cost=1800,  # 30m
             num_random_samples=2 * len(params),
             initial_search_radius=0.5,
-            num_candidates_for_suggestion_per_dim=100,
             wandb_params=WandbLoggingParams(root_dir="wandb"),
         )
         carbs = CARBS(config=config, params=params)
@@ -118,7 +116,12 @@ def trainWithSuggestion(args, params, train):
         wandb.finish()
         return
 
+    if stats is None:
+        wandb.finish()
+        return
+
     totalTime = time.time() - startTime
-    obj = stats["drone_0_shots_hit"] + stats["drone_1_shots_hit"]
+
+    obj = np.mean([s["drone_0_wins"] for s in stats])
     wandbCarbs.record_observation(objective=obj, cost=totalTime)
     wandb.finish()

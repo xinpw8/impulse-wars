@@ -113,6 +113,13 @@ void computeObs(env *e) {
             if (cellIdx == -1) {
                 continue;
             }
+            // don't add the projectile to the obs if it somehow
+            // overlaps with a static wall
+            const mapCell *cell = safe_array_get_at(e->cells, cellIdx);
+            if (cell->ent != NULL && entityTypeIsWall(cell->ent->type)) {
+                continue;
+            }
+
             const uint8_t projWeapon = projectile->weaponInfo->type + 1;
             ASSERT(projWeapon <= NUM_WEAPONS + 1);
             const uint16_t offset = obsStart + (cellIdx * MAP_CELL_OBS_SIZE) + PROJECTILE_OBS_OFFSET;
@@ -126,6 +133,13 @@ void computeObs(env *e) {
             if (cellIdx == -1) {
                 continue;
             }
+            // don't add the floating wall to the obs if it somehow
+            // overlaps with a static wall
+            const mapCell *cell = safe_array_get_at(e->cells, cellIdx);
+            if (cell->ent != NULL && entityTypeIsWall(cell->ent->type)) {
+                continue;
+            }
+
             const uint8_t wallType = wall->type + 1;
             ASSERT(wallType <= NUM_WALL_TYPES + 1);
             const uint16_t offset = obsStart + (cellIdx * MAP_CELL_OBS_SIZE) + FLOATING_WALL_OBS_OFFSET;
@@ -139,6 +153,13 @@ void computeObs(env *e) {
             if (cellIdx == -1) {
                 continue;
             }
+            // don't add the drone to the obs if it somehow
+            // overlaps with a static wall
+            const mapCell *cell = safe_array_get_at(e->cells, cellIdx);
+            if (cell->ent != NULL && entityTypeIsWall(cell->ent->type)) {
+                continue;
+            }
+
             const uint8_t droneWeapon = drone->weaponInfo->type + 1;
             ASSERT(droneWeapon <= NUM_WEAPONS + 1);
             const uint16_t offset = obsStart + (cellIdx * MAP_CELL_OBS_SIZE) + DRONE_OBS_OFFSET;
@@ -167,7 +188,7 @@ void computeObs(env *e) {
         e->obs[offset++] = scaledAmmo * 255;
         e->obs[offset++] = scaleValue(activeDrone->weaponCooldown, activeDrone->weaponInfo->coolDown, true) * 255;
         e->obs[offset++] = scaleValue(activeDrone->charge, weaponCharge(activeDrone->weaponInfo->type), true) * 255;
-        oneHotEncode(e->obs, offset, activeDrone->weaponInfo->type + 1, NUM_WEAPONS + 1);
+        oneHotEncode(e->obs, offset, activeDrone->weaponInfo->type, NUM_WEAPONS);
     }
 }
 
