@@ -1,6 +1,7 @@
 from pdb import set_trace as T
 import argparse
 import os
+import random
 
 import numpy as np
 import pufferlib
@@ -104,7 +105,6 @@ def eval_policy(env: pufferlib.PufferEnv, policy, device, data=None, bestEval: f
                 actions, _, _, _ = policy(ob)
 
             action = actions.cpu().numpy().reshape(env.action_space.shape)
-            action = np.clip(action, env.single_action_space.low[0], env.single_action_space.high[0])
 
         ob, reward, done, trunc, info = env.step(action)
         totalReward += reward
@@ -160,7 +160,7 @@ if __name__ == "__main__":
     parser.add_argument("--train.ent-coef", type=float, default=0.0005)
     parser.add_argument("--train.gae-lambda", type=float, default=0.90)
     parser.add_argument("--train.gamma", type=float, default=0.99)
-    parser.add_argument("--train.learning-rate", type=float, default=0.0003)
+    parser.add_argument("--train.learning-rate", type=float, default=0.003)
     parser.add_argument("--train.anneal-lr", action="store_true")
     parser.add_argument("--train.max-grad-norm", type=float, default=0.5)
     parser.add_argument("--train.minibatch-size", type=int, default=32_768)
@@ -197,7 +197,13 @@ if __name__ == "__main__":
     args.train.env = "impulse_wars"
 
     if args.train.seed == -1:
-        args.train.seed = np.random.randint(2**32 - 1, dtype="int64").item()
+        args.train.seed = np.random.randint(2**32 - 1, dtype=np.uint64).item()
+    random.seed(args.train.seed)
+    np.random.seed(args.train.seed)
+    th.manual_seed(args.train.seed)
+    th.backends.cudnn.deterministic = True
+    th.backends.cudnn.benchmark = False
+    print(f"Seed: {args.train.seed}")
 
     if args.mode == "train":
         try:
