@@ -18,8 +18,7 @@ rayClient *createRayClient();
 void destroyRayClient(rayClient *client);
 #endif
 
-logBuffer *createLogBuffer(uint16_t capacity)
-{
+logBuffer *createLogBuffer(uint16_t capacity) {
     logBuffer *logs = (logBuffer *)fastCalloc(1, sizeof(logBuffer));
     logs->logs = (logEntry *)fastCalloc(capacity, sizeof(logEntry));
     logs->size = 0;
@@ -27,44 +26,36 @@ logBuffer *createLogBuffer(uint16_t capacity)
     return logs;
 }
 
-void destroyLogBuffer(logBuffer *buffer)
-{
+void destroyLogBuffer(logBuffer *buffer) {
     fastFree(buffer->logs);
     fastFree(buffer);
 }
 
-void addLogEntry(logBuffer *logs, logEntry *log)
-{
-    if (logs->size == logs->capacity)
-    {
+void addLogEntry(logBuffer *logs, logEntry *log) {
+    if (logs->size == logs->capacity) {
         return;
     }
     logs->logs[logs->size] = *log;
     logs->size += 1;
 }
 
-logEntry aggregateAndClearLogBuffer(uint8_t numDrones, logBuffer *logs)
-{
+logEntry aggregateAndClearLogBuffer(uint8_t numDrones, logBuffer *logs) {
     logEntry log = {0};
-    if (logs->size == 0)
-    {
+    if (logs->size == 0) {
         return log;
     }
 
     DEBUG_LOGF("aggregating logs, size: %d", logs->size);
 
     const float logSize = logs->size;
-    for (uint16_t i = 0; i < logs->size; i++)
-    {
+    for (uint16_t i = 0; i < logs->size; i++) {
         log.length += logs->logs[i].length / logSize;
         log.winner += logs->logs[i].winner / logSize;
 
-        for (uint8_t j = 0; j < numDrones; j++)
-        {
+        for (uint8_t j = 0; j < numDrones; j++) {
             log.reward[j] += logs->logs[i].reward[j] / logSize;
 
-            for (uint8_t k = 0; k < NUM_WEAPONS; k++)
-            {
+            for (uint8_t k = 0; k < NUM_WEAPONS; k++) {
                 log.stats[j].distanceTraveled += logs->logs[i].stats[j].distanceTraveled / logSize;
                 log.stats[j].absDistanceTraveled += logs->logs[i].stats[j].absDistanceTraveled / logSize;
                 log.stats[j].shotsFired[k] += logs->logs[i].stats[j].shotsFired[k] / logSize;
@@ -82,72 +73,74 @@ logEntry aggregateAndClearLogBuffer(uint8_t numDrones, logBuffer *logs)
 }
 
 // TODO: can posToCellIdx be replaced with this?
-static inline uint16_t entityPosToCellIdx(const env *e, const b2Vec2 pos)
-{
-    float cellX = pos.x + (((float)e->columns * WALL_THICKNESS) / 2.0f);
-    float cellY = pos.y + (((float)e->rows * WALL_THICKNESS) / 2.0f);
-    uint16_t cellCol = cellX / WALL_THICKNESS;
-    uint16_t cellRow = cellY / WALL_THICKNESS;
-    return cellCol + (cellRow * e->columns);
+static inline int16_t entityPosToCellIdx(const env *e, const b2Vec2 pos) {
+    const float cellX = pos.x + (((float)e->columns * WALL_THICKNESS) / 2.0f);
+    const float cellY = pos.y + (((float)e->rows * WALL_THICKNESS) / 2.0f);
+    const int16_t cellCol = cellX / WALL_THICKNESS;
+    const int16_t cellRow = cellY / WALL_THICKNESS;
+    const int16_t cell = cellCol + (cellRow * e->columns);
+    // set the cell to -1 if it's out of bounds
+    // TODO: this is a box2d issue, investigate more
+    if (cell < 0 || cell >= cc_array_size(e->cells)) {
+        return -1;
+    }
+    return cell;
 }
 
-void computeObs(env *e)
-{
+void computeObs(env *e) {
     memset(e->obs, 0x0, OBS_SIZE * e->numAgents * sizeof(uint8_t));
 
-    for (uint8_t agent = 0; agent < e->numAgents; agent++)
-    {
+    for (uint8_t agent = 0; agent < e->numAgents; agent++) {
         uint16_t offset = OBS_SIZE * agent;
         const uint16_t obsStart = offset;
 
         // compute map wall observations
-        for (size_t i = 0; i < cc_array_size(e->cells); i++)
-        {
+        // TODO: needs to be padded for smaller maps then max size
+        for (size_t i = 0; i < cc_array_size(e->cells); i++) {
             const mapCell *cell = safe_array_get_at(e->cells, i);
 
-            if (cell->ent != NULL)
-            {
+            if (cell->ent != NULL) {
                 uint8_t wallType = 0;
-                if (entityTypeIsWall(cell->ent->type))
-                {
+                if (entityTypeIsWall(cell->ent->type)) {
                     wallType = cell->ent->type + 1;
                 }
                 e->obs[offset++] = wallType;
 
                 uint8_t pickupWeaponType = 0;
-                if (cell->ent->type == WEAPON_PICKUP_ENTITY)
-                {
+                if (cell->ent->type == WEAPON_PICKUP_ENTITY) {
                     weaponPickupEntity *pickup = (weaponPickupEntity *)cell->ent->entity;
                     pickupWeaponType = pickup->weapon + 1;
                 }
                 e->obs[offset++] = pickupWeaponType;
                 offset += MAP_CELL_OBS_SIZE - 2;
-            }
-            else
-            {
+            } else {
                 offset += MAP_CELL_OBS_SIZE;
             }
 
-            ASSERT(i < MAX_MAP_COLUMNS * MAX_MAP_ROWS);
-            ASSERT(offset <= MAP_OBS_SIZE * (agent + 1));
+            ASSERT(i <= MAX_MAP_COLUMNS * MAX_MAP_ROWS);
+            ASSERT(offset <= (OBS_SIZE * agent) + MAP_OBS_SIZE);
         }
 
         // compute projectile observations
-        for (SNode *cur = e->projectiles->head; cur != NULL; cur = cur->next)
-        {
+        for (SNode *cur = e->projectiles->head; cur != NULL; cur = cur->next) {
             const projectileEntity *projectile = (projectileEntity *)cur->data;
-            const uint16_t cellIdx = entityPosToCellIdx(e, projectile->lastPos);
+            const int16_t cellIdx = entityPosToCellIdx(e, projectile->lastPos);
+            if (cellIdx == -1) {
+                continue;
+            }
             const uint8_t projWeapon = projectile->weaponInfo->type + 1;
             ASSERT(projWeapon <= NUM_WEAPONS + 1);
             const uint16_t offset = obsStart + (cellIdx * MAP_CELL_OBS_SIZE) + PROJECTILE_OBS_OFFSET;
-            ASSERT(offset <= OBS_SIZE * (agent + 1));
+            ASSERTF(offset <= OBS_SIZE * (agent + 1), "offset: %d, max offset: %d, last pos: %f %f", offset, OBS_SIZE * (agent + 1), projectile->lastPos.x, projectile->lastPos.y);
             e->obs[offset] = projWeapon;
         }
         // compute floating wall observations
-        for (size_t i = 0; i < cc_array_size(e->floatingWalls); i++)
-        {
+        for (size_t i = 0; i < cc_array_size(e->floatingWalls); i++) {
             const wallEntity *wall = safe_array_get_at(e->floatingWalls, i);
-            const uint16_t cellIdx = entityPosToCellIdx(e, wall->pos.pos);
+            const int16_t cellIdx = entityPosToCellIdx(e, wall->pos.pos);
+            if (cellIdx == -1) {
+                continue;
+            }
             const uint8_t wallType = wall->type + 1;
             ASSERT(wallType <= NUM_WALL_TYPES + 1);
             const uint16_t offset = obsStart + (cellIdx * MAP_CELL_OBS_SIZE) + FLOATING_WALL_OBS_OFFSET;
@@ -155,10 +148,12 @@ void computeObs(env *e)
             e->obs[offset] = wallType;
         }
         // compute drone observations
-        for (uint8_t i = 0; i < e->numDrones; i++)
-        {
+        for (uint8_t i = 0; i < e->numDrones; i++) {
             const droneEntity *drone = safe_array_get_at(e->drones, i);
-            const uint16_t cellIdx = entityPosToCellIdx(e, drone->pos.pos);
+            const int16_t cellIdx = entityPosToCellIdx(e, drone->pos.pos);
+            if (cellIdx == -1) {
+                continue;
+            }
             const uint8_t droneWeapon = drone->weaponInfo->type + 1;
             ASSERT(droneWeapon <= NUM_WEAPONS + 1);
             const uint16_t offset = obsStart + (cellIdx * MAP_CELL_OBS_SIZE) + DRONE_OBS_OFFSET;
@@ -174,8 +169,7 @@ void computeObs(env *e)
 
         int8_t maxAmmo = weaponAmmo(e->defaultWeapon->type, activeDrone->weaponInfo->type);
         uint8_t scaledAmmo = 0;
-        if (activeDrone->ammo != INFINITE)
-        {
+        if (activeDrone->ammo != INFINITE) {
             scaledAmmo = scaleValue(activeDrone->ammo, maxAmmo, true);
         }
 
@@ -192,9 +186,7 @@ void computeObs(env *e)
     }
 }
 
-
-void setupEnv(env *e)
-{
+void setupEnv(env *e) {
     e->needsReset = false;
 
     b2WorldDef worldDef = b2DefaultWorldDef();
@@ -206,12 +198,11 @@ void setupEnv(env *e)
     e->suddenDeathWallCounter = 0;
 
     DEBUG_LOG("creating map");
-    const int mapIdx = 1; // randInt(&e->randState, 0, NUM_MAPS - 1);
+    const int mapIdx = 0; // randInt(&e->randState, 0, NUM_MAPS - 1);
     createMap(e, mapIdx);
 
     mapBounds bounds = {.min = {.x = FLT_MAX, .y = FLT_MAX}, .max = {.x = FLT_MIN, .y = FLT_MIN}};
-    for (size_t i = 0; i < cc_array_size(e->walls); i++)
-    {
+    for (size_t i = 0; i < cc_array_size(e->walls); i++) {
         const wallEntity *wall = safe_array_get_at(e->walls, i);
         bounds.min.x = fminf(wall->pos.pos.x - wall->extent.x + WALL_THICKNESS, bounds.min.x);
         bounds.min.y = fminf(wall->pos.pos.y - wall->extent.y + WALL_THICKNESS, bounds.min.y);
@@ -221,8 +212,7 @@ void setupEnv(env *e)
     e->bounds = bounds;
 
     DEBUG_LOG("creating drones");
-    for (int i = 0; i < e->numDrones; i++)
-    {
+    for (int i = 0; i < e->numDrones; i++) {
         createDrone(e, i);
     }
 
@@ -230,16 +220,14 @@ void setupEnv(env *e)
     placeRandFloatingWalls(e, mapIdx);
 
     DEBUG_LOG("creating weapon pickups");
-    for (int i = 0; i < maps[mapIdx]->weaponPickups; i++)
-    {
+    for (int i = 0; i < maps[mapIdx]->weaponPickups; i++) {
         createWeaponPickup(e);
     }
 
     computeObs(e);
 }
 
-env *initEnv(env *e, uint8_t numDrones, uint8_t numAgents, uint8_t *obs, float *actions, float *rewards, uint8_t *terminals, logBuffer *logs, uint64_t seed)
-{
+env *initEnv(env *e, uint8_t numDrones, uint8_t numAgents, uint8_t *obs, float *actions, float *rewards, uint8_t *terminals, logBuffer *logs, uint64_t seed) {
     e->numDrones = numDrones;
     e->numAgents = numAgents;
 
@@ -265,8 +253,7 @@ env *initEnv(env *e, uint8_t numDrones, uint8_t numAgents, uint8_t *obs, float *
     return e;
 }
 
-void clearEnv(env *e)
-{
+void clearEnv(env *e) {
     // rewards get cleared in stepEnv every step
     memset(e->terminals, 0x0, e->numAgents * sizeof(uint8_t));
 
@@ -274,34 +261,29 @@ void clearEnv(env *e)
     e->episodeLength = 0;
     memset(e->stats, 0x0, sizeof(e->stats));
 
-    for (size_t i = 0; i < cc_array_size(e->pickups); i++)
-    {
+    for (size_t i = 0; i < cc_array_size(e->pickups); i++) {
         weaponPickupEntity *pickup = safe_array_get_at(e->pickups, i);
         destroyWeaponPickup(pickup);
     }
 
-    for (uint8_t i = 0; i < e->numDrones; i++)
-    {
+    for (uint8_t i = 0; i < e->numDrones; i++) {
         droneEntity *drone = safe_array_get_at(e->drones, i);
         destroyDrone(drone);
     }
 
     destroyAllProjectiles(e);
 
-    for (size_t i = 0; i < cc_array_size(e->walls); i++)
-    {
+    for (size_t i = 0; i < cc_array_size(e->walls); i++) {
         wallEntity *wall = safe_array_get_at(e->walls, i);
         destroyWall(wall);
     }
 
-    for (size_t i = 0; i < cc_array_size(e->floatingWalls); i++)
-    {
+    for (size_t i = 0; i < cc_array_size(e->floatingWalls); i++) {
         wallEntity *wall = safe_array_get_at(e->floatingWalls, i);
         destroyWall(wall);
     }
 
-    for (size_t i = 0; i < cc_array_size(e->cells); i++)
-    {
+    for (size_t i = 0; i < cc_array_size(e->cells); i++) {
         mapCell *cell = safe_array_get_at(e->cells, i);
         fastFree(cell);
     }
@@ -316,8 +298,7 @@ void clearEnv(env *e)
     b2DestroyWorld(e->worldID);
 }
 
-void destroyEnv(env *e)
-{
+void destroyEnv(env *e) {
     clearEnv(e);
 
     cc_array_destroy(e->cells);
@@ -328,14 +309,12 @@ void destroyEnv(env *e)
     cc_slist_destroy(e->projectiles);
 }
 
-void resetEnv(env *e)
-{
+void resetEnv(env *e) {
     clearEnv(e);
     setupEnv(e);
 }
 
-void computeShotHitReward(env *e, const droneEntity *drone, const uint8_t enemyIdx)
-{
+void computeShotHitReward(env *e, const droneEntity *drone, const uint8_t enemyIdx) {
     // compute reward based off of how much the projectile(s) or explosion(s)
     // caused the enemy drone to change velocity
     const droneEntity *enemyDrone = safe_array_get_at(e->drones, enemyIdx);
@@ -344,62 +323,42 @@ void computeShotHitReward(env *e, const droneEntity *drone, const uint8_t enemyI
     e->rewards[drone->idx] += scaleValue(fabsf(curEnemySpeed - prevEnemySpeed), MAX_SPEED, true) * SHOT_HIT_REWARD_COEF;
 }
 
-void computeReward(env *e, const droneEntity *drone)
-{
-    if (drone->dead)
-    {
+void computeReward(env *e, const droneEntity *drone) {
+    if (drone->dead) {
         e->rewards[drone->idx] += DEATH_REWARD;
     }
-    // If the drone was killed by someone else, award them the kill reward
-    if (drone->dead && drone->killedBy >= 0 && drone->killedBy < e->numDrones)
-    {
-        // As an example, only award it once
-        e->rewards[drone->killedBy] += KILL_REWARD;
-        // Mark that we won't double-award
-        ((droneEntity *)drone)->killedBy = -1;
-    }
-
-    for (uint8_t i = 0; i < e->numDrones; i++)
-    {
-        if (i == drone->idx)
-        {
+    // TODO: compute kill reward
+    for (uint8_t i = 0; i < e->numDrones; i++) {
+        if (i == drone->idx) {
             continue;
         }
-        if (drone->hitInfo.shotHit[i])
-        {
+        if (drone->hitInfo.shotHit[i]) {
             computeShotHitReward(e, drone, i);
         }
-        if (drone->hitInfo.explosionHit[i])
-        {
+        if (drone->hitInfo.explosionHit[i]) {
             computeShotHitReward(e, drone, i);
         }
     }
 }
 
-void computeRewards(env *e, const bool roundOver, const uint8_t winner)
-{
-    if (roundOver)
-    {
+void computeRewards(env *e, const bool roundOver, const uint8_t winner) {
+    if (roundOver) {
         e->rewards[winner] += WIN_REWARD;
     }
 
-    for (int i = 0; i < e->numAgents; i++)
-    {
+    for (int i = 0; i < e->numAgents; i++) {
         const droneEntity *drone = safe_array_get_at(e->drones, i);
         computeReward(e, drone);
         e->episodeReward[i] += e->rewards[i];
 
-        if (e->rewards[i] != 0.0f)
-        {
+        if (e->rewards[i] != 0.0f) {
             DEBUG_LOGF("reward[%d]: %f", i, e->rewards[i]);
         }
     }
 }
 
-void stepEnv(env *e)
-{
-    if (e->needsReset)
-    {
+void stepEnv(env *e) {
+    if (e->needsReset) {
         DEBUG_LOG("Resetting environment");
         resetEnv(e);
     }
@@ -407,20 +366,16 @@ void stepEnv(env *e)
     // reset reward buffer
     memset(e->rewards, 0x0, e->numAgents * sizeof(float));
 
-    for (int frame = 0; frame < FRAMESKIP; frame++)
-    {
+    for (int i = 0; i < FRAMESKIP; i++) {
         e->episodeLength++;
 
         // handle actions
-        for (uint8_t i = 0; i < e->numDrones; i++)
-        {
+        for (uint8_t i = 0; i < e->numDrones; i++) {
             droneEntity *drone = safe_array_get_at(e->drones, i);
             drone->lastVelocity = b2Body_GetLinearVelocity(drone->bodyID);
             memset(&drone->hitInfo, 0x0, sizeof(stepHitInfo));
 
-            // skip if we have more drones than agents
-            if (i >= e->numAgents)
-            {
+            if (i >= e->numAgents) {
                 break;
             }
 
@@ -432,20 +387,14 @@ void stepEnv(env *e)
 
             const bool shoot = e->actions[offset + 4] > 0.0f;
 
-            // Movement
-            if (!b2VecEqual(move, b2Vec2_zero))
-            {
+            if (!b2VecEqual(move, b2Vec2_zero)) {
                 droneMove(drone, move);
             }
             drone->lastMove = move;
-
-            // Shooting
-            if (shoot)
-            {
+            if (shoot) {
                 droneShoot(e, drone, aim);
             }
-            if (!b2VecEqual(aim, b2Vec2_zero))
-            {
+            if (!b2VecEqual(aim, b2Vec2_zero)) {
                 drone->lastAim = b2Normalize(aim);
             }
         }
@@ -454,24 +403,21 @@ void stepEnv(env *e)
         b2World_Step(e->worldID, DELTA_TIME, BOX2D_SUBSTEPS);
 
         // mark old positions as invalid now that physics has been stepped
-        for (uint8_t i = 0; i < e->numDrones; i++)
-        {
+        // projectiles will have their positions correctly updated in projectilesStep
+        for (uint8_t i = 0; i < e->numDrones; i++) {
             droneEntity *drone = safe_array_get_at(e->drones, i);
             drone->pos.valid = false;
         }
-        for (size_t i = 0; i < cc_array_size(e->floatingWalls); i++)
-        {
+        for (size_t i = 0; i < cc_array_size(e->floatingWalls); i++) {
             wallEntity *wall = safe_array_get_at(e->floatingWalls, i);
             wall->pos.valid = false;
         }
 
         // handle sudden death
         e->stepsLeft = fmaxf(e->stepsLeft - 1, 0.0f);
-        if (e->stepsLeft == 0)
-        {
+        if (e->stepsLeft == 0) {
             e->suddenDeathSteps = fmaxf(e->suddenDeathSteps - 1, 0.0f);
-            if (e->suddenDeathSteps == 0)
-            {
+            if (e->suddenDeathSteps == 0) {
                 DEBUG_LOG("placing sudden death walls");
                 handleSuddenDeath(e);
                 e->suddenDeathSteps = SUDDEN_DEATH_STEPS;
@@ -485,37 +431,16 @@ void stepEnv(env *e)
         // Step each drone, handle multi-life logic
         uint8_t dronesWithLives = 0;
         uint8_t lastAlive = 0;
-        for (uint8_t i = 0; i < e->numDrones; i++)
-        {
+        uint8_t deadDrones = 0;
+        for (uint8_t i = 0; i < e->numDrones; i++) {
             droneEntity *drone = safe_array_get_at(e->drones, i);
 
             // Normal per-drone step
             droneStep(e, drone, DELTA_TIME);
-
-            if (drone->dead)
-            {
-                // If the drone is newly dead, decrement a life
-                if (drone->lives > 0)
-                {
-                    drone->lives--;
-                }
-
-                // If it still has lives, respawn it, else it's truly out
-                if (drone->lives > 0)
-                {
-                    respawnDrone(e, drone);
-                }
-                else
-                {
-                    // Permanently mark out
-                    e->terminals[i] = 1;
-                }
-            }
-
-            // If drone still has >0 lives, count it as "in the game"
-            if (!drone->dead || drone->lives > 0)
-            {
-                dronesWithLives++;
+            if (drone->dead) {
+                deadDrones++;
+                e->terminals[i] = 1;
+            } else {
                 lastAlive = i;
             }
         }
@@ -528,25 +453,19 @@ void stepEnv(env *e)
         // Compute step rewards
         computeRewards(e, roundOver, lastAlive);
 
-        // If we have a renderer, do it now
-        if (e->client != NULL)
-        {
+        if (e->client != NULL) {
             renderEnv(e);
         }
 
-        // If round is over, log stats and break
-        if (roundOver)
-        {
+        if (roundOver) {
             // set absolute distance traveled of agent drones
-            for (uint8_t i = 0; i < e->numAgents; i++)
-            {
+            for (uint8_t i = 0; i < e->numAgents; i++) {
                 const droneEntity *drone = safe_array_get_at(e->drones, i);
                 e->stats[i].absDistanceTraveled = b2Distance(drone->initalPos, drone->pos.pos);
             }
 
             // add existing projectile distances to stats
-            for (SNode *cur = e->projectiles->head; cur != NULL; cur = cur->next)
-            {
+            for (SNode *cur = e->projectiles->head; cur != NULL; cur = cur->next) {
                 const projectileEntity *projectile = (projectileEntity *)cur->data;
                 e->stats[projectile->droneIdx].shotDistances[projectile->weaponInfo->type]
                     += projectile->distance;
@@ -567,13 +486,10 @@ void stepEnv(env *e)
     computeObs(e);
 }
 
-bool envTerminated(env *e)
-{
-    for (uint8_t i = 0; i < e->numDrones; i++)
-    {
+bool envTerminated(env *e) {
+    for (uint8_t i = 0; i < e->numDrones; i++) {
         droneEntity *drone = safe_array_get_at(e->drones, i);
-        if (drone->dead)
-        {
+        if (drone->dead) {
             return true;
         }
     }

@@ -215,14 +215,11 @@ weaponInformation *weaponInfos[] = {
 #endif
 
 // max ammo of weapon
-int8_t weaponAmmo(const enum weaponType defaultWep, const enum weaponType type)
-{
-    if (type == defaultWep)
-    {
+int8_t weaponAmmo(const enum weaponType defaultWep, const enum weaponType type) {
+    if (type == defaultWep) {
         return INFINITE;
     }
-    switch (type)
-    {
+    switch (type) {
     case STANDARD_WEAPON:
         return STANDARD_AMMO;
     case MACHINEGUN_WEAPON:
@@ -239,18 +236,15 @@ int8_t weaponAmmo(const enum weaponType defaultWep, const enum weaponType type)
 }
 
 // amount of force to apply to projectile
-float weaponFire(uint64_t *seed, const enum weaponType type)
-{
-    switch (type)
-    {
+float weaponFire(uint64_t *seed, const enum weaponType type) {
+    switch (type) {
     case STANDARD_WEAPON:
         return STANDARD_FIRE_MAGNITUDE;
     case MACHINEGUN_WEAPON:
         return MACHINEGUN_FIRE_MAGNITUDE;
     case SNIPER_WEAPON:
         return SNIPER_FIRE_MAGNITUDE;
-    case SHOTGUN_WEAPON:
-    {
+    case SHOTGUN_WEAPON: {
         const int maxOffset = 3;
         const int fireOffset = randInt(seed, -maxOffset, maxOffset);
         return SHOTGUN_FIRE_MAGNITUDE + fireOffset;
@@ -264,11 +258,9 @@ float weaponFire(uint64_t *seed, const enum weaponType type)
 }
 
 // how many steps the weapon needs to be charged for before it can be fired
-uint16_t weaponCharge(const enum weaponType type)
-{
+uint16_t weaponCharge(const enum weaponType type) {
     float charge = 0.0f;
-    switch (type)
-    {
+    switch (type) {
     case STANDARD_WEAPON:
         charge = STANDARD_CHARGE;
         break;
@@ -291,14 +283,11 @@ uint16_t weaponCharge(const enum weaponType type)
     return (uint16_t)(charge * FRAME_RATE);
 }
 
-b2Vec2 weaponAdjustAim(uint64_t *seed, const enum weaponType type, const uint16_t heat, const b2Vec2 normAim)
-{
-    switch (type)
-    {
+b2Vec2 weaponAdjustAim(uint64_t *seed, const enum weaponType type, const uint16_t heat, const b2Vec2 normAim) {
+    switch (type) {
     case STANDARD_WEAPON:
         return normAim;
-    case MACHINEGUN_WEAPON:
-    {
+    case MACHINEGUN_WEAPON: {
         const float swayCoef = logBasef((heat / 5.0f) + 1, 180);
         const float maxSway = 0.15f;
         const float swayX = randFloat(seed, maxSway * -swayCoef, maxSway * swayCoef);
@@ -308,8 +297,7 @@ b2Vec2 weaponAdjustAim(uint64_t *seed, const enum weaponType type, const uint16_
     }
     case SNIPER_WEAPON:
         return normAim;
-    case SHOTGUN_WEAPON:
-    {
+    case SHOTGUN_WEAPON: {
         const float maxOffset = 0.15f;
         const float offsetX = randFloat(seed, -maxOffset, maxOffset);
         const float offsetY = randFloat(seed, -maxOffset, maxOffset);
@@ -325,10 +313,8 @@ b2Vec2 weaponAdjustAim(uint64_t *seed, const enum weaponType type, const uint16_
 
 // sets explosion parameters and returns true if an explosion should be created
 // when a projectile is destroyed
-bool weaponExplosion(const enum weaponType type, b2ExplosionDef *explosionDef)
-{
-    switch (type)
-    {
+bool weaponExplosion(const enum weaponType type, b2ExplosionDef *explosionDef) {
+    switch (type) {
     case IMPLODER_WEAPON:
         explosionDef->radius = 10.0f;
         explosionDef->falloff = 5.0f;

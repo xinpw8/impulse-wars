@@ -1,3 +1,4 @@
+# 3.22 was released on Nov 2021, should be widely available
 cmake_minimum_required(VERSION 3.22)
 include(FetchContent)
 
@@ -7,12 +8,21 @@ project(
 	LANGUAGES C
 )
 
+message(INFO " C Compiler: ${CMAKE_C_COMPILER} ${CMAKE_C_COMPILER_VERSION}")
+
+# use ccache if available to speed up subsequent builds
 find_program(CCACHE_FOUND "ccache")
 if(CCACHE_FOUND)
 	set(CMAKE_C_COMPILER_LAUNCHER "ccache")
 endif()
 
+# enable some C23 features, the c2x standard is a WIP standard supported
+# by gcc since 9 (May 2019) and clang since 9 (Sep 2019)
 set(CMAKE_C_FLAGS_INIT " -std=c2x")
+
+# force position independent code everywhere to prevent some rare
+# linker errors depending on what compiler is used
+add_compile_options("-fPIC")
 
 if(CMAKE_BUILD_TYPE MATCHES Debug)
 	# leak detection doesn't work correctly when the code is called by
@@ -25,6 +35,7 @@ if(CMAKE_BUILD_TYPE MATCHES Debug)
 		add_link_options("-fno-omit-frame-pointer" "-fsanitize=address,undefined,bounds,pointer-overflow,leak")
 	endif()
 
+	# mold is an extremely fast linker, use it if available
 	# only use mold in debug mode, link time optimization currently doesn't
 	# work with mold and provides large speedups
 	find_program(MOLD_FOUND "mold")
@@ -35,17 +46,13 @@ else()
 	add_compile_options("-flto" "-march=native" "-fno-math-errno")
 	# ensure the linker used is from the same compiler toolchain, or else
 	# link time optimization will probably fail
-	if(CMAKE_C_COMILER_ID MATCHES "Clang")
+	if(CMAKE_C_COMPILER_ID MATCHES "Clang")
 		add_link_options("-fuse-ld=lld")
-	elseif(CMAKE_C_COMILER_ID MATCHES "GNU")
-		add_link_options("-fuse-ld=ld")
 	endif()
 endif()
 
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
-# uncomment if the build seems to hang early on to confirm there's an 
-# issue other than your internet being extremely slow
-#set(FETCHCONTENT_QUIET FALSE)
+set(FETCHCONTENT_QUIET FALSE)
 
 # Force Raylib to be PIC
 set(BUILD_SHARED_LIBS OFF)  # still building static, but with PIC
@@ -56,10 +63,7 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 # fetch and configure dependencies
 FetchContent_Declare(
 	raylib
-	GIT_REPOSITORY https://github.com/raysan5/raylib.git
-	GIT_TAG c1ab645ca298a2801097931d1079b10ff7eb9df8 # 5.5
-	GIT_SHALLOW TRUE
-	GIT_PROGRESS TRUE
+	URL https://github.com/raysan5/raylib/archive/c1ab645ca298a2801097931d1079b10ff7eb9df8.zip # 5.5
 )
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "Statically link raylib" FORCE)
 set(WITH_PIC "Compile static library as position-independent code" ON)
@@ -72,10 +76,7 @@ FetchContent_MakeAvailable(raylib)
 # maybe due to install prefix schenanigans?
 FetchContent_Declare(
 	box2d
-	GIT_REPOSITORY https://github.com/capnspacehook/box2d.git
-	GIT_TAG main
-	GIT_SHALLOW TRUE
-	GIT_PROGRESS TRUE
+	URL https://github.com/capnspacehook/box2d/archive/refs/heads/main.zip
 )
 FetchContent_MakeAvailable(box2d)
 
@@ -157,8 +158,8 @@ if(DEFINED BUILD_PYTHON_MODULE)
 	python_add_library(cy_impulse_wars MODULE impulse_wars.c WITH_SOABI)
 
 	configure_target(cy_impulse_wars)
-	# disable warnings for generated Cython source file
-	set_source_files_properties(impulse_wars.c PROPERTIES COMPILE_FLAGS "-w")
+	# disable false positive warnings for generated Cython source file
+	set_source_files_properties(impulse_wars.c PROPERTIES COMPILE_FLAGS "-Wno-strict-prototypes")
 
 	install(TARGETS cy_impulse_wars DESTINATION .)
 elseif(DEFINED BUILD_DEMO)

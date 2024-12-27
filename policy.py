@@ -25,7 +25,7 @@ class Recurrent(LSTMWrapper):
 
 
 class Policy(nn.Module):
-    def __init__(self, env: pufferlib.PufferEnv, numDrones: int, device: str = "cuda"):
+    def __init__(self, env: pufferlib.PufferEnv, numDrones: int):
         super().__init__()
 
         self.is_continuous = True

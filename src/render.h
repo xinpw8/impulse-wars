@@ -4,8 +4,8 @@
 
 #include "raylib.h"
 
-#include "helpers.h"
 #include "env.h"
+#include "helpers.h"
 
 const float DEFAULT_SCALE = 12.0f;
 const int DEFAULT_WIDTH = 1500;
@@ -17,37 +17,33 @@ const Color barolo = {.r = 165, .b = 8, .g = 37, .a = 255};
 const float halfDroneRadius = DRONE_RADIUS / 2.0f;
 const float aimGuideHeight = 0.3f * DRONE_RADIUS;
 
-static inline float b2XToRayX(const rayClient *c, const float x)
-{
+static inline float b2XToRayX(const rayClient *c, const float x) {
     return c->halfWidth + (x * c->scale);
 }
 
-static inline float b2YToRayY(const rayClient *c, const float y)
-{
+static inline float b2YToRayY(const rayClient *c, const float y) {
     return (c->halfHeight + (y * c->scale)) + (2 * c->scale);
 }
 
-static inline Vector2 b2VecToRayVec(const rayClient *c, const b2Vec2 v)
-{
+static inline Vector2 b2VecToRayVec(const rayClient *c, const b2Vec2 v) {
     return (Vector2){.x = b2XToRayX(c, v.x), .y = b2YToRayY(c, v.y)};
 }
 
-static inline b2Vec2 rayVecToB2Vec(const rayClient *c, const Vector2 v)
-{
+static inline b2Vec2 rayVecToB2Vec(const rayClient *c, const Vector2 v) {
     return (b2Vec2){.x = (v.x - c->halfWidth) / c->scale, .y = ((v.y - c->halfHeight - (2 * c->scale)) / c->scale)};
 }
 
-rayClient *createRayClient()
-{
+rayClient *createRayClient() {
+    InitWindow(DEFAULT_WIDTH, DEFAULT_HEIGHT, "Impulse Wars");
+    const int monitor = GetCurrentMonitor();
+
     rayClient *client = (rayClient *)fastCalloc(1, sizeof(rayClient));
 
-    if (client->height == 0)
-    {
-        client->height = DEFAULT_HEIGHT; // GetMonitorHeight(0) - HEIGHT_LEEWAY;
+    if (client->height == 0) {
+        client->height = GetMonitorHeight(monitor) - HEIGHT_LEEWAY;
     }
-    if (client->width == 0)
-    {
-        client->width = DEFAULT_WIDTH; //(float)GetMonitorWidth(0) * (float)(DEFAULT_WIDTH / DEFAULT_HEIGHT);
+    if (client->width == 0) {
+        client->width = (uint16_t)((float)GetMonitorWidth(monitor) * ((float)DEFAULT_HEIGHT / (float)DEFAULT_WIDTH));
     }
     client->scale = (float)client->height * (float)(DEFAULT_SCALE / DEFAULT_HEIGHT);
 
@@ -55,42 +51,35 @@ rayClient *createRayClient()
     client->halfHeight = client->height / 2.0f;
 
     SetConfigFlags(FLAG_MSAA_4X_HINT);
-    InitWindow(client->width, client->height, "Impulse Wars");
+    SetWindowSize(client->width, client->height);
 
     SetTargetFPS(FRAME_RATE);
 
     return client;
 }
 
-void destroyRayClient(rayClient *client)
-{
+void destroyRayClient(rayClient *client) {
     CloseWindow();
     fastFree(client);
 }
 
-void renderUI(const env *e)
-{
-    if (e->stepsLeft == 0)
-    {
+void renderUI(const env *e) {
+    if (e->stepsLeft == 0) {
         DrawText("SUDDEN DEATH", (e->client->width / 2) - (8 * e->client->scale), e->client->scale, 2 * e->client->scale, WHITE);
         return;
     }
 
     const int bufferSize = 3;
     char timerStr[bufferSize];
-    if (e->stepsLeft >= 10 * FRAME_RATE)
-    {
+    if (e->stepsLeft >= 10 * FRAME_RATE) {
         snprintf(timerStr, bufferSize, "%d", (uint16_t)(e->stepsLeft / FRAME_RATE));
-    }
-    else
-    {
+    } else {
         snprintf(timerStr, bufferSize, "0%d", (uint16_t)(e->stepsLeft / FRAME_RATE));
     }
     DrawText(timerStr, (e->client->width / 2) - e->client->scale, e->client->scale, 2 * e->client->scale, WHITE);
 }
 
-void renderEmptyCell(const env *e, const b2Vec2 emptyCell, const size_t idx)
-{
+void renderEmptyCell(const env *e, const b2Vec2 emptyCell, const size_t idx) {
     Rectangle rec = {
         .x = b2XToRayX(e->client, emptyCell.x - (WALL_THICKNESS / 2.0f)),
         .y = b2YToRayY(e->client, emptyCell.y - (WALL_THICKNESS / 2.0f)),
@@ -105,11 +94,9 @@ void renderEmptyCell(const env *e, const b2Vec2 emptyCell, const size_t idx)
     DrawText(idxStr, rec.x, rec.y, 1.5f * e->client->scale, WHITE);
 }
 
-void renderWall(const env *e, const wallEntity *wall)
-{
+void renderWall(const env *e, const wallEntity *wall) {
     Color color = {0};
-    switch (wall->type)
-    {
+    switch (wall->type) {
     case STANDARD_WALL_ENTITY:
         color = BLUE;
         break;
@@ -134,8 +121,7 @@ void renderWall(const env *e, const wallEntity *wall)
 
     Vector2 origin = {.x = wall->extent.x * e->client->scale, .y = wall->extent.y * e->client->scale};
     float angle = 0.0f;
-    if (wall->isFloating)
-    {
+    if (wall->isFloating) {
         angle = b2Rot_GetAngle(b2Body_GetRotation(wall->bodyID));
         angle *= RAD2DEG;
     }
@@ -146,10 +132,8 @@ void renderWall(const env *e, const wallEntity *wall)
     // DrawRectangleLinesEx(rec, scale / 20.0f, WHITE);
 }
 
-void renderWeaponPickup(const env *e, const weaponPickupEntity *pickup)
-{
-    if (pickup->respawnWait != 0.0f || pickup->floatingWallsTouching != 0)
-    {
+void renderWeaponPickup(const env *e, const weaponPickupEntity *pickup) {
+    if (pickup->respawnWait != 0.0f || pickup->floatingWallsTouching != 0) {
         return;
     }
 
@@ -165,8 +149,7 @@ void renderWeaponPickup(const env *e, const weaponPickupEntity *pickup)
     DrawRectanglePro(rec, origin, 0.0f, LIME);
 
     char *name = "";
-    switch (pickup->weapon)
-    {
+    switch (pickup->weapon) {
     case MACHINEGUN_WEAPON:
         name = "MCGN";
         break;
@@ -186,10 +169,8 @@ void renderWeaponPickup(const env *e, const weaponPickupEntity *pickup)
     DrawText(name, rec.x - origin.x + (0.1f * e->client->scale), rec.y - origin.y + e->client->scale, e->client->scale, BLACK);
 }
 
-Color getDroneColor(const int droneIdx)
-{
-    switch (droneIdx)
-    {
+Color getDroneColor(const int droneIdx) {
+    switch (droneIdx) {
     case 0:
         return barolo;
     case 1:
@@ -204,16 +185,14 @@ Color getDroneColor(const int droneIdx)
     }
 }
 
-void renderDroneGuides(const env *e, const droneEntity *drone, const int droneIdx)
-{
+void renderDroneGuides(const env *e, const droneEntity *drone, const int droneIdx) {
     b2Vec2 pos = b2Body_GetPosition(drone->bodyID);
     const float rayX = b2XToRayX(e->client, pos.x);
     const float rayY = b2YToRayY(e->client, pos.y);
     const Color droneColor = getDroneColor(droneIdx);
 
     // render thruster move guide
-    if (!b2VecEqual(drone->lastMove, b2Vec2_zero))
-    {
+    if (!b2VecEqual(drone->lastMove, b2Vec2_zero)) {
         float moveMagnitude = b2Length(drone->lastMove);
         float moveRot = RAD2DEG * b2Rot_GetAngle(b2MakeRot(b2Atan2(-drone->lastMove.y, -drone->lastMove.x)));
         Rectangle moveGuide = {
@@ -235,13 +214,10 @@ void renderDroneGuides(const env *e, const droneEntity *drone, const int droneId
     b2SimplexCache cache = {0};
     bool shapeIsCircle = false;
     b2ShapeProxy proxyA = {0};
-    if (ent->type == DRONE_ENTITY)
-    {
+    if (ent->type == DRONE_ENTITY) {
         proxyA.radius = DRONE_RADIUS;
         shapeIsCircle = true;
-    }
-    else
-    {
+    } else {
         proxyA.count = 1;
         proxyA.points[0] = (b2Vec2){.x = 0.0f, .y = 0.0f};
     }
@@ -256,8 +232,7 @@ void renderDroneGuides(const env *e, const droneEntity *drone, const int droneId
     const b2DistanceOutput output = b2ShapeDistance(&cache, &input, NULL, 0);
 
     float aimGuideWidth = 0.0f;
-    switch (drone->weaponInfo->type)
-    {
+    switch (drone->weaponInfo->type) {
     case STANDARD_WEAPON:
         aimGuideWidth = 5.0f;
         break;
@@ -289,31 +264,27 @@ void renderDroneGuides(const env *e, const droneEntity *drone, const int droneId
     DrawRectanglePro(aimGuide, (Vector2){.x = 0.0f, .y = (aimGuideHeight / 2.0f) * e->client->scale}, aimAngle, droneColor);
 }
 
-void renderDrone(const env *e, const droneEntity *drone, const int droneIdx)
-{
+void renderDrone(const env *e, const droneEntity *drone, const int droneIdx) {
     const b2Vec2 pos = b2Body_GetPosition(drone->bodyID);
     const Vector2 raylibPos = b2VecToRayVec(e->client, pos);
     DrawCircleV(raylibPos, DRONE_RADIUS * e->client->scale, BLACK);
     DrawCircleLinesV(raylibPos, DRONE_RADIUS * e->client->scale, getDroneColor(droneIdx));
 }
 
-void renderDroneLabels(const env *e, const droneEntity *drone)
-{
+void renderDroneLabels(const env *e, const droneEntity *drone) {
     const b2Vec2 pos = b2Body_GetPosition(drone->bodyID);
 
     const int bufferSize = 5;
     char ammoStr[bufferSize];
     snprintf(ammoStr, bufferSize, "%d", drone->ammo);
     float posX = pos.x - 0.25;
-    if (drone->ammo >= 10 || drone->ammo == INFINITE)
-    {
+    if (drone->ammo >= 10 || drone->ammo == INFINITE) {
         posX -= 0.25f;
     }
     DrawText(ammoStr, b2XToRayX(e->client, posX), b2YToRayY(e->client, pos.y + 1.5f), e->client->scale, WHITE);
 
     const float maxCharge = weaponCharge(drone->weaponInfo->type);
-    if (maxCharge == 0.0f)
-    {
+    if (maxCharge == 0.0f) {
         return;
     }
 
@@ -338,25 +309,21 @@ void renderDroneLabels(const env *e, const droneEntity *drone)
     DrawRectanglePro(fillRec, origin, 0.0f, RAYWHITE);
 }
 
-void renderProjectiles(env *e)
-{
-    if (e->explosionSteps != 0)
-    {
+void renderProjectiles(env *e) {
+    if (e->explosionSteps != 0) {
         DrawCircleV(b2VecToRayVec(e->client, e->explosion.position), e->explosion.falloff * 2.0f * e->client->scale, GRAY);
         DrawCircleV(b2VecToRayVec(e->client, e->explosion.position), e->explosion.radius * e->client->scale, RAYWHITE);
         e->explosionSteps = fmaxf(e->explosionSteps - 1, 0);
     }
 
-    for (SNode *cur = e->projectiles->head; cur != NULL; cur = cur->next)
-    {
+    for (SNode *cur = e->projectiles->head; cur != NULL; cur = cur->next) {
         projectileEntity *projectile = (projectileEntity *)cur->data;
         b2Vec2 pos = b2Body_GetPosition(projectile->bodyID);
         DrawCircleV(b2VecToRayVec(e->client, pos), e->client->scale * projectile->weaponInfo->radius, PURPLE);
     }
 }
 
-void renderEnv(env *e)
-{
+void renderEnv(env *e) {
     BeginDrawing();
 
     ClearBackground(BLACK);
@@ -364,50 +331,41 @@ void renderEnv(env *e)
 
     renderUI(e);
 
-    for (uint8_t i = 0; i < e->numDrones; i++)
-    {
+    for (uint8_t i = 0; i < e->numDrones; i++) {
         const droneEntity *drone = safe_array_get_at(e->drones, i);
-        if (drone->dead)
-        {
+        if (drone->dead) {
             continue;
         }
         renderDroneGuides(e, drone, i);
     }
-    for (uint8_t i = 0; i < e->numDrones; i++)
-    {
+    for (uint8_t i = 0; i < e->numDrones; i++) {
         const droneEntity *drone = safe_array_get_at(e->drones, i);
-        if (drone->dead)
-        {
+        if (drone->dead) {
             continue;
         }
         renderDrone(e, drone, i);
     }
 
-    for (size_t i = 0; i < cc_array_size(e->walls); i++)
-    {
+    for (size_t i = 0; i < cc_array_size(e->walls); i++) {
         const wallEntity *wall = safe_array_get_at(e->walls, i);
         renderWall(e, wall);
     }
 
-    for (size_t i = 0; i < cc_array_size(e->floatingWalls); i++)
-    {
+    for (size_t i = 0; i < cc_array_size(e->floatingWalls); i++) {
         const wallEntity *wall = safe_array_get_at(e->floatingWalls, i);
         renderWall(e, wall);
     }
 
-    for (size_t i = 0; i < cc_array_size(e->pickups); i++)
-    {
+    for (size_t i = 0; i < cc_array_size(e->pickups); i++) {
         const weaponPickupEntity *pickup = safe_array_get_at(e->pickups, i);
         renderWeaponPickup(e, pickup);
     }
 
     renderProjectiles(e);
 
-    for (uint8_t i = 0; i < e->numDrones; i++)
-    {
+    for (uint8_t i = 0; i < e->numDrones; i++) {
         const droneEntity *drone = safe_array_get_at(e->drones, i);
-        if (drone->dead)
-        {
+        if (drone->dead) {
             continue;
         }
         renderDroneLabels(e, drone);
