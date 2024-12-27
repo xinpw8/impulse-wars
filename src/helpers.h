@@ -167,7 +167,7 @@ static inline float scaleValue(const float v, const float max, const bool minIsZ
 }
 
 static inline uint8_t oneHotEncode(uint8_t *obs, const uint16_t offset, const uint8_t val, const uint8_t max) {
-    ASSERTF(val < max && val >= 0, "val: %d, max: %d", val, max);
+    ASSERTF(val < max, "val: %d, max: %d", val, max);
     memset(obs + offset, 0x0, max * sizeof(uint8_t));
     obs[offset + val] = 1;
     return max;

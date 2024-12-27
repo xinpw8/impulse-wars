@@ -23,19 +23,22 @@ static inline b2Vec2 getCachedPos(const b2BodyId bodyID, cachedPos *pos) {
 static inline int16_t entityPosToCellIdx(const env *e, const b2Vec2 pos) {
     const float cellX = pos.x + (((float)e->columns * WALL_THICKNESS) / 2.0f);
     const float cellY = pos.y + (((float)e->rows * WALL_THICKNESS) / 2.0f);
-    const int16_t cellCol = cellX / WALL_THICKNESS;
-    const int16_t cellRow = cellY / WALL_THICKNESS;
-    const int16_t cell = cellCol + (cellRow * e->columns);
+    const uint16_t cellCol = cellX / WALL_THICKNESS;
+    const uint16_t cellRow = cellY / WALL_THICKNESS;
+    const uint16_t cell = cellCol + (cellRow * e->columns);
     // set the cell to -1 if it's out of bounds
     // TODO: this is a box2d issue, investigate more
-    if (cell < 0 || cell >= cc_array_size(e->cells)) {
+    if (cell >= cc_array_size(e->cells)) {
         DEBUG_LOGF("invalid cell index: %d from position: (%f, %f)", cell, pos.x, pos.y);
         return -1;
     }
     return cell;
 }
 
-bool overlapCallback(b2ShapeId shapeId, void *context) {
+bool overlapCallback(b2ShapeId shapeID, void *context) {
+    // the b2ShapeId parameter is required to match the prototype of the callback function
+    MAYBE_UNUSED(shapeID);
+
     bool *overlaps = (bool *)context;
     *overlaps = true;
     return false;
@@ -828,7 +831,7 @@ void handleWeaponPickupBeginTouch(env *e, const entity *sensor, entity *visitor)
 }
 
 // mark the pickup as enabled if no floating walls are touching it
-void handleWeaponPickupEndTouch(env *e, const entity *sensor, entity *visitor) {
+void handleWeaponPickupEndTouch(const entity *sensor, entity *visitor) {
     weaponPickupEntity *pickup = (weaponPickupEntity *)sensor->entity;
     if (pickup->respawnWait != 0.0f) {
         return;
@@ -886,7 +889,7 @@ void handleSensorEvents(env *e) {
         entity *v = (entity *)b2Shape_GetUserData(event->visitorShapeId);
         ASSERT(v != NULL);
 
-        handleWeaponPickupEndTouch(e, s, v);
+        handleWeaponPickupEndTouch(s, v);
     }
 }
 

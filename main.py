@@ -62,7 +62,7 @@ def train(args):
             clean_pufferl.train(data)
     except KeyboardInterrupt as e:
         clean_pufferl.close(data)
-        raise e
+        return None
     except Exception as e:
         Console().print_exception()
         clean_pufferl.close(data)
