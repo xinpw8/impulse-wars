@@ -17,14 +17,9 @@ def transformRawLog(numDrones: int, rawLog: Dict[str, float]):
     log = {"length": rawLog["length"]}
 
     count = 0
-    for i, reward in enumerate(rawLog["reward"]):
-        log[f"drone_{i}_reward"] = reward
-        count += 1
-        if count >= numDrones:
-            break
-
-    count = 0
     for i, stats in enumerate(rawLog["stats"]):
+        log[f"drone_{i}_reward"] = stats["reward"]
+        log[f"drone_{i}_wins"] = stats["wins"]
         log[f"drone_{i}_distance_traveled"] = stats["distanceTraveled"]
         log[f"drone_{i}_abs_distance_traveled"] = stats["absDistanceTraveled"]
         log[f"drone_{i}_shots_fired"] = sum(stats["shotsFired"])
@@ -48,7 +43,7 @@ class ImpulseWars(pufferlib.PufferEnv):
         num_agents: int = 2,
         seed: int = 0,
         render: bool = False,
-        report_interval=8,
+        report_interval=16,
         buf=None,
     ):
         if num_drones > maxDrones() or num_drones <= 0:

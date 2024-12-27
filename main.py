@@ -1,7 +1,7 @@
-from pdb import set_trace as T
 import argparse
+from collections import deque
 import os
-import random
+from typing import Any, Dict, Deque
 
 import numpy as np
 import pufferlib
@@ -29,7 +29,7 @@ def make_policy(env, config):
     return pufferlib.cleanrl.RecurrentPolicy(policy)
 
 
-def train(args):
+def train(args) -> Deque[Dict[str, Any]] | None:
     if args.track and args.mode != "sweep":
         args.wandb = init_wandb(args, args.wandb_name, id=args.train.exp_id)
         args.train.__dict__.update(dict(args.wandb.config.train))
@@ -41,28 +41,34 @@ def train(args):
         num_envs=args.vec.num_envs,
         env_args=(args.train.num_internal_envs,),
         env_kwargs=dict(
-            num_drones=args.train.num_drones, num_agents=args.train.num_agents, seed=args.train.seed
+            num_drones=args.train.num_drones,
+            num_agents=args.train.num_agents,
+            seed=args.seed,
+            render=args.render,
         ),
         num_workers=args.vec.num_workers,
         batch_size=args.vec.env_batch_size,
         zero_copy=args.vec.zero_copy,
         backend=pufferlib.vector.Multiprocessing,
     )
+    if args.render:
+        vecenv.reset()
+
     policy = make_policy(vecenv.driver_env, args.train).to(args.train.device)
 
     data = clean_pufferl.create(args.train, vecenv, policy, wandb=args.wandb)
 
     try:
-        stats = {}
+        stats = deque(maxlen=10)
 
         while data.global_step < args.train.total_timesteps:
             newStats, _ = clean_pufferl.evaluate(data)
             if newStats:
-                stats = newStats
+                stats.append(newStats)
             clean_pufferl.train(data)
-    except KeyboardInterrupt as e:
+    except KeyboardInterrupt:
         clean_pufferl.close(data)
-        raise e
+        return None
     except Exception as e:
         Console().print_exception()
         clean_pufferl.close(data)
@@ -131,7 +137,8 @@ if __name__ == "__main__":
     )
     parser.add_argument("--sweep-child", action="store_true")
     parser.add_argument("--eval-model-path", type=str, default=None, help="Path to model to evaluate")
-    parser.add_argument("--render", action="store_false", help="Enable rendering")
+    parser.add_argument("--seed", type=int, default=-1)
+    parser.add_argument("--render", action="store_true", help="Enable rendering")
     parser.add_argument("--cell-id", type=int, default=0)
     parser.add_argument("--wandb-entity", type=str, default="xinpw8", help="WandB entity")
     parser.add_argument("--wandb-project", type=str, default="", help="WandB project")
@@ -142,7 +149,6 @@ if __name__ == "__main__":
 
     parser.add_argument("--train.data-dir", type=str, default="checkpoints")
     parser.add_argument("--train.exp-id", type=str, default=None)
-    parser.add_argument("--train.seed", type=int, default=-1)
     parser.add_argument("--train.torch-deterministic", action="store_true")
     parser.add_argument("--train.cpu-offload", action="store_false")
     parser.add_argument("--train.device", type=str, default="cuda" if th.cuda.is_available() else "cpu")
@@ -171,7 +177,12 @@ if __name__ == "__main__":
     parser.add_argument("--train.target-kl", type=float, default=0.2)
 
     parser.add_argument("--train.num-drones", type=int, default=2, help="Number of drones in the environment")
-    parser.add_argument("--train.num-agents", type=int, default=2, help="Number of agents controlling drones, if this is less than --train.num-drones the other drones will do nothing")
+    parser.add_argument(
+        "--train.num-agents",
+        type=int,
+        default=1,
+        help="Number of agents controlling drones, if this is less than --train.num-drones the other drones will do nothing",
+    )
 
     parser.add_argument("--vec.num-envs", type=int, default=288)
     parser.add_argument("--vec.num-workers", type=int, default=24)
@@ -196,14 +207,10 @@ if __name__ == "__main__":
 
     args.train.env = "impulse_wars"
 
-    if args.train.seed == -1:
-        args.train.seed = np.random.randint(2**32 - 1, dtype=np.uint64).item()
-    random.seed(args.train.seed)
-    np.random.seed(args.train.seed)
-    th.manual_seed(args.train.seed)
-    th.backends.cudnn.deterministic = True
-    th.backends.cudnn.benchmark = False
-    print(f"Seed: {args.train.seed}")
+    if args.seed == -1:
+        args.seed = np.random.randint(2**32 - 1, dtype=np.uint64).item()
+    args.train.seed = args.seed
+    print(f"Seed: {args.seed}")
 
     if args.mode == "train":
         try:
@@ -225,7 +232,7 @@ if __name__ == "__main__":
                 num_drones=args.train.num_drones,
                 num_agents=args.train.num_agents,
                 render=True,
-                seed=args.train.seed,
+                seed=args.seed,
             ),
             num_workers=1,
             batch_size=1,

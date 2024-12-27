@@ -20,14 +20,25 @@ static inline b2Vec2 getCachedPos(const b2BodyId bodyID, cachedPos *pos) {
     return pos->pos;
 }
 
-// returns the index of a map cell that contains the given world position
-static inline uint16_t posToCellIdx(const env *e, const b2Vec2 pos) {
-    const uint16_t col = ((pos.x / 2.0f) + (float)e->columns - 1.0f) / 2.0f;
-    const uint16_t row = (pos.y + ((float)e->rows * 2.0f) - 2.0f) / 4.0f;
-    return col + (row * e->columns);
+static inline int16_t entityPosToCellIdx(const env *e, const b2Vec2 pos) {
+    const float cellX = pos.x + (((float)e->columns * WALL_THICKNESS) / 2.0f);
+    const float cellY = pos.y + (((float)e->rows * WALL_THICKNESS) / 2.0f);
+    const uint16_t cellCol = cellX / WALL_THICKNESS;
+    const uint16_t cellRow = cellY / WALL_THICKNESS;
+    const uint16_t cell = cellCol + (cellRow * e->columns);
+    // set the cell to -1 if it's out of bounds
+    // TODO: this is a box2d issue, investigate more
+    if (cell >= cc_array_size(e->cells)) {
+        DEBUG_LOGF("invalid cell index: %d from position: (%f, %f)", cell, pos.x, pos.y);
+        return -1;
+    }
+    return cell;
 }
 
-bool overlapCallback(b2ShapeId shapeId, void *context) {
+bool overlapCallback(b2ShapeId shapeID, void *context) {
+    // the b2ShapeId parameter is required to match the prototype of the callback function
+    MAYBE_UNUSED(shapeID);
+
     bool *overlaps = (bool *)context;
     *overlaps = true;
     return false;
@@ -155,18 +166,24 @@ void destroyWall(wallEntity *wall) {
 }
 
 void createSuddenDeathWalls(env *e, const b2Vec2 startPos, const b2Vec2 size) {
-    uint16_t endIdx;
+    int16_t endIdx;
     uint8_t indexIncrement;
     if (size.y == WALL_THICKNESS) {
         const b2Vec2 endPos = (b2Vec2){.x = startPos.x + size.x, .y = startPos.y};
-        endIdx = posToCellIdx(e, endPos);
+        endIdx = entityPosToCellIdx(e, endPos);
+        if (endIdx == -1) {
+            ERRORF("invalid position for weapon pickup spawn: (%f, %f)", endPos.x, endPos.y);
+        }
         indexIncrement = 1;
     } else {
         const b2Vec2 endPos = (b2Vec2){.x = startPos.x, .y = startPos.y + size.y};
-        endIdx = posToCellIdx(e, endPos);
+        endIdx = entityPosToCellIdx(e, endPos);
+        if (endIdx == -1) {
+            ERRORF("invalid position for weapon pickup spawn: (%f, %f)", endPos.x, endPos.y);
+        }
         indexIncrement = e->rows;
     }
-    const uint16_t startIdx = posToCellIdx(e, startPos);
+    const uint16_t startIdx = entityPosToCellIdx(e, startPos);
     for (uint16_t i = startIdx; i <= endIdx; i += indexIncrement) {
         mapCell *cell = safe_array_get_at(e->cells, i);
         if (cell->ent != NULL && cell->ent->type == WEAPON_PICKUP_ENTITY) {
@@ -238,7 +255,10 @@ void createWeaponPickup(env *e) {
     ent->type = WEAPON_PICKUP_ENTITY;
     ent->entity = pickup;
 
-    const uint16_t cellIdx = posToCellIdx(e, pickupBodyDef.position);
+    const int16_t cellIdx = entityPosToCellIdx(e, pickupBodyDef.position);
+    if (cellIdx == -1) {
+        ERRORF("invalid position for weapon pickup spawn: (%f, %f)", pickupBodyDef.position.x, pickupBodyDef.position.y);
+    }
     pickup->mapCellIdx = cellIdx;
     mapCell *cell = safe_array_get_at(e->cells, cellIdx);
     cell->ent = ent;
@@ -661,7 +681,10 @@ void weaponPickupsStep(env *e, const float frameTime) {
                 pickup->weapon = randWeaponPickupType(e);
 
                 DEBUG_LOGF("respawned weapon pickup at %f, %f", pos.x, pos.y);
-                const uint16_t cellIdx = posToCellIdx(e, pos);
+                const int16_t cellIdx = entityPosToCellIdx(e, pos);
+                if (cellIdx == -1) {
+                    ERRORF("invalid position for weapon pickup spawn: (%f, %f)", pos.x, pos.y);
+                }
                 pickup->mapCellIdx = cellIdx;
                 mapCell *cell = safe_array_get_at(e->cells, cellIdx);
                 entity *ent = (entity *)b2Shape_GetUserData(pickup->shapeID);
@@ -817,7 +840,7 @@ void handleWeaponPickupBeginTouch(env *e, const entity *sensor, entity *visitor)
 }
 
 // mark the pickup as enabled if no floating walls are touching it
-void handleWeaponPickupEndTouch(env *e, const entity *sensor, entity *visitor) {
+void handleWeaponPickupEndTouch(const entity *sensor, entity *visitor) {
     weaponPickupEntity *pickup = (weaponPickupEntity *)sensor->entity;
     if (pickup->respawnWait != 0.0f) {
         return;
@@ -875,7 +898,7 @@ void handleSensorEvents(env *e) {
         entity *v = (entity *)b2Shape_GetUserData(event->visitorShapeId);
         ASSERT(v != NULL);
 
-        handleWeaponPickupEndTouch(e, s, v);
+        handleWeaponPickupEndTouch(s, v);
     }
 }
 

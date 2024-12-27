@@ -89,7 +89,7 @@ function(configure_target target_name)
 	target_link_libraries(${target_name} PRIVATE raylib box2d)
 
 	target_compile_options(${target_name} PRIVATE
-		"-Werror" "-Wall" "-Wpedantic" "-Wno-variadic-macros"
+		"-Werror" "-Wall" "-Wextra" "-Wpedantic" "-Wno-implicit-fallthrough" "-Wno-variadic-macros" "-Wno-strict-prototypes"
 	)
 endfunction()
 
@@ -159,7 +159,7 @@ if(DEFINED BUILD_PYTHON_MODULE)
 
 	configure_target(cy_impulse_wars)
 	# disable false positive warnings for generated Cython source file
-	set_source_files_properties(impulse_wars.c PROPERTIES COMPILE_FLAGS "-Wno-strict-prototypes")
+	set_source_files_properties(impulse_wars.c PROPERTIES COMPILE_FLAGS "-Wno-pedantic")
 
 	install(TARGETS cy_impulse_wars DESTINATION .)
 elseif(DEFINED BUILD_DEMO)
