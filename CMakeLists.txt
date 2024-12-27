@@ -1,3 +1,4 @@
+# 3.22 was released on Nov 2021, should be widely available
 cmake_minimum_required(VERSION 3.22)
 include(FetchContent)
 
@@ -9,12 +10,19 @@ project(
 
 message(INFO " C Compiler: ${CMAKE_C_COMPILER} ${CMAKE_C_COMPILER_VERSION}")
 
+# use ccache if available to speed up subsequent builds
 find_program(CCACHE_FOUND "ccache")
 if(CCACHE_FOUND)
 	set(CMAKE_C_COMPILER_LAUNCHER "ccache")
 endif()
 
+# enable some C23 features, the c2x standard is a WIP standard supported
+# by gcc since 9 (May 2019) and clang since 9 (Sep 2019)
 set(CMAKE_C_FLAGS_INIT " -std=c2x")
+
+# force position independent code everywhere to prevent some rare
+# linker errors depending on what compiler is used
+add_compile_options("-fPIC")
 
 if(CMAKE_BUILD_TYPE MATCHES Debug)
 	# leak detection doesn't work correctly when the code is called by
@@ -27,6 +35,7 @@ if(CMAKE_BUILD_TYPE MATCHES Debug)
 		add_link_options("-fno-omit-frame-pointer" "-fsanitize=address,undefined,bounds,pointer-overflow,leak")
 	endif()
 
+	# mold is an extremely fast linker, use it if available
 	# only use mold in debug mode, link time optimization currently doesn't
 	# work with mold and provides large speedups
 	find_program(MOLD_FOUND "mold")
@@ -39,8 +48,6 @@ else()
 	# link time optimization will probably fail
 	if(CMAKE_C_COMPILER_ID MATCHES "Clang")
 		add_link_options("-fuse-ld=lld")
-	elseif(CMAKE_C_COMPILER_ID MATCHES "GNU")
-		add_link_options("-fuse-ld=ld")
 	endif()
 endif()
 
