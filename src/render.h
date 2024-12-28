@@ -1,4 +1,3 @@
-#pragma once
 #ifndef IMPULSE_WARS_RENDER_H
 #define IMPULSE_WARS_RENDER_H
 
@@ -7,7 +6,7 @@
 #include "env.h"
 #include "helpers.h"
 
-const float DEFAULT_SCALE = 12.0f;
+const float DEFAULT_SCALE = 11.0f;
 const int DEFAULT_WIDTH = 1500;
 const int DEFAULT_HEIGHT = 1000;
 const int HEIGHT_LEEWAY = 100;

@@ -1,4 +1,3 @@
-#pragma once
 #ifndef IMPULSE_WARS_ENV_H
 #define IMPULSE_WARS_ENV_H
 
@@ -472,6 +471,8 @@ void stepEnv(env *e) {
         }
 
         if (roundOver) {
+            memset(e->terminals, 1, e->numAgents * sizeof(uint8_t));
+
             e->stats[lastAlive].wins = 1.0f;
 
             // set absolute distance traveled of agent drones

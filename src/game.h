@@ -1,4 +1,3 @@
-#pragma once
 #ifndef IMPULSE_WARS_GAME_H
 #define IMPULSE_WARS_GAME_H
 

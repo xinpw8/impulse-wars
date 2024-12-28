@@ -42,7 +42,6 @@ def sweep(args, train):
             space=LinearSpace(min=50_000_000, scale=150_000_000, rounding_factor=10_000_000, is_integer=True),
             search_center=100_000_000,
         ),
-        # hyperparams
         Param(name="ent_coef", space=LogSpace(scale=1.0), search_center=0.0005),
         Param(name="gae_lambda", space=LogitSpace(min=0.0, max=1.0), search_center=0.95),
         Param(name="gamma", space=LogitSpace(min=0.0, max=1.0), search_center=0.99),
