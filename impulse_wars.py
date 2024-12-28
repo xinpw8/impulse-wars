@@ -8,7 +8,6 @@ import pufferlib
 from cy_impulse_wars import (
     maxDrones,
     obsConstants,
-    actionsSize,
     CyImpulseWars,
 )
 
@@ -54,11 +53,16 @@ class ImpulseWars(pufferlib.PufferEnv):
         self.numDrones = num_drones
         self.obsInfo = obsConstants(num_drones)
 
+        # Define the multidiscrete action space
+        self.single_action_space = gymnasium.spaces.MultiDiscrete([
+            17,  # Aiming: 16 directions (cardinal, diagonal, intermediates) + noop
+            5,   # Booster impulse: 4 cardinal directions + noop
+            2,   # Fire weapon: 0 (noop), 1 (fire)
+            4    # Rotation speed: 0 (noop), 1 (slow), 2 (medium), 3 (fast)
+        ])
+
         self.single_observation_space = gymnasium.spaces.Box(
             low=0.0, high=255, shape=(self.obsInfo.obsSize,), dtype=np.uint8
-        )
-        self.single_action_space = gymnasium.spaces.Box(
-            low=-1.0, high=1.0, shape=(actionsSize(),), dtype=np.float32
         )
 
         self.report_interval = report_interval
@@ -110,10 +114,10 @@ def testPerf(timeout, actionCache, numEnvs):
     import time
 
     np.random.seed(int(time.time()))
-    actions = np.random.uniform(
-        env.single_action_space.low[0],
-        env.single_action_space.high[0],
-        (actionCache, env.num_agents, actionsSize()),
+    actions = np.random.randint(
+        0,
+        env.single_action_space.nvec,
+        size=(actionCache, env.num_agents, 4),  # Updated for multidiscrete
     )
 
     tick = 0

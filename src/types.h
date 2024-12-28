@@ -159,6 +159,12 @@ typedef struct droneEntity {
     bool dead;
     int killedBy;
     int lives;
+
+    // New fields for multidiscrete action space
+    uint8_t aim_action;
+    uint8_t booster_action;
+    uint8_t fire_action;
+    uint8_t rotation_speed_action;
 } droneEntity;
 
 typedef struct logEntry {
@@ -186,7 +192,7 @@ typedef struct env {
 
     uint8_t *obs;
     float *rewards;
-    float *actions;
+    int *actions;
     uint8_t *terminals;
 
     uint64_t randState;

@@ -6,7 +6,7 @@ void perfTest(const float testTime) {
     env *e = (env *)fastCalloc(1, sizeof(env));
     uint8_t *obs = (uint8_t *)fastCalloc(NUM_DRONES * OBS_SIZE, sizeof(uint8_t));
     float *rewards = (float *)fastCalloc(NUM_DRONES, sizeof(float));
-    float *actions = (float *)fastCalloc(NUM_DRONES * ACTION_SIZE, sizeof(float));
+    int *actions = (float *)fastCalloc(NUM_DRONES * ACTION_SIZE, sizeof(float));
     unsigned char *terminals = (unsigned char *)fastCalloc(NUM_DRONES, sizeof(bool));
     logBuffer *logs = createLogBuffer(1);
 

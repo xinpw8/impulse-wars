@@ -17,6 +17,15 @@ rayClient *createRayClient();
 void destroyRayClient(rayClient *client);
 #endif
 
+static inline b2Vec2 b2Rotate(b2Vec2 v, float angle) {
+    float cosAngle = cosf(angle);
+    float sinAngle = sinf(angle);
+    return (b2Vec2){
+        .x = v.x * cosAngle - v.y * sinAngle,
+        .y = v.x * sinAngle + v.y * cosAngle
+    };
+}
+
 logBuffer *createLogBuffer(uint16_t capacity) {
     logBuffer *logs = (logBuffer *)fastCalloc(1, sizeof(logBuffer));
     logs->logs = (logEntry *)fastCalloc(capacity, sizeof(logEntry));
@@ -232,7 +241,7 @@ void setupEnv(env *e) {
     computeObs(e);
 }
 
-env *initEnv(env *e, uint8_t numDrones, uint8_t numAgents, uint8_t *obs, float *actions, float *rewards, uint8_t *terminals, logBuffer *logs, uint64_t seed) {
+env *initEnv(env *e, uint8_t numDrones, uint8_t numAgents, uint8_t *obs, int *actions, float *rewards, uint8_t *terminals, logBuffer *logs, uint64_t seed) {
     e->numDrones = numDrones;
     e->numAgents = numAgents;
 
@@ -376,13 +385,13 @@ void stepEnv(env *e) {
         resetEnv(e);
     }
 
-    // reset reward buffer
+    // Reset reward buffer
     memset(e->rewards, 0x0, e->numAgents * sizeof(float));
 
-    for (int i = 0; i < FRAMESKIP; i++) {
+    for (int frame = 0; frame < FRAMESKIP; frame++) {
         e->episodeLength++;
 
-        // handle actions
+        // Handle actions
         for (uint8_t i = 0; i < e->numDrones; i++) {
             droneEntity *drone = safe_array_get_at(e->drones, i);
             drone->lastVelocity = b2Body_GetLinearVelocity(drone->bodyID);
@@ -392,31 +401,52 @@ void stepEnv(env *e) {
                 break;
             }
 
-            const uint8_t offset = i * ACTION_SIZE;
-            const b2Vec2 rawMove = (b2Vec2){.x = clamp(e->actions[offset + 0]), .y = clamp(e->actions[offset + 1])};
-            const b2Vec2 move = rawMove; // b2Normalize(rawMove);
-            const b2Vec2 rawAim = (b2Vec2){.x = clamp(e->actions[offset + 2]), .y = clamp(e->actions[offset + 3])};
-            const b2Vec2 aim = b2Normalize(rawAim);
+            const uint8_t offset = i * 4; // Each agent has 4 action components
+            uint8_t aim_action = e->actions[offset + 0];
+            uint8_t booster_action = e->actions[offset + 1];
+            uint8_t fire_action = e->actions[offset + 2];
+            uint8_t rotation_speed_action = e->actions[offset + 3];
 
-            const bool shoot = e->actions[offset + 4] > 0.0f;
+            // Handle aiming
+            float angle_step = 0.0f;
+            switch (rotation_speed_action) {
+                case 1: angle_step = 5.0f; break;  // Slow rotation
+                case 2: angle_step = 15.0f; break; // Medium rotation
+                case 3: angle_step = 30.0f; break; // Fast rotation
+                default: break; // No-op
+            }
 
-            if (!b2VecEqual(move, b2Vec2_zero)) {
-                droneMove(drone, move);
+            if (aim_action < 16) { // 16 valid aiming directions
+                float angle = aim_action * (360.0f / 16.0f); // Map action to angle
+                b2Vec2 aim = {cosf(DEG_TO_RAD(angle)), sinf(DEG_TO_RAD(angle))};
+                // b2Vec2 normalized_aim = b2Normalize(aim);
+                drone->lastAim = b2Rotate(drone->lastAim, angle_step); // Apply rotation step
             }
-            drone->lastMove = move;
-            if (shoot) {
-                droneShoot(e, drone, aim);
+
+            // Handle booster impulse
+            b2Vec2 boost = b2Vec2_zero;
+            switch (booster_action) {
+                case 1: boost = (b2Vec2){.x = -1.0f, .y = 0.0f}; break; // Left
+                case 2: boost = (b2Vec2){.x = 1.0f, .y = 0.0f}; break;  // Right
+                case 3: boost = (b2Vec2){.x = 0.0f, .y = -1.0f}; break; // Up
+                case 4: boost = (b2Vec2){.x = 0.0f, .y = 1.0f}; break;  // Down
+                default: break; // No-op
             }
-            if (!b2VecEqual(aim, b2Vec2_zero)) {
-                drone->lastAim = b2Normalize(aim);
+            if (!b2VecEqual(boost, b2Vec2_zero)) {
+                droneMove(drone, boost);
+            }
+            drone->lastMove = boost;
+
+            // Handle firing weapon
+            if (fire_action == 1) { // Fire
+                droneShoot(e, drone, drone->lastAim);
             }
         }
 
-        // update entity info, step physics, and handle events
+        // Step physics and handle events
         b2World_Step(e->worldID, DELTA_TIME, BOX2D_SUBSTEPS);
 
-        // mark old positions as invalid now that physics has been stepped
-        // projectiles will have their positions correctly updated in projectilesStep
+        // Mark old positions as invalid
         for (uint8_t i = 0; i < e->numDrones; i++) {
             droneEntity *drone = safe_array_get_at(e->drones, i);
             drone->pos.valid = false;
@@ -426,66 +456,45 @@ void stepEnv(env *e) {
             wall->pos.valid = false;
         }
 
-        // handle sudden death
+        // Handle sudden death logic
         e->stepsLeft = fmaxf(e->stepsLeft - 1, 0.0f);
         if (e->stepsLeft == 0) {
             e->suddenDeathSteps = fmaxf(e->suddenDeathSteps - 1, 0.0f);
             if (e->suddenDeathSteps == 0) {
-                DEBUG_LOG("placing sudden death walls");
+                DEBUG_LOG("Placing sudden death walls");
                 handleSuddenDeath(e);
                 e->suddenDeathSteps = SUDDEN_DEATH_STEPS;
             }
         }
 
+        // Update projectiles, sensors, and other events
         projectilesStep(e);
         handleContactEvents(e);
         handleSensorEvents(e);
 
-        // Step each drone, handle multi-life logic
-        uint8_t dronesWithLives = 0;
+        // Step drones and check for round end conditions
+        uint8_t dronesAlive = 0;
         uint8_t lastAlive = 0;
-        uint8_t deadDrones = 0;
         for (uint8_t i = 0; i < e->numDrones; i++) {
             droneEntity *drone = safe_array_get_at(e->drones, i);
-
-            // Normal per-drone step
             droneStep(e, drone, DELTA_TIME);
-            if (drone->dead) {
-                deadDrones++;
-                e->terminals[i] = 1;
-            } else {
+            if (!drone->dead) {
+                dronesAlive++;
                 lastAlive = i;
             }
         }
 
         weaponPickupsStep(e, DELTA_TIME);
 
-        // Round ends if at most 1 drone remains with lives
-        const bool roundOver = (dronesWithLives <= 1);
-
-        // Compute step rewards
-        computeRewards(e, roundOver, lastAlive);
-
-        if (e->client != NULL) {
-            renderEnv(e);
-        }
-
-        if (roundOver) {
+        // Check if the round is over
+        if (dronesAlive <= 1) {
             memset(e->terminals, 1, e->numAgents * sizeof(uint8_t));
 
             e->stats[lastAlive].wins = 1.0f;
 
-            // set absolute distance traveled of agent drones
             for (uint8_t i = 0; i < e->numDrones; i++) {
-                const droneEntity *drone = safe_array_get_at(e->drones, i);
+                droneEntity *drone = safe_array_get_at(e->drones, i);
                 e->stats[i].absDistanceTraveled = b2Distance(drone->initalPos, drone->pos.pos);
-            }
-
-            // add existing projectile distances to stats
-            for (SNode *cur = e->projectiles->head; cur != NULL; cur = cur->next) {
-                const projectileEntity *projectile = (projectileEntity *)cur->data;
-                e->stats[projectile->droneIdx].shotDistances[projectile->weaponInfo->type]
-                    += projectile->distance;
             }
 
             logEntry log = {0};

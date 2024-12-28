@@ -5,6 +5,7 @@
 #include "types.h"
 
 #define INFINITE -1
+#define DEG_TO_RAD(degrees) ((degrees) * (3.14159265358979323846 / 180.0))
 
 // general settings
 #define FRAME_RATE 60.0f
@@ -55,7 +56,7 @@ const uint16_t OBS_SIZE = MAP_OBS_SIZE + SCALAR_OBS_SIZE;
 #define MAX_Y_POS 40.0f
 #define MAX_SPEED 250.0f
 
-const uint8_t ACTION_SIZE = 5;
+const uint8_t ACTION_SIZE = 28;
 
 // wall settings
 #define WALL_THICKNESS 4.0f
